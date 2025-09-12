@@ -1,0 +1,5 @@
+starship:~/.config/starship.toml
+tmux:~/.config/tmux
+zsh:~/.config/zsh
+nvim:~/.config/nvim
+yazi:~/.config/yazi

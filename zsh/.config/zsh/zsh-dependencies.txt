@@ -1,0 +1,17 @@
+fzf
+atuin
+zoxide
+bc
+duf
+fastfetch
+ripgrep
+fd
+unarchiver
+prettyping
+lazydocker
+bat-extras
+eza
+starship
+lazygit
+
+

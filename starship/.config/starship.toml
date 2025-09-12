@@ -1,0 +1,161 @@
+# 根据 schema 提供自动补全
+"$schema" = 'https://starship.rs/config-schema.json'
+# Move the directory to the second line
+format = '$shell$os$username$hostname$directory$container$all$character'
+
+# 在提示符之间插入空行
+add_newline = false
+
+# 将提示符中的 '❯' 替换为 '➜'
+[character] # 此组件名称为 'character'
+success_symbol = '[➜](bold green)' # 将 'success_symbol' 字段设置成颜色为 'bold green' 的 '➜'
+error_symbol = '[➜](bold red)'
+vimcmd_symbol = '[󰰒](bold green)'
+vimcmd_visual_symbol = '[󰬝](bold green)'
+vimcmd_replace_symbol ='[󰬙](bold green)'
+
+[shell]
+fish_indicator = ''
+powershell_indicator = ''
+bash_indicator = '󰬉'
+zsh_indicator = '󰬡'
+cmd_indicator = ''
+format = '[$indicator]($style) '
+style = 'green bold'
+disabled = false
+
+
+
+[cmd_duration]
+min_time = 500
+format = ' [$duration](bold yellow)'
+
+[git_branch]
+symbol = ""
+style = "bg:#394260"
+format = '[[ $symbol $branch ](fg:#769ff0 bg:#394260)]($style)'
+
+# ~/.config/starship.toml
+
+[username]
+style_user = 'yellow bold'
+style_root = 'red bold'
+format = "[$user]($style) "
+show_always = true
+aliases = { "corpuser034g" = "matchai" }
+
+[hostname]
+ssh_only = true  # 这一行很关键，通常设置为 true
+ssh_symbol = " "
+# format = "[$hostname$ssh_symbol]($style) "
+format = "[$ssh_symbol]($style) "
+style = "dimmed blue" # 颜色可能不同
+
+
+[directory]
+truncation_length=0
+truncate_to_repo=false
+format = "[ $path ]($style)"
+
+[container]
+format = '[$symbol $name]($style) '
+
+[os]
+format = "[$symbol]($style)"
+style = "bold blue"
+disabled = false
+
+[os.symbols]
+Windows = " "
+Arch = " "
+Debian = " "
+Ubuntu = " "
+Fedora = " "
+CentOS = " "
+Mint = " "
+Manjaro = " "
+Gentoo = " "
+SUSE = " "
+Redhat = " "
+Linux = " "
+
+[custom.zsh_startup]
+description = "显示 Zsh 的总启动时间 (仅首次)"
+command = 'echo "$STARSHIP_STARTUP_TIME "'
+# `when` 不再需要判断 shell 类型，因为它只会在 Zsh 中运行
+# when = '[ -n $STARSHIP_SHOW_STARTUP ]'
+when = 'test "$STARSHIP_SHOW_STARTUP" = "true"'
+format = '[$output]($style) '
+style = "bold green"
+shell = "zsh"
+
+
+[aws]
+symbol = "  "
+
+[conda]
+symbol = " "
+
+[dart]
+symbol = " "
+
+# [directory]
+# read_only = " "
+
+[docker_context]
+symbol = " "
+
+[elixir]
+symbol = " "
+
+[elm]
+symbol = " "
+
+
+[golang]
+symbol = " "
+
+[hg_branch]
+symbol = " "
+
+[java]
+symbol = " "
+
+[julia]
+symbol = " "
+
+[memory_usage]
+symbol = " "
+
+[nim]
+symbol = " "
+
+[nix_shell]
+symbol = " "
+
+[package]
+symbol = " "
+
+[perl]
+symbol = " "
+
+[php]
+symbol = " "
+
+[python]
+symbol = " "
+
+[ruby]
+symbol = " "
+
+[rust]
+symbol = " "
+
+[scala]
+symbol = " "
+
+[swift]
+symbol = "ﯣ "
+
+[lua]
+symbol = " "
