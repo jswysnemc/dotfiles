@@ -1,0 +1,20 @@
+.zcompdump
+.lazy-lock.json
+
+# Credentials
+secrets/
+credentials/
+.tokens/
+
+# Mac-specific
+.AppleDouble
+.LSOverride
+
+# Windows-specific
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux-specific
+.nfs*
+.directory
