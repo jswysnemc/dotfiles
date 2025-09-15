@@ -19,7 +19,7 @@ export G_API_URL="https://api.longcat.chat/openai/v1/chat/completions"
 # export G_API_KEY=$(cat $HOME/.ssh/kyes/gemini.key)
 #
 
-export_from_file "G_API_KEY" "$HOME/.ssh/kyes/longcat.key"
+export_from_file "G_API_KEY" "$HOME/.ssh/keys/longcat.key"
 
 
 # 用于文本生成任务的模型 (gchat, cmdh, gtrans)
