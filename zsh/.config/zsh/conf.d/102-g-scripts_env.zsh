@@ -17,7 +17,10 @@ export G_API_URL="https://api.longcat.chat/openai/v1/chat/completions"
 # 对于 OpenAI 兼容代理, 这通常是 "YOUR_TOKEN" 部分
 # 对于 Google AI Studio, 这应该是你的完整 API Key
 # export G_API_KEY=$(cat $HOME/.ssh/kyes/gemini.key)
-export G_API_KEY=$(cat $HOME/.ssh/keys/longcat.key)
+#
+
+export_from_file "G_API_KEY" "$HOME/.ssh/kyes/longcat.key"
+
 
 # 用于文本生成任务的模型 (gchat, cmdh, gtrans)
 #export G_TEXT_MODEL="gemini-2.5-flash"
@@ -27,4 +30,5 @@ export G_TEXT_MODEL="LongCat-Flash-Chat"
 #export G_VISION_MODEL="gemini-2.5-flash"
 export G_VISION_MODEL="gemini-2.5-flash"
 
-export GEMINI_API_KEY=$(cat $HOME/.ssh/keys/geminicli.key)
+# export GEMINI_API_KEY=$(cat $HOME/.ssh/keys/geminicli.key)
+export_from_file "GEMINI_API_KEY" "$HOME/.ssh/keys/geminicli.key"
