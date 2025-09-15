@@ -45,14 +45,14 @@ proxy() {
   fi
 }
 
-alias _trans=/usr/bin/trans
+alias trans=/usr/bin/trans
 
-function trans(){
-    if [ -n "$http_proxy" ] || [ -n "$HTTP_PROXY" ]; then
-        _trans -e google "$@"
-    else
-        _trans -e bing "$@"
-    fi
-}
-
+# function trans(){
+#     if [ -n "$http_proxy" ] || [ -n "$HTTP_PROXY" ]; then
+#         _trans -e google "$@"
+#     else
+#         _trans -e bing "$@"
+#     fi
+# }
+#
 
