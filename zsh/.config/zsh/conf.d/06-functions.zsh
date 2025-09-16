@@ -45,7 +45,7 @@ proxy() {
   fi
 }
 
-alias trans=/usr/bin/trans
+# alias trans=/usr/bin/trans -e google
 
 # function trans(){
 #     if [ -n "$http_proxy" ] || [ -n "$HTTP_PROXY" ]; then
