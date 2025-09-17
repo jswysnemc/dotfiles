@@ -4,3 +4,4 @@ zsh:~/.config/zsh
 nvim:~/.config/nvim
 yazi:~/.config/yazi
 font:~/.config/fontconfig/fonts.conf
+kitty:~/.config/kitty
