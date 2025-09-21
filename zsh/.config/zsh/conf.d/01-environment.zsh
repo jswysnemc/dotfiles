@@ -10,3 +10,4 @@ esac
 # pnpm end
 
 
+[[ -f $HOME/.ssh/keys/keys.env ]] && source $HOME/.ssh/keys/keys.env
