@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# cman: Translate and cache `man` output using `gtrans`, then view via `less`.
+# 用法：
+#   cman [man 的参数...]
+# 例子：
+#   cman ls
+#   cman 5 crontab
+#   cman printf 3
+#
+# 机制：
+# - 以完整的 man 参数作为 Key（计算哈希）。
+# - 若缓存命中：直接用 less 打开缓存。
+# - 若未命中：man -P cat 生成原文 → 通过 gtrans(从 stdin 读) 翻译 → 写入缓存 → 用 less 打开。
+# - 缓存目录：$XDG_DATA_HOME/cman 或 ~/.local/share/cman/
+# - 当同样的 man 参数对应的原文变化时（例如系统升级后 man 页变了），会自动生成新的缓存文件（通过原文内容哈希区分）。
+
+set -euo pipefail
+
+#---------- 配置 ----------#
+PAGER_CMD=${PAGER:-less}
+LESS_FLAGS=${LESS:-""}
+MAN_CMD=${MAN:-man}
+GTRANS_CMD=${GTRANS:-gtrans}
+DATA_HOME=${XDG_DATA_HOME:-"$HOME/.local/share"}
+CACHE_DIR="$DATA_HOME/cman"
+mkdir -p "$CACHE_DIR"
+
+#---------- 函数 ----------#
+err() { printf '\033[31m[Error]\033[0m %s\n' "$*" >&2; }
+info() { printf '\033[36m[CMAN]\033[0m %s\n' "$*" >&2; }
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { err "缺少依赖命令：$1"; exit 127; }
+}
+
+# 将任意字符串转为短哈希（用于文件名安全）
+short_hash() {
+  # macOS 的 shasum / Linux 的 sha256sum 兼容处理
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$1" | sha256sum | cut -c1-16
+  else
+    printf '%s' "$1" | shasum -a 256 | cut -c1-16
+  fi
+}
+
+safe_slug() {
+  # 将参数串转为文件系统安全的 slug（仅用于显示/调试，不保证唯一）
+  printf '%s' "$1" | tr ' /\t\n' '___' | tr -cd 'A-Za-z0-9._-'
+}
+
+view_with_pager() {
+  "$PAGER_CMD" $LESS_FLAGS "$1"
+}
+
+# 读取 man 原文（不分页、不高亮）
+render_man_plain() {
+  # -P cat 让 man 直接把内容打印到 stdout
+  # 使用 -- 终止选项，避免用户提供的参数被误解析
+  "$MAN_CMD" -P cat -- "$@"
+}
+
+# 翻译函数：从 stdin 读取，输出到 stdout
+run_gtrans() {
+  "$GTRANS_CMD"
+}
+
+#---------- 主逻辑 ----------#
+if [[ $# -eq 0 ]]; then
+  err "请提供 man 的参数，例如：cman ls 或 cman 5 crontab"; exit 2
+fi
+
+need_cmd "$MAN_CMD"
+need_cmd "$GTRANS_CMD"
+need_cmd "$PAGER_CMD"
+
+# 以“参数串”作为 Key1；以“原文内容哈希”作为 Key2，以便原文变化时生成新缓存
+ARGS_STR="$*"
+KEY1=$(short_hash "$ARGS_STR")
+ARGS_SLUG=$(safe_slug "$ARGS_STR")
+
+# 先渲染出原文，计算内容哈希
+TMP_ORIG=$(mktemp)
+if ! render_man_plain "$@" >"$TMP_ORIG" 2>"$TMP_ORIG.err"; then
+  err "man 渲染失败。$(tr -d '\n' <"$TMP_ORIG.err")"; rm -f "$TMP_ORIG" "$TMP_ORIG.err"; exit 1
+fi
+ORIG_HASH=$(sha256sum "$TMP_ORIG" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$TMP_ORIG" | cut -d' ' -f1)
+rm -f "$TMP_ORIG.err" || true
+
+# 缓存文件名规则：cman-<key1>-<orig_hash>.txt
+CACHE_FILE="$CACHE_DIR/cman-${KEY1}-${ORIG_HASH}.txt"
+
+# 若存在完全匹配的缓存，直接显示
+if [[ -f "$CACHE_FILE" ]]; then
+  info "命中缓存：$ARGS_SLUG"
+  view_with_pager "$CACHE_FILE"
+  exit 0
+fi
+
+# 如未命中，检查是否有该 ARGS 的旧缓存（同 KEY1 不同 ORIG_HASH），不删除，仅提示
+OLD_HITS=("$CACHE_DIR/cman-${KEY1}-"*.txt)
+if ls "${OLD_HITS[@]}" >/dev/null 2>&1; then
+  info "检测到同一参数的旧缓存，将创建新缓存以适配最新 man 内容。"
+fi
+
+# 翻译并写入缓存（原子写入）
+TMP_TRANS=$(mktemp)
+if ! render_man_plain "$@" | run_gtrans >"$TMP_TRANS"; then
+  err "gtrans 翻译失败。"; rm -f "$TMP_TRANS" "$TMP_ORIG"; exit 1
+fi
+
+# 为了节省空间：若翻译结果为空，则回退到原文
+if [[ ! -s "$TMP_TRANS" ]]; then
+  info "gtrans 输出为空，回退到原文。"
+  cp "$TMP_ORIG" "$TMP_TRANS"
+fi
+
+mv -f "$TMP_TRANS" "$CACHE_FILE"
+rm -f "$TMP_ORIG"
+
+info "已缓存：$CACHE_FILE"
+view_with_pager "$CACHE_FILE"
+
+# 可选：清理临时文件（若有）
+trap 'rm -f "$TMP_TRANS" "$TMP_ORIG" 2>/dev/null || true' EXIT
+

@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+
+# ==============================================================================
+# 配置区域：请根据需要修改以下变量
+# ==============================================================================
+
+# 你的 API 端点 URL
+# 通过环境变量 G_API_URL 设置，如果未设置则使用默认值
+API_URL="${G_API_URL:-"https://gemini.snemc.top/v1/chat/completions"}"
+
+# 你的 API 密钥
+# 通过环境变量 G_API_KEY 设置
+API_KEY="${G_API_KEY:-"gemini-key"}"
+AUTH_HEADER="Authorization: Bearer ${API_KEY}"
+
+# 使用的模型名称
+# 通过环境变量 G_TEXT_MODEL 设置
+MODEL="${G_TEXT_MODEL:-"gemini-1.5-flash-latest"}"
+
+# 其他可选的 API 参数
+TEMPERATURE=0.3
+TOP_P=1
+STREAM=false
+
+# ==============================================================================
+# 脚本逻辑：通常无需修改
+# ==============================================================================
+
+# --- 函数定义 ---
+usage() {
+    echo "用法: $(basename "$0") \"你的问题\""
+    echo ""
+    echo "一个通过自然语言查询 shell 命令的助手。"
+    echo ""
+    echo "示例:"
+    echo "  $(basename "$0") \"查找当前目录下所有大于10MB的mp4文件\""
+    echo "  $(basename "$0") \"将所有.jpeg后缀的图片批量重命名为.jpg\""
+    echo "  $(basename "$0") \"查看8080端口是否被占用\""
+    exit 1
+}
+
+# --- 检查依赖 ---
+for cmd in jq curl; do
+    if ! command -v $cmd &>/dev/null; then
+        echo "错误: 命令 '$cmd' 未找到。请安装后重试。"
+        exit 1
+    fi
+done
+
+# --- 检查输入 ---
+# 将所有命令行参数合并为一个查询字符串
+QUERY="$*"
+
+if [ -z "$QUERY" ]; then
+    echo "错误: 未提供任何问题。"
+    usage
+fi
+
+# --- 准备 API 请求 ---
+
+# 系统提示词 (System Prompt) - 指导 AI 如何行动
+# 我们在这里通过清晰的指令和示例，确保 AI 返回我们期望的格式
+SYSTEM_PROMPT="默认情况下你是一个 expert 级别的 Linux 和 macOS 命令行助手。根据用户的请求，你的唯一任务是提供一个最佳的、可直接执行的 shell 命令。
+在命令的第一行，必须用'#'开头，添加一句简短的注释来解释该命令的用法或提供一个示例。
+绝对不要添加任何额外的解释、介绍、警告或 markdown 格式。
+
+例如，如果用户问 '在当前目录和子目录中查找所有名为 config.yaml 的文件'，你应该只返回：
+# 在当前路径下递归查找名为 config.yaml 的文件
+find . -type f -name \"config.yaml\"
+
+如果用户的请求可能不是需要一条命令，你可以正常的返回你的输出"
+# 构建完整的 JSON 请求体
+# 注意：这里的 content 是一个简单的字符串，而不是像视觉模型那样的数组
+JSON_PAYLOAD=$(jq -n \
+    --arg model "$MODEL" \
+    --arg system_prompt "$SYSTEM_PROMPT" \
+    --arg user_query "$QUERY" \
+    --argjson temperature "$TEMPERATURE" \
+    --argjson top_p "$TOP_P" \
+    --argjson stream "$STREAM" \
+    '{
+      model: $model,
+      messages: [
+        {role: "system", content: $system_prompt},
+        {role: "user", content: $user_query}
+      ],
+      temperature: $temperature,
+      top_p: $top_p,
+      stream: $stream
+    }')
+
+# 检查 jq 是否成功构建了 JSON
+if [ $? -ne 0 ]; then
+    echo "错误：构建 JSON 请求体失败。请检查 jq 是否安装并可用。"
+    exit 1
+fi
+
+# --- 发送请求并处理响应 ---
+
+# 显示一个使用 Nerd Font 的加载动画
+spinner() {
+    local i sp n
+    # 使用 Nerd Font 提供的旋转字符 (Braille a.k.a. dotty spinner)
+    sp='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    n=${#sp}
+    while sleep 0.1; do
+        # 使用 \b (backspace) 将光标向左移动一个位置，然后打印下一个旋转字符
+        # 这就实现了原地旋转的效果
+        printf "%s\b" "${sp:i++%n:1}"
+    done
+}
+spinner &
+SPINNER_PID=$!
+# 在脚本退出时杀死 spinner
+trap 'kill $SPINNER_PID 2>/dev/null' EXIT
+
+# 使用 curl 发送 POST 请求
+# -s: 静默模式
+# --connect-timeout: 连接超时时间
+# --max-time: 最大请求时间
+RESPONSE=$(curl -s --connect-timeout 10 --max-time 60 -X POST "$API_URL" \
+    -H "Content-Type: application/json" \
+    -H "$AUTH_HEADER" \
+    -d "$JSON_PAYLOAD")
+
+# 停止加载动画
+kill $SPINNER_PID 2>/dev/null
+# 使用 \r 和大量空格来彻底清除加载动画行，然后换行
+printf "\r%s\n" "                                                  "
+
+# 检查 curl 请求是否成功
+if [ $? -ne 0 ]; then
+    echo "错误：API 请求失败。请检查网络连接、API URL 或认证头。"
+    echo "原始响应 (如果存在): $RESPONSE"
+    trap - EXIT
+    exit 1
+fi
+
+# 使用 jq 解析响应，提取结果
+# 移除可能存在的前后 markdown 代码块 ```bash ``` 和 ``` ```
+EXTRACTED_TEXT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content' | sed 's/^```bash//g' | sed 's/^```//g' | sed 's/```$//g' | sed '/^\s*$/d')
+
+# 检查 jq 解析是否成功或内容是否为空
+if [ $? -ne 0 ] || [ -z "$EXTRACTED_TEXT" ] || [ "$EXTRACTED_TEXT" == "null" ]; then
+    echo "错误：解析 API 响应失败或未获取到结果。"
+    echo "请检查 API 返回的结构或确认 API 是否有错误信息。"
+    echo "完整 API 响应: $RESPONSE"
+    trap - EXIT
+    exit 1
+fi
+
+# 输出最终结果
+echo "$EXTRACTED_TEXT"
+
+trap - EXIT
+exit 0

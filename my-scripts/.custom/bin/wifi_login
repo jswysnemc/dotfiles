@@ -1,0 +1,322 @@
+#! /bin/node
+const os = require('os');
+/**
+ * 获取本机的主要 IPv4 地址
+ * @returns {string | null} 返回找到的第一个非内部 IPv4 地址，如果找不到则返回 null
+ */
+function getLocalIPv4Address() {
+  // 获取所有网络接口的信息
+  // os.networkInterfaces() 返回一个对象，键是网络接口的名称（例如 'Wi-Fi', '以太网', 'eth0', 'en0' 等），
+  // 值是一个包含该接口分配的网络地址信息的数组。
+  const networkInterfaces = os.networkInterfaces();
+
+  // 遍历所有网络接口名称
+  for (const interfaceName of Object.keys(networkInterfaces)) {
+    const interfaceInfoArray = networkInterfaces[interfaceName];
+
+    // 检查该接口信息是否存在（以防万一）
+    if (!interfaceInfoArray) {
+      continue;
+    }
+
+    // 遍历该接口下的所有网络地址信息
+    for (const networkInfo of interfaceInfoArray) {
+      // 筛选条件：
+      // 1. family === 'IPv4': 我们只关心 IPv4 地址。
+      // 2. !networkInfo.internal: 我们需要排除内部回环地址 (例如 127.0.0.1)。
+      if (networkInfo.family === 'IPv4' && !networkInfo.internal) {
+        // 找到第一个符合条件的 IPv4 地址，立即返回它
+        return networkInfo.address;
+      }
+    }
+  }
+
+  // 如果遍历完所有接口都没有找到符合条件的 IPv4 地址，则返回 null
+  return null;
+}
+
+
+
+// 调用函数并打印结果
+const localIP = getLocalIPv4Address();
+
+if (localIP) {
+  console.log('本机 IPv4 地址是:', localIP);
+} else {
+  console.log('未能找到本机有效的 IPv4 地址。');
+}
+
+
+
+// 你也可以直接查看所有接口信息（用于调试）
+// console.log('所有网络接口信息:', JSON.stringify(os.networkInterfaces(), null, 2));
+
+
+// 如果 Node 版本低于 18 或者为了借助插件实现更好的 cookie 处理功能，请使用 node-fetch
+// npm install node-fetch
+// const fetch = require('node-fetch');
+// 或者在 Node.js 18 及以上版本中使用内置的 fetch
+
+const USERNAME = process.env.WIFI_USERNAME || ''; // 你的用户名
+const PASSWORD = process.env.WIFI_PASSWORD || ''; // 你的密码
+
+// 重要：这是连接时浏览器被重定向到的 *初始* URL。
+// 每次连接时你都必须准确捕获这个 URL，因为参数会发生变化。
+// 这个示例使用了你在请求 1 中的 URL。
+const initialPortalUrl = 'http://10.255.254.2:8080/zportal/login?wlanuserip=e7a30798078947db15aaac5ada1af2e7&wlanacname=b9d0aa678bd9a71f194f856b98cc8ec9&ssid=&nasip=f8338d22ad27527275597d58b3ce791a&snmpagentip=&mac=95be74234126dbca9b4db69073ee421b&t=wireless-v2&url=2ce30b22dbc76348b754dd5aab6128cd17f1020b58d879f1d091f86440fac969&apmac=&nasid=b9d0aa678bd9a71f194f856b98cc8ec9&vid=e76ab5a0fa88831c&port=3b50fdafa83396fd&nasportid=a25b45948c15af401e35fb57707478cf245acfd00ddc60834c1494d8934c997f ';
+
+// 为了方便设置的基础 URL
+const baseUrl = 'http://10.255.254.2:8080';
+
+// 在这里存储 cookies
+let cookies = {};
+
+// 辅助函数，用于解析 Set-Cookie 头部并更新我们的 cookie 存储
+function updateCookies(responseHeaders) {
+    // `getSetCookie` 是 WHATWG Fetch 标准 Headers 中的现代方法
+    // 检查环境是否支持它，否则使用回退方法
+    let setCookieValues = [];
+    if (typeof responseHeaders.getSetCookie === 'function') {
+        setCookieValues = responseHeaders.getSetCookie();
+    } else {
+        // 对于不支持 getSetCookie 的环境（比如旧版本的 node-fetch）的回退方法
+        // 如果存在多个同名头部，这可能会错误地合并 cookies。
+        const rawHeaders = responseHeaders.raw? responseHeaders.raw()['set-cookie'] : responseHeaders.get('set-cookie');
+        if (rawHeaders) {
+            setCookieValues = Array.isArray(rawHeaders)? rawHeaders : [rawHeaders];
+        }
+    }
+
+    console.log("接收到的原始 Set-Cookie 头部:", setCookieValues);
+
+    setCookieValues.forEach(cookieString => {
+        const parts = cookieString.split(';')[0].split('=');
+        if (parts.length >= 2) {
+            const key = parts[0].trim();
+            const value = parts.slice(1).join('=').trim();
+            // 仅当键相关时才更新（JSESSIONID 或可能的其他键）
+            // 你可能需要根据观察到的 cookies 来优化这个逻辑
+            if (key === 'JSESSIONID' || key === 'userIndex') { // 如果需要，添加其他重要的键
+                console.log(` ---> 更新 cookie: ${key}=${value}`);
+                cookies[key] = value;
+            }
+        }
+    });
+}
+
+// 辅助函数，用于格式化请求头中的 Cookie
+function getCookieHeaderString() {
+    // 目前使用 POST 捕获中的特定 userIndex，因为其来源不清楚
+    // 如果服务器确实在更早的时候设置了 userIndex，updateCookies 函数应该会捕获到它。
+    // 如果没有，我们就使用捕获到的值。如果有可用的，优先使用服务器设置的值。
+    if (!cookies['userIndex']) {
+        console.log("在服务器响应中未找到 userIndex，使用捕获的值。");
+        cookies['userIndex'] = `"10.255.255.3,${localIP},${USERNAME}"`; // 来自你的 POST 捕获
+    }
+
+    // 如果看起来有必要，添加你捕获的其他静态 cookies
+    const staticCookies = {
+        username: USERNAME,
+        password: PASSWORD, // 注意：在 cookie 中发送密码是不常见的，但在你的日志中存在
+        rememberPassword: 'true',
+        failCounter: '0',
+        serviceId: ''
+    };
+
+    const allCookies = {...staticCookies, ...cookies}; // 如果名称冲突，服务器设置的 cookies 会覆盖静态的 cookies
+
+    return Object.entries(allCookies)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('; ');
+}
+
+// 辅助函数，用于从 URL 中提取参数
+function getUrlParams(urlString) {
+    const url = new URL(urlString);
+    return url.searchParams;
+}
+
+async function runLogin() {
+    try {
+        const initialParams = getUrlParams(initialPortalUrl);
+        console.log("解析了初始 URL 参数。");
+
+        // --- 步骤 1：初始 GET 请求到 /zportal/login?... ---
+        console.log("\n--- 步骤 1：初始 GET 请求 ---");
+        console.log("URL:", initialPortalUrl);
+        const response1 = await fetch(initialPortalUrl, {
+            method: 'GET',
+            headers: { // 模仿你在请求 1 中的浏览器头部
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+                'Connection': 'keep-alive',
+                'Host': '10.255.254.2:8080',
+                'Upgrade-Insecure-Requests': '1',
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0'
+                // 通常在第一个请求中没有 Cookie 头部
+            },
+            redirect: 'manual' // 重要：防止自动重定向以捕获头部
+        });
+
+        console.log(`响应 1 状态码: ${response1.status}`);
+        updateCookies(response1.headers); // 提取 JSESSIONID
+
+        if (response1.status!== 302) {
+            throw new Error(`步骤 1 失败：预期状态码 302，但得到了 ${response1.status}`);
+        }
+
+        const locationHeader = response1.headers.get('Location');
+        if (!locationHeader) {
+            throw new Error("步骤 1 失败：在 302 响应中未找到 Location 头部。");
+        }
+
+        // 构建完整的重定向 URL
+        const redirectUrl = new URL(locationHeader, baseUrl).toString();
+        console.log("重定向到:", redirectUrl);
+
+        // --- 步骤 2：跟随重定向 GET 请求到 /zportal/loginForWeb?... ---
+        console.log("\n--- 步骤 2：跟随重定向（GET）---");
+        const cookieHeader1 = getCookieHeaderString();
+        console.log("使用的 Cookies:", cookieHeader1);
+        const response2 = await fetch(redirectUrl, {
+            method: 'GET',
+            headers: { // 模仿你在请求 2 中的浏览器头部
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+                'Connection': 'keep-alive',
+                'Host': '10.255.254.2:8080',
+                'Upgrade-Insecure-Requests': '1',
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
+                'Cookie': cookieHeader1 // 发送 JSESSIONID
+            }
+            // 如果需要，在这里允许 fetch 自动处理重定向，或者保持手动处理
+        });
+
+        console.log(`响应 2 状态码: ${response2.status}`);
+        updateCookies(response2.headers); // 如果设置了新的 cookies，则更新 cookies
+
+        if (!response2.ok) { // 检查 2xx 状态码
+            console.warn(`步骤 2 警告：状态码为 ${response2.status}。尝试继续...`);
+            // 根据门户的情况，如果设置了 cookies，这里的非 200 状态码可能是可以接受的。
+        }
+        // 我们不一定严格需要响应体，但可以为了调试而记录它
+        // const body2 = await response2.text();
+        // console.log("响应 2 主体（登录页面 HTML - 片段）:", body2.substring(0, 200));
+
+        // --- 步骤 3：可选的 GET 请求到 /zportal/goToAuthResult ---
+        console.log("\n--- 步骤 3：可选的 GET 请求（goToAuthResult）---");
+        const authResultUrl = `${baseUrl}/zportal/goToAuthResult`;
+        const cookieHeader2 = getCookieHeaderString(); // 获取可能更新的 cookies
+        console.log("使用的 Cookies:", cookieHeader2);
+        const response3 = await fetch(authResultUrl, {
+            method: 'GET',
+            headers: { // 模仿你在请求 3 中的浏览器头部
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+                'Connection': 'keep-alive',
+                'Host': '10.255.254.2:8080',
+                'Referer': redirectUrl, // 设置 Referer 为登录页面的 URL
+                'Upgrade-Insecure-Requests': '1',
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
+                'Cookie': cookieHeader2 // 发送所有已知的 cookies
+            }
+        });
+
+        console.log(`响应 3 状态码: ${response3.status}`);
+        updateCookies(response3.headers); // 如果需要，再次更新 cookies
+        // const body3 = await response3.text();
+        // console.log("响应 3 主体（片段）:", body3.substring(0, 200));
+
+        // --- 步骤 4：提交登录 POST 请求 ---
+        console.log("\n--- 步骤 4：提交登录（POST）---");
+
+        // 使用图片/初始 URL 中的参数准备表单数据
+        const formData = new URLSearchParams();
+        formData.append('qrCodeId', ''); // 来自图片的值
+        formData.append('username', USERNAME);
+        formData.append('pwd', PASSWORD);
+        formData.append('validCode', ''); // 来自图片的值（为空）
+        formData.append('validCodeFlag', 'false'); // 来自图片的值
+        formData.append('ssid', initialParams.get('ssid') || ''); // 使用原始参数或回退值
+        formData.append('mac', initialParams.get('mac') || '95be74234126dbca9b4db69073ee421b'); // 使用原始/捕获的 mac
+        formData.append('t', initialParams.get('t') || 'wireless-v2'); // 使用原始参数或回退值
+        formData.append('wlanacname', initialParams.get('wlanacname') || 'b9d0aa678bd9a71f194f856b98cc8ec9'); // 使用原始参数或回退值
+        formData.append('url', initialParams.get('url') || '2ce30b22dbc76348b754dd5aab6128cd17f1020b58d879f1d091f86440fac969'); // 使用原始参数或回退值
+        formData.append('nasip', initialParams.get('nasip') || 'f8338d22ad27527275597d58b3ce791a'); // 使用原始参数或回退值
+        // 重要：使用 *图片表单数据* 中的 wlanuserip，它有时可能与请求 1 URL 中的略有不同
+        formData.append('wlanuserip', 'e7a30798078947dbbc70b61764e2d474'); // 来自图片数据
+
+        const loginUrl = `${baseUrl}/zportal/login/do`;
+        const cookieHeader3 = getCookieHeaderString(); // 获取最终的 cookies 集合
+        console.log("使用的 Cookies:", cookieHeader3);
+        console.log("使用的表单数据:");
+        for (let [key, value] of formData.entries()) {
+            console.log(`  ${key}: ${value}`);
+        }
+
+        const response4 = await fetch(loginUrl, {
+            method: 'POST',
+            headers: { // 模仿你在 POST 请求中的浏览器头部
+                'Accept': '*/*',
+                // 'Accept-Encoding': 'gzip, deflate', // 让 fetch 处理
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Cookie': cookieHeader3, // 发送最终的 cookies
+                'Host': '10.255.254.2:8080',
+                'Origin': baseUrl,
+                'Pragma': 'no-cache',
+                'Referer': redirectUrl, // Referer 是步骤 2 中的登录页面 URL
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        });
+
+        console.log(`响应 4 状态码: ${response4.status}`);
+
+        // --- 步骤 5：检查结果 ---
+        console.log("\n--- 步骤 5：检查登录结果 ---");
+        if (!response4.ok) {
+            console.error(`登录 POST 请求失败，状态码为: ${response4.status}`);
+            try { // 尝试在可能的情况下获取错误详情
+                const errorText = await response4.text();
+                console.error("错误响应主体:", errorText);
+            } catch (e) {
+                console.error("无法读取错误响应主体。");
+            }
+            throw new Error(`登录失败，状态码为 ${response4.status}`);
+        }
+
+        try {
+            const resultData = await response4.json();
+            console.log("登录响应数据:", resultData);
+
+            // **根据实际的成功响应调整此检查**
+            // 常见模式：result="success", code=0, status=true, msg="登录成功" 等
+
+            if (resultData && (resultData.result === 'success' || resultData.ret === 1 || resultData.ecode === 0 || resultData.message?.includes('成功')||resultData.result?.includes('online'))) { // 如果需要，添加更多成功条件
+                console.log("\n✅ 登录成功！");
+            } else {
+                console.error("\n❌ 登录失败。服务器响应:", resultData.message || resultData.msg || JSON.stringify(resultData));
+            }
+        } catch (jsonError) {
+            console.warn("响应不是 JSON 格式。尝试以文本形式读取...");
+            const resultText = await response4.text();
+            console.log("登录响应文本:", resultText);
+            // 如果需要，添加基于文本的成功检查
+            if (resultText.includes('success') || resultText.includes('online') || resultText.includes('成功')) { // 基本检查
+                console.log("\n✅ 登录可能成功（基于文本）。");
+            } else {
+                console.error("\n❌ 登录失败（无法解析 JSON，文本检查失败）。");
+            }
+        }
+
+    } catch (error) {
+        console.error("\n💥 登录过程中发生错误:", error);
+    }
+}
+
+// 运行登录流程
+runLogin();

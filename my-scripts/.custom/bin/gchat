@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# gchat v2.7: 交互式、支持流式对话、历史记录和会话管理的 Shell AI 聊天助手
+# 作者: Gemini
+# 版本: 2.7 (Markdown-first 输出)
+# ==============================================================================
+
+# --- 配置区域 ---
+API_URL="${G_API_URL:-"https://gemini.snemc.top/v1/chat/completions"}"
+API_KEY="${G_API_KEY:-"gemini-key"}"
+MODEL="${G_TEXT_MODEL:-"gemini-2.5-flash"}"
+TEMPERATURE=0.5
+
+# --- 存储配置 ---
+STORAGE_DIR="$HOME/.local/share/gchat"
+SESSIONS_DIR="$STORAGE_DIR/sessions"
+CURRENT_SESSION_POINTER="$STORAGE_DIR/current_session_path"
+SYSTEM_PROMPT_FILE="$STORAGE_DIR/system_prompt.txt"
+HISTORY_FILE=""
+
+# --- Markdown 渲染器 ---
+MD_RENDERER="" # 将在 detect_markdown_renderer 中设置
+
+# --- TUI 美化与颜色配置 ---
+if [[ -t 1 && "${TERM}" != "dumb" && "$(tput colors 2>/dev/null)" -ge 8 ]]; then
+    COLOR_USER=$(tput setaf 2)   # Green
+    COLOR_AI=$(tput setaf 4)     # Blue
+    COLOR_CMD=$(tput setaf 8)    # Grey
+    COLOR_BORDER=$(tput setaf 8) # Grey
+    COLOR_RESET=$(tput sgr0)
+else
+    COLOR_USER="" COLOR_AI="" COLOR_CMD="" COLOR_BORDER="" COLOR_RESET=""
+fi
+
+PREFIX_USER="${COLOR_USER}➤ 你:${COLOR_RESET}"
+PREFIX_AI="${COLOR_AI}🤖 AI:${COLOR_RESET}"
+PREFIX_SYSTEM="${COLOR_CMD}ℹ️ gchat:${COLOR_RESET}"
+
+# ==============================================================================
+# 核心函数
+# ==============================================================================
+
+spinner() {
+    local sp='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'; local delay=0.05
+    while :; do printf "\b%s" "${sp:i++%${#sp}:1}"; sleep "$delay"; done
+}
+
+print_separator() {
+    local width; width=$(tput cols 2>/dev/null || echo 80)
+    printf "%s%s%s\n" "${COLOR_BORDER}" "$(printf '─%.0s' $(seq 1 "$width"))" "${COLOR_RESET}"
+}
+
+usage() {
+    echo "用法: gchat [选项] [临时提示]"
+    echo ""
+    echo "  直接运行 'gchat' 进入带会话管理的交互式聊天模式。"
+    echo "  gchat \"你的问题\"   进行一次性的临时对话，不保存历史记录。"
+    echo "  cat file.txt | gchat  从管道读取输入进行临时对话。"
+    echo ""
+    echo "选项:"
+    echo "  -h, --help      显示此帮助信息并退出。"
+    echo "  -c, --clear     清除当前活动会话的对话历史并退出。"
+    echo "  -s, --system    <提示> 设置一个新的系统提示词并退出。"
+    echo "  -gs, --getsystem 获取当前的系统提示词并退出。"
+    exit 0
+}
+
+show_interactive_help() {
+    print_separator
+    echo "${PREFIX_SYSTEM} 交互模式可用命令:"
+    echo "  /help                 - 显示此帮助菜单"
+    echo "  /clear                - 清除当前会话的对话历史"
+    echo "  /system <新提示>      - 设置一个新的系统提示词"
+    echo "  /getsystem, /gs       - 查看当前的系统提示词"
+    echo "  /new                  - 创建并切换到一个新会话"
+    echo "  /list, /ls            - 列出所有可用会话"
+    echo "  /switch               - 切换到其他会话"
+    echo "  /delete               - 删除一个会话"
+    echo "  /exit, /quit          - 退出 gchat"
+    print_separator
+}
+
+setup_environment() {
+    mkdir -p "$SESSIONS_DIR"
+    touch "$CURRENT_SESSION_POINTER"
+    if [ ! -s "$SYSTEM_PROMPT_FILE" ]; then
+        echo "你是一个得力的通用AI助手。" >"$SYSTEM_PROMPT_FILE"
+    fi
+
+    local current_session; current_session=$(cat "$CURRENT_SESSION_POINTER")
+    if [ -z "$current_session" ] || [ ! -f "$current_session" ]; then
+        new_session "initial"
+    fi
+    HISTORY_FILE=$(cat "$CURRENT_SESSION_POINTER")
+}
+
+check_dependencies() {
+    for cmd in jq curl; do
+        if ! command -v "$cmd" &>/dev/null; then
+            echo "${PREFIX_SYSTEM} 错误: 命令 '$cmd' 未找到。请安装后重试。" >&2; exit 1
+        fi
+    done
+}
+
+detect_markdown_renderer() {
+    if command -v mdcat &>/dev/null; then
+        MD_RENDERER="mdcat"
+    elif command -v glow &>/dev/null; then
+        MD_RENDERER="glow"
+    elif command -v bat &>/dev/null; then
+        MD_RENDERER="bat -l md --style=plain"
+    fi
+}
+
+# ==============================================================================
+# 会话管理函数
+# ==============================================================================
+
+new_session() {
+    local new_session_file; new_session_file="${SESSIONS_DIR}/session_$(date +%s).json"
+    touch "$new_session_file"; echo "$new_session_file" > "$CURRENT_SESSION_POINTER"
+    HISTORY_FILE=$new_session_file
+    if [ "$1" != "initial" ]; then clear; echo "${PREFIX_SYSTEM} 已创建并切换到新会话。"; fi
+}
+
+list_sessions() {
+    print_separator; echo "${PREFIX_SYSTEM} 可用会话 (按最近使用排序):"
+    local sessions_list=();
+    while IFS= read -r file; do [[ -n "$file" ]] && sessions_list+=("$file"); done < \
+        <(find "$SESSIONS_DIR" -type f -name "*.json" -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-)
+
+    if [ ${#sessions_list[@]} -eq 0 ]; then echo "  没有找到任何会话。"; print_separator; return; fi
+
+    local i=1
+    for session_file in "${sessions_list[@]}"; do
+        local filename title
+        filename=$(basename "$session_file")
+        if [[ "$filename" =~ session_[0-9]+_(.+)\.json ]]; then
+            title="${BASH_REMATCH[1]}"; title=${title//_/ }
+        else
+            title="(新会话，等待命名)"
+        fi
+        local current_marker=" "; if [ "$session_file" = "$HISTORY_FILE" ]; then current_marker="*"; fi
+        printf " %s [%2d] %s\n" "$current_marker" "$i" "$title"; ((i++))
+    done; print_separator
+}
+
+switch_session() {
+    list_sessions; local sessions_list=()
+    while IFS= read -r file; do [[ -n "$file" ]] && sessions_list+=("$file"); done < \
+        <(find "$SESSIONS_DIR" -type f -name "*.json" -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-)
+    if [ ${#sessions_list[@]} -eq 0 ]; then return; fi
+    read -p "${PREFIX_SYSTEM} 请输入要切换的会话编号: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#sessions_list[@]} ]; then
+        local target_session=${sessions_list[$((choice-1))]}
+        echo "$target_session" > "$CURRENT_SESSION_POINTER"; HISTORY_FILE=$target_session
+        clear; echo "${PREFIX_SYSTEM} 已切换到会话。"; display_history
+    else
+        echo "${PREFIX_SYSTEM} 无效的选择。"
+    fi
+}
+
+delete_session() {
+    list_sessions; local sessions_list=()
+    while IFS= read -r file; do [[ -n "$file" ]] && sessions_list+=("$file"); done < \
+        <(find "$SESSIONS_DIR" -type f -name "*.json" -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-)
+    if [ ${#sessions_list[@]} -eq 0 ]; then return; fi
+    read -p "${PREFIX_SYSTEM} 请输入要删除的会话编号: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#sessions_list[@]} ]; then
+        local file_to_delete=${sessions_list[$((choice-1))]}
+        read -p "${PREFIX_SYSTEM} 确定要删除此会话吗？(y/N): " confirm
+        if [[ "$confirm" =~ ^[yY](es)?$ ]]; then
+            local was_current=false; if [ "$file_to_delete" = "$HISTORY_FILE" ]; then was_current=true; fi
+            rm "$file_to_delete"
+            if [ -f "$file_to_delete" ]; then echo "${PREFIX_SYSTEM} 错误：无法删除文件。"; else echo "${PREFIX_SYSTEM} 会话已删除。"; fi
+            if $was_current; then
+                local remaining_sessions=()
+                while IFS= read -r file; do [[ -n "$file" ]] && remaining_sessions+=("$file"); done < \
+                    <(find "$SESSIONS_DIR" -type f -name "*.json" -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-)
+                if [ ${#remaining_sessions[@]} -gt 0 ]; then
+                    echo "${remaining_sessions[0]}" > "$CURRENT_SESSION_POINTER"; HISTORY_FILE=${remaining_sessions[0]}; echo "${PREFIX_SYSTEM} 已自动切换到最近的会话。"
+                else
+                    new_session "initial"; echo "${PREFIX_SYSTEM} 所有会话均已删除，已为您创建一个新会话。"
+                fi; clear; display_history
+            fi
+        else
+            echo "${PREFIX_SYSTEM} 操作已取消。"
+        fi
+    else
+        echo "${PREFIX_SYSTEM} 无效的选择。"
+    fi
+}
+
+# ==============================================================================
+# 对话与历史记录函数
+# ==============================================================================
+
+clear_history() { if [ -f "$HISTORY_FILE" ]; then > "$HISTORY_FILE"; fi; echo "${PREFIX_SYSTEM} 当前会话历史已清除。"; }
+set_system_prompt() {
+    local new_prompt="$1"
+    if [ -z "$new_prompt" ]; then echo "${PREFIX_SYSTEM} 用法: /system <新的提示词内容>"; return; fi
+    echo "$new_prompt" > "$SYSTEM_PROMPT_FILE"; echo "${PREFIX_SYSTEM} 系统提示词已更新。"
+}
+get_system_prompt() { setup_environment; local p; p=$(cat "$SYSTEM_PROMPT_FILE"); echo "${PREFIX_SYSTEM} 当前系统提示词: ${COLOR_AI}$p${COLOR_RESET}"; }
+display_history() {
+    if [ ! -s "$HISTORY_FILE" ]; then return; fi
+    print_separator; echo "${PREFIX_SYSTEM} 正在加载历史对话..."
+    jq -c '.[]' "$HISTORY_FILE" | while read -r msg; do
+        role=$(jq -r '.role' <<< "$msg"); content=$(jq -r '.content' <<< "$msg")
+        if [ "$role" == "user" ]; then echo "${PREFIX_USER} $content"; elif [ "$role" == "assistant" ]; then
+            # 历史记录也使用 Markdown 渲染
+            if [ -n "$MD_RENDERER" ]; then
+                echo "${PREFIX_AI}"; echo "$content" | $MD_RENDERER
+            else
+                echo "${PREFIX_AI} $content"
+            fi
+        fi
+    done; print_separator
+}
+
+rename_session_with_title() {
+    local first_prompt="$1"; local old_session_file="$2"; local title
+    title=$(echo "$first_prompt" | head -c 30 | sed 's/[][\\/?"*|<>:[:space:]]/_/g')
+    if [ -z "$title" ]; then title="chat"; fi
+    local timestamp; timestamp=$(basename "$old_session_file" | cut -d'_' -f2 | cut -d'.' -f1)
+    local new_session_file="${SESSIONS_DIR}/session_${timestamp}_${title}.json"
+    if [ "$old_session_file" != "$new_session_file" ]; then
+        mv "$old_session_file" "$new_session_file"
+        echo "$new_session_file" > "$CURRENT_SESSION_POINTER"; HISTORY_FILE="$new_session_file"
+    fi
+}
+
+# ==============================================================================
+# 聊天模式
+# ==============================================================================
+
+temporary_chat() {
+    local prompt="$1"
+    if [ -z "$prompt" ]; then echo "${PREFIX_SYSTEM} 错误: 未提供任何输入。" >&2; exit 1; fi
+    local system_prompt; system_prompt=$(cat "$SYSTEM_PROMPT_FILE")
+    local messages; messages=$(jq -n --arg sp "$system_prompt" --arg up "$prompt" \
+        '[{"role": "system", "content": $sp}, {"role": "user", "content": $up}]')
+    local json_payload; json_payload=$(jq -n --arg model "$MODEL" --argjson msgs "$messages" --argjson temp "$TEMPERATURE" \
+        '{model: $model, messages: $msgs, temperature: $temp, stream: true}')
+
+    local assistant_response_full=""
+    # 静默收集响应
+    while IFS= read -r line; do
+        if [[ "$line" == "data: "* ]]; then line=${line#data: }; fi; if [ "$line" = "[DONE]" ]; then break; fi
+        if [ -n "$line" ]; then
+            chunk=$(echo "$line" | jq -r '(.choices[0].delta.content // .choices[0].text // "")')
+            assistant_response_full+="$chunk"
+        fi
+    done < <(curl -s -N -X POST "$API_URL" -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d "$json_payload")
+
+    # 收集完毕后，一次性渲染
+    if [ -n "$assistant_response_full" ]; then
+        if [ -n "$MD_RENDERER" ]; then
+            echo "$assistant_response_full" | $MD_RENDERER
+        else
+            echo "$assistant_response_full"
+        fi
+    fi
+}
+
+interactive_chat() {
+    clear; echo "${COLOR_AI}你好！欢迎使用 gchat。输入 /help 查看可用命令。${COLOR_RESET}"; display_history
+    while true; do
+        read -e -p "${PREFIX_USER} " USER_PROMPT; history -s "$USER_PROMPT"
+        case "$USER_PROMPT" in
+            "/exit" | "/quit") echo "${PREFIX_SYSTEM} 再见！"; break ;;
+            "/clear") clear; clear_history; continue ;;
+            "/system "*) set_system_prompt "${USER_PROMPT#*/system }"; continue ;;
+            "/system") set_system_prompt ""; continue ;;
+            "/getsystem" | "/gs") get_system_prompt; continue ;;
+            "/help") show_interactive_help; continue ;;
+            "/new") new_session; continue ;;
+            "/list"|"/ls") list_sessions; continue ;;
+            "/switch") switch_session; continue ;;
+            "/delete") delete_session; continue ;;
+            "") continue ;;
+        esac
+
+        local is_new_session=false; if [ ! -s "$HISTORY_FILE" ]; then is_new_session=true; fi
+        local system_prompt history_messages messages json_payload
+        system_prompt=$(cat "$SYSTEM_PROMPT_FILE"); history_messages="[]"
+        if [ -s "$HISTORY_FILE" ]; then history_messages=$(jq -c '.' "$HISTORY_FILE"); fi
+        messages=$(jq -n --argjson hist "$history_messages" --arg sp "$system_prompt" --arg up "$USER_PROMPT" \
+            '[{"role": "system", "content": $sp}] + $hist + [{"role": "user", "content": $up}]')
+        json_payload=$(jq -n --arg model "$MODEL" --argjson msgs "$messages" --argjson temp "$TEMPERATURE" \
+            '{model: $model, messages: $msgs, temperature: $temp, stream: true}')
+
+        local assistant_response_full=""
+
+        # 显示加载动画，同时在后台收集数据
+        spinner &
+        SPINNER_PID=$!
+        trap 'kill $SPINNER_PID 2>/dev/null; printf "\b \b"; trap - RETURN' RETURN
+
+        while IFS= read -r line; do
+            if [[ "$line" == "data: "* ]]; then line=${line#data: }; fi; if [[ "$line" == "[DONE]"* ]]; then break; fi
+            if [[ -n "$line" ]]; then
+                chunk=$(echo "$line" | jq -r '(.choices[0].delta.content // .choices[0].text // "")')
+                # 只累加，不实时打印
+                assistant_response_full+="$chunk"
+            fi
+        done < <(curl -s -N -X POST "$API_URL" -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d "$json_payload")
+
+        # 响应接收完毕，停止加载动画
+        kill $SPINNER_PID 2>/dev/null; printf "\b \b"
+        trap - RETURN
+
+        # 根据是否有渲染器，决定最终的输出方式
+        if [ -n "$assistant_response_full" ]; then
+            if [ -n "$MD_RENDERER" ]; then
+                echo "${PREFIX_AI}" # 先打印 AI 前缀
+                echo "$assistant_response_full" | $MD_RENDERER # 然后渲染完整内容
+            else
+                echo "${PREFIX_AI} ${assistant_response_full}" # 回退到纯文本输出
+            fi
+
+            # 保存对话
+            local updated_history
+            updated_history=$(jq -n --argjson hist "$history_messages" --arg up "$USER_PROMPT" --arg ar "$assistant_response_full" \
+                '$hist + [{"role": "user", "content": $up}, {"role": "assistant", "content": $ar}]')
+            echo "$updated_history" | jq '.' >"$HISTORY_FILE"
+            if $is_new_session; then rename_session_with_title "$USER_PROMPT" "$HISTORY_FILE"; fi
+        else
+            echo "${PREFIX_SYSTEM} 警告：未能从 API 获取有效响应。请检查您的网络、API_URL 和 API_KEY。"
+        fi
+    done
+}
+
+# ==============================================================================
+# 脚本入口
+# ==============================================================================
+
+check_dependencies
+setup_environment
+detect_markdown_renderer
+
+if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
+    temporary_chat "$*"; exit 0
+elif ! [ -t 0 ]; then
+    temporary_chat "$(cat -)"; exit 0
+fi
+
+if [ "$#" -gt 0 ]; then
+    case "$1" in
+        -h | --help) usage ;;
+        -c | --clear) clear_history; exit 0 ;;
+        -s | --system) if [ -z "$2" ]; then echo "错误: --system 选项需要一个参数。" >&2; usage; fi; set_system_prompt "$2"; exit 0 ;;
+        -gs | --getsystem) get_system_prompt; exit 0 ;;
+        *) echo "错误: 未知选项 '$1'。" >&2; usage ;;
+    esac
+fi
+
+interactive_chat
+exit 0

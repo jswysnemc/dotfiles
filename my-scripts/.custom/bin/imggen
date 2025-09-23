@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# 函数：对字符串进行 URL 编码（用于 URL 路径部分，空格变为 %20）
+urlencode() {
+    # 使用 Python 进行 URL 编码，因为 Bash 没有内置的 URL 编码功能
+    # urllib.parse.quote 用于编码 URL 路径部分
+    python3 -c 'import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))' "$1"
+}
+
+# 图片生成 API 的基础 URL
+BASE_URL="https://image.pollinations.ai/prompt/"
+
+# 固定的查询参数
+SEED="100"
+MODEL="flux"
+NOLOGO="true"
+
+# 变量用于存储可选的宽度和高度
+WIDTH=""
+HEIGHT=""
+PROMPT_ARG="" # 用于存储提示词
+
+# 解析命令行参数
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+    --width)
+        # 检查 --width 后面是否有值，并且值不是另一个选项
+        if [[ -z "$2" || "$2" == -* ]]; then
+            echo "错误: --width 选项需要一个数值。" >&2
+            echo "使用方法: $0 <提示词> [--width <宽度>] [--height <高度>]" >2
+            exit 1
+        fi
+        WIDTH="$2"
+        shift 2 # 移动到下一个参数，跳过 --width 及其值
+        ;;
+    --height)
+        # 检查 --height 后面是否有值，并且值不是另一个选项
+        if [[ -z "$2" || "$2" == -* ]]; then
+            echo "错误: --height 选项需要一个数值。" >&2
+            echo "使用方法: $0 <提示词> [--width <宽度>] [--height <高度>]" >2
+            exit 1
+        fi
+        HEIGHT="$2"
+        shift 2 # 移动到下一个参数，跳过 --height 及其值
+        ;;
+    -*) # 捕获任何未知选项
+        echo "错误: 未知选项 '$1'。" >&2
+        echo "使用方法: $0 <提示词> [--width <宽度>] [--height <高度>]" >&2
+        exit 1
+        ;;
+    *) # 捕获位置参数（提示词）
+        # 如果已经设置了提示词，则表示用户提供了多个提示词，这是不允许的
+        if [[ -n "$PROMPT_ARG" ]]; then
+            echo "错误: 只能指定一个提示词。" >&2
+            echo "使用方法: $0 <提示词> [--width <宽度>] [--height <高度>]" >&2
+            exit 1
+        fi
+        PROMPT_ARG="$1"
+        shift # 移动到下一个参数，跳过提示词            ;;
+        ;;
+    esac
+done
+
+# 检查是否提供了提示词
+if [[ -z "$PROMPT_ARG" ]]; then
+    echo "错误: 必须提供一个提示词。" >&2
+    echo "使用方法: $0 <提示词> [--width <宽度>] [--height <高度>]" >&2
+    echo "示例: $0 \"a futuristic city\" --width 1024 --height 768" >&2
+    exit 1
+fi
+
+# 对提示词进行 URL 编码
+ENCODED_PROMPT=$(urlencode "$PROMPT_ARG")
+
+# 构建基础 URL，包含编码后的提示词
+FULL_URL="${BASE_URL}${ENCODED_PROMPT}"
+
+# 构建查询参数字符串
+QUERY_PARAMS="seed=${SEED}&model=${MODEL}&nologo=${NOLOGO}"
+
+# 添加可选的宽度参数
+if [[ -n "$WIDTH" ]]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&width=${WIDTH}"
+fi
+
+# 添加可选的高度参数
+if [[ -n "$HEIGHT" ]]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&height=${HEIGHT}"
+fi
+
+# 拼接最终的 URL
+FINAL_URL="${FULL_URL}?${QUERY_PARAMS}"
+
+# 打印最终的 URL
+echo "$FINAL_URL"

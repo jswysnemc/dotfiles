@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# --- Pot 运行状态检查 ---
+# 使用 pgrep 检查 pot 进程是否存在
+if ! pgrep -x "pot" > /dev/null; then
+    echo "Pot 未运行，正在为您启动..."
+    # 在后台启动 pot
+    pot &
+    # 等待几秒钟以确保 pot 完全启动并准备好接受请求
+    sleep 1
+fi
+
+SCREENSHOT_PATH="$HOME/.cache/com.pot-app.desktop/pot_screenshot_cut.png"
+CACHE_DIR=$(dirname "$SCREENSHOT_PATH")
+
+# 确保缓存目录存在，这是一个好的编程习惯
+mkdir -p "$CACHE_DIR"
+
+# 直接判断 grim 命令是否成功执行
+# 如果用户通过按 Esc 键等方式取消了 slurp 的选区, grim 会失败并返回非零退出码
+if grim -g "$(slurp)" "$SCREENSHOT_PATH"; then
+    # 如果截图成功，则调用本地 OCR 服务
+    # 添加 -s 参数以实现静默输出
+    curl -s "127.0.0.1:60828/ocr_recognize?screenshot=false"
+else
+    # 如果截图失败或被中止，则打印提示信息
+    echo "aborted"
+fi

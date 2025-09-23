@@ -1,0 +1,139 @@
+#!/bin/bash
+
+# 请替换为您的 SecretId 和 SecretKey
+# 建议使用子账号的密钥以提高安全性
+# 获取地址: https://console.cloud.tencent.com/cam/capi
+SECRET_ID=$T_SECRET_ID
+SECRET_KEY=$T_SECRET_KEY
+
+
+# API 配置
+REGION="ap-guangzhou"
+SERVICE="tmt"
+HOST="tmt.tencentcloudapi.com"
+VERSION="2018-03-21"
+ACTION="TextTranslate"
+MAX_CHARS=1800 # API 限制 2000，设置安全阈值
+
+# 默认语言
+SOURCE_LANG="auto"
+TARGET_LANG="zh"
+
+# 解析目标语言参数
+if [[ "$1" == :* ]]; then
+    TARGET_LANG=${1#:}
+    shift
+fi
+
+# 定义翻译单个文本块的函数
+# 参数1: 待翻译的文本块
+translate_chunk() {
+    local text_chunk=$1
+    if [ -z "$text_chunk" ]; then return; fi
+
+    local TIMESTAMP=$(date +%s)
+    local PAYLOAD
+    PAYLOAD=$(echo -n "$text_chunk" | jq -R -s \
+        --arg source_lang "$SOURCE_LANG" \
+        --arg target_lang "$TARGET_LANG" \
+        '{SourceText: ., Source: $source_lang, Target: $target_lang, ProjectId: 0}')
+
+    # --- 签名计算部分 ---
+    local HASHED_REQUEST_PAYLOAD
+    HASHED_REQUEST_PAYLOAD=$(echo -n "$PAYLOAD" | openssl sha256 -hex | awk '{print $2}')
+    local CANONICAL_REQUEST="POST\n/\n\ncontent-type:application/json; charset=utf-8\nhost:$HOST\n\ncontent-type;host\n$HASHED_REQUEST_PAYLOAD"
+    local DATE
+    DATE=$(date -u -d @$TIMESTAMP +"%Y-%m-%d")
+    local CREDENTIAL_SCOPE="$DATE/$SERVICE/tc3_request"
+    local HASHED_CANONICAL_REQUEST
+    HASHED_CANONICAL_REQUEST=$(echo -n -e "$CANONICAL_REQUEST" | openssl sha256 -hex | awk '{print $2}')
+    local STRING_TO_SIGN="TC3-HMAC-SHA256\n$TIMESTAMP\n$CREDENTIAL_SCOPE\n$HASHED_CANONICAL_REQUEST"
+    local SECRET_DATE
+    SECRET_DATE=$(echo -n "$DATE" | openssl dgst -sha256 -hmac "TC3$SECRET_KEY" -binary)
+    local SECRET_SERVICE
+    SECRET_SERVICE=$(echo -n "$SERVICE" | openssl dgst -sha256 -hmac "$SECRET_DATE" -binary)
+    local SECRET_SIGNING
+    SECRET_SIGNING=$(echo -n "tc3_request" | openssl dgst -sha256 -hmac "$SECRET_SERVICE" -binary)
+    local SIGNATURE
+    SIGNATURE=$(echo -n -e "$STRING_TO_SIGN" | openssl dgst -sha256 -hmac "$SECRET_SIGNING" -hex | awk '{print $2}')
+    local AUTHORIZATION="TC3-HMAC-SHA256 Credential=$SECRET_ID/$CREDENTIAL_SCOPE, SignedHeaders=content-type;host, Signature=$SIGNATURE"
+
+    # --- 发送请求并输出结果 ---
+    curl -s -X POST "https://$HOST" \
+    -H "Authorization: $AUTHORIZATION" \
+    -H "Content-Type: application/json; charset=utf-8" \
+    -H "Host: $HOST" \
+    -H "X-TC-Action: $ACTION" \
+    -H "X-TC-Timestamp: $TIMESTAMP" \
+    -H "X-TC-Version: $VERSION" \
+    -H "X-TC-Region: $REGION" \
+    -d "$PAYLOAD" | jq -r '.Response.TargetText'
+}
+
+# 获取待翻译的完整文本
+SOURCE_TEXT=""
+if [ -p /dev/stdin ]; then
+    SOURCE_TEXT=$(cat -)
+elif [ $# -gt 0 ]; then
+    SOURCE_TEXT="$*"
+else
+    echo "用法:"
+    echo "  ttrans :<目标语言> <要翻译的文本>"
+    echo "  <命令> | ttrans :<目标语言>"
+    echo "示例:"
+    echo "  ttrans :en 你好"
+    echo "  man gpg | ttrans :zh | less"
+    exit 1
+fi
+
+# ★★★ 核心改进：智能分块逻辑 ★★★
+# 只要源文本变量不为空，就一直循环处理
+while [ -n "$SOURCE_TEXT" ]; do
+    # 如果剩余文本长度小于等于最大字符数，直接翻译并退出循环
+    if [ "${#SOURCE_TEXT}" -le "$MAX_CHARS" ]; then
+        translate_chunk "$SOURCE_TEXT"
+        break
+    fi
+
+    # 截取最大长度的文本作为查找窗口
+    search_window=${SOURCE_TEXT:0:$MAX_CHARS}
+    split_pos=0
+
+    # 优先级 1: 在查找窗口内，从后往前找换行符
+    # rev reverses the string, grep finds the first match (which is the last in original), cut gets the position
+    pos=$(echo -n "$search_window" | rev | grep -b -o $'\n' | head -n 1 | cut -d: -f1)
+    if [ -n "$pos" ]; then
+        split_pos=$((MAX_CHARS - pos))
+    fi
+
+    # 优先级 2: 如果没找到换行符，找标点符号
+    if [ "$split_pos" -eq 0 ]; then
+        pos=$(echo -n "$search_window" | rev | grep -b -o '[\.!?。？！;；]' | head -n 1 | cut -d: -f1)
+        if [ -n "$pos" ]; then
+            split_pos=$((MAX_CHARS - pos))
+        fi
+    fi
+
+    # 优先级 3: 如果还没找到，找空格
+    if [ "$split_pos" -eq 0 ]; then
+        pos=$(echo -n "$search_window" | rev | grep -b -o ' ' | head -n 1 | cut -d: -f1)
+        if [ -n "$pos" ]; then
+            split_pos=$((MAX_CHARS - pos))
+        fi
+    fi
+
+    # 优先级 4: 如果连空格都没有，硬性切分
+    if [ "$split_pos" -eq 0 ]; then
+        split_pos=$MAX_CHARS
+    fi
+
+    # 根据计算出的分割点，提取文本块并进行翻译
+    chunk=${SOURCE_TEXT:0:$split_pos}
+    translate_chunk "$chunk"
+
+    # 从源文本中移除已经处理过的部分
+    SOURCE_TEXT=${SOURCE_TEXT:$split_pos}
+
+    # 增加短暂休眠，避免超过 API 的 QPS (每秒请求次数) 限制
+    sleep 0.2
+done

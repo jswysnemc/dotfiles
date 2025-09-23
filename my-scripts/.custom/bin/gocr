@@ -1,0 +1,195 @@
+#!/bin/bash
+
+# ==============================================================================
+# 配置区域：请根据需要修改以下变量
+# ==============================================================================
+
+# API 端点 URL
+API_URL="${G_API_URL:-"https://gemini.snemc.top/v1/chat/completions"}"
+
+# API 密钥
+API_KEY="${G_API_KEY:-"gemini-key"}"
+AUTH_HEADER="Authorization: Bearer ${API_KEY}"
+
+# 使用的模型名称 (需要是支持视觉的模型)
+MODEL="${G_VISION_MODEL:-"gemini-1.5-pro-latest"}"
+
+# 其他可选的 API 参数
+TEMPERATURE=0.2
+TOP_P=1
+STREAM=false
+
+# ==============================================================================
+# 脚本逻辑：通常无需修改
+# ==============================================================================
+
+# --- 函数定义 ---
+spinner() {
+    local i sp n
+    # 使用 Nerd Font 提供的旋转字符
+    sp='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    n=${#sp}
+    while sleep 0.1; do
+        printf "%s\b" "${sp:i++%n:1}"
+    done
+}
+
+# --- 默认值 ---
+output_format="t" # 默认为 txt
+
+# --- 函数定义 ---
+usage() {
+    echo "用法: ocr [-t <h|m|t>] <图片文件路径>"
+    echo "  -t : 输出格式 (h: HTML, m: Markdown, t: 纯文本). 默认为 t."
+    echo "示例: ocr my_image.png"
+    echo "示例: ocr -t m document.jpg"
+    exit 1
+}
+
+# --- 检查依赖 ---
+for cmd in jq curl file base64; do
+    if ! command -v $cmd &>/dev/null; then
+        echo "错误: 命令 '$cmd' 未找到。请安装后重试。"
+        exit 1
+    fi
+done
+
+# --- 解析命令行参数 ---
+while getopts "t:h" opt; do
+    case ${opt} in
+    t)
+        output_format=${OPTARG}
+        if [[ ! "$output_format" =~ ^(h|m|t)$ ]]; then
+            echo "错误: 无效的格式 '-$output_format'. 请使用 'h', 'm', 或 't'."
+            usage
+        fi
+        ;;
+    h)
+        usage
+        ;;
+    \?)
+        usage
+        ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# 检查是否提供了图片文件
+if [ -z "$1" ]; then
+    echo "错误: 未提供图片文件。"
+    usage
+fi
+IMAGE_PATH="$1"
+
+# 检查文件是否存在
+if [ ! -f "$IMAGE_PATH" ]; then
+    echo "错误: 文件 '$IMAGE_PATH' 不存在。"
+    exit 1
+fi
+
+# --- 准备 API 请求 ---
+
+# 确定输出格式提示
+case "$output_format" in
+h) format_prompt="HTML" ;;
+m) format_prompt="Markdown" ;;
+*) format_prompt="纯文本 (TXT)" ;;
+esac
+
+# 系统提示词
+SYSTEM_PROMPT="你是一个专业的OCR（光学字符识别）工具。请识别用户提供的图片中的所有文字，并以 ${format_prompt} 格式返回。请尽可能保留原始的格式和排版。不要添加任何额外的解释或说明，只返回识别出的文本内容。"
+
+# 获取图片 MIME 类型
+MIME_TYPE=$(file --brief --mime-type "$IMAGE_PATH")
+
+# Base64 编码图片
+BASE64_IMAGE=$(base64 -w 0 "$IMAGE_PATH")
+if [ $? -ne 0 ]; then
+    echo "错误: 图片文件 Base64 编码失败。"
+    exit 1
+fi
+
+# 构建用户消息内容
+# OpenAI 兼容的 vision API 要求 content 是一个数组，包含 image_url 对象
+USER_CONTENT_JSON=$(jq -n \
+    --arg mime_type "$MIME_TYPE" \
+    --arg base64_image "$BASE64_IMAGE" \
+    '[
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:\($mime_type);base64,\($base64_image)"
+        }
+      }
+    ]')
+
+# 构建完整的 JSON 请求体
+JSON_PAYLOAD=$(jq -n \
+    --arg model "$MODEL" \
+    --arg system_prompt "$SYSTEM_PROMPT" \
+    --argjson user_content "$USER_CONTENT_JSON" \
+    --argjson temperature "$TEMPERATURE" \
+    --argjson top_p "$TOP_P" \
+    --argjson stream "$STREAM" \
+    '{
+      model: $model,
+      messages: [
+        {role: "system", content: $system_prompt},
+        {role: "user", content: $user_content}
+      ],
+      temperature: $temperature,
+      top_p: $top_p,
+      stream: $stream
+    }')
+
+# 检查 jq 是否成功构建了 JSON
+if [ $? -ne 0 ]; then
+    echo "错误：构建 JSON 请求体失败。请检查 jq 是否安装并可用。"
+    exit 1
+fi
+
+# --- 发送请求并处理响应 ---
+
+# 启动加载动画
+spinner &
+SPINNER_PID=$!
+# 在脚本退出时确保动画进程被杀死
+trap 'kill $SPINNER_PID 2>/dev/null' EXIT
+
+# 使用 curl 发送 POST 请求
+RESPONSE=$(curl -s -X POST "$API_URL" \
+    -H "Content-Type: application/json" \
+    -H "$AUTH_HEADER" \
+    -d "$JSON_PAYLOAD")
+
+# 停止加载动画
+kill $SPINNER_PID 2>/dev/null
+# 清除动画所在的行
+printf "\r%s\r" "                                                  "
+
+# 检查 curl 请求是否成功
+if [ $? -ne 0 ]; then
+    echo "错误：API 请求失败。请检查网络连接、API URL 或认证头。"
+    echo "原始响应 (如果存在): $RESPONSE"
+    trap - EXIT
+    exit 1
+fi
+
+# 使用 jq 解析响应，提取结果
+EXTRACTED_TEXT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+
+# 检查 jq 解析是否成功或内容是否为空
+if [ $? -ne 0 ] || [ -z "$EXTRACTED_TEXT" ] || [ "$EXTRACTED_TEXT" == "null" ]; then
+    echo "错误：解析 API 响应失败或未获取到结果。"
+    echo "请检查 API 响应结构是否符合预期或 API 是否返回了错误。"
+    echo "完整 API 响应: $RESPONSE"
+    trap - EXIT
+    exit 1
+fi
+
+# 输出结果
+echo "$EXTRACTED_TEXT"
+
+trap - EXIT
+exit 0
+

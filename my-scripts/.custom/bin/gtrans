@@ -1,0 +1,164 @@
+#!/bin/bash
+
+# ==============================================================================
+# 配置区域：请根据需要修改以下变量
+# ==============================================================================
+
+# API 端点 URL
+API_URL=$G_API_URL
+
+# API 密钥
+API_KEY=$G_API_KEY
+AUTH_HEADER="Authorization: Bearer ${API_KEY}"
+
+# 使用的模型名称
+MODEL=$G_TRANS_MODEL
+
+
+
+# 系统提示词：指导模型如何进行翻译
+# 这个提示词会让模型将输入的文本翻译成中文，如果已经是中文则翻译成英文
+# 并且只返回翻译结果，不包含其他解释。你可以根据需要修改这个提示词。
+SYSTEM_PROMPT="你是一个专业的翻译助手。请将用户提供的文本进行翻译。如果文本是中文，请翻译成英文；如果文本是英文，请翻译成中文。只返回翻译结果，不要包含任何解释或其他文字, 如果用户给出的文本中 有 :en 的字符串,则表示将目标语言翻译为英文, :zh 则为中文, 你需要了解多种国家代号翻译各种文字."
+
+# 其他可选的 API 参数，可以根据需要调整
+TEMPERATURE=1.0
+TOP_P=1
+STREAM=false # 对于脚本来说，通常不需要流式输出，直接获取完整结果
+
+# ==============================================================================
+# 脚本逻辑：通常无需修改
+# ==============================================================================
+
+# --- 函数定义 ---
+spinner() {
+    local i sp n
+    # 使用 Nerd Font 提供的旋转字符
+    sp='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    n=${#sp}
+    while sleep 0.1; do
+        printf "%s\b" "${sp:i++%n:1}"
+    done
+}
+
+# --- 新的输入处理逻辑 ---
+# 初始化变量
+LANG_CODE=""
+TEXT_TO_TRANSLATE=""
+
+# 1. 优先处理命令行参数
+if [ $# -gt 0 ]; then
+    # 检查第一个参数是否是语言代码 (例如 :en, :zh)
+    if [[ "$1" =~ ^:[a-z]{2,3}$ ]]; then
+        LANG_CODE="$1"
+        shift # 移除第一个参数（语言代码）
+    fi
+    # 将剩余的参数作为要翻译的文本
+    if [ $# -gt 0 ]; then
+        TEXT_TO_TRANSLATE="$*"
+    fi
+fi
+
+# 2. 如果没有从参数中获取到文本，则检查管道输入
+# `[ -t 0 ]` 检查标准输入是否连接到终端。如果不是，则意味着有管道输入。
+if [ -z "$TEXT_TO_TRANSLATE" ] && ! [ -t 0 ]; then
+    TEXT_TO_TRANSLATE=$(cat)
+fi
+
+# 3. 如果最终仍然没有要翻译的文本，则显示用法并退出
+if [ -z "$TEXT_TO_TRANSLATE" ]; then
+    echo "用法 (参数): gtrans <:en|:zh> \"<需要翻译的文本>\""
+    echo "用法 (管道): echo \"<需要翻译的文本>\" | gtrans <:en|:zh>"
+    echo ""
+    echo "示例 (参数): gtrans :en \"你好世界\""
+    echo "示例 (管道): cat document.txt | gtrans :zh"
+    exit 1
+fi
+
+# 组合语言代码和文本，作为最终发送给模型的用户内容
+# 如果语言代码存在，就将其添加到文本前面
+if [ -n "$LANG_CODE" ]; then
+    USER_CONTENT="${LANG_CODE} ${TEXT_TO_TRANSLATE}"
+else
+    USER_CONTENT="${TEXT_TO_TRANSLATE}"
+fi
+
+
+# 构建 JSON 请求体
+# 使用 jq 来安全地构建 JSON，避免引号和特殊字符的问题
+JSON_PAYLOAD=$(jq -n \
+    --arg model "$MODEL" \
+    --arg system_prompt "$SYSTEM_PROMPT" \
+    --arg user_text "$USER_CONTENT" \
+    --argjson temperature "$TEMPERATURE" \
+    --argjson top_p "$TOP_P" \
+    --argjson stream "$STREAM" \
+    '{
+    model: $model,
+    messages: [
+      {role: "system", content: $system_prompt},
+      {role: "user", content: $user_text}
+    ],
+    temperature: $temperature,
+    top_p: $top_p,
+    stream: $stream
+  }')
+
+# 检查 jq 是否成功构建了 JSON
+if [ $? -ne 0 ]; then
+    echo "错误：构建 JSON 请求体失败。请检查 jq 是否安装并可用。"
+    exit 1
+fi
+
+# --- 发送请求并处理响应 ---
+
+# 启动加载动画
+spinner &
+SPINNER_PID=$!
+# 在脚本退出时确保动画进程被杀死
+trap 'kill $SPINNER_PID 2>/dev/null' EXIT
+
+# 使用 curl 发送 POST 请求
+# -s 静默模式，不显示进度和错误信息
+# -X POST 指定请求方法
+# -H 添加请求头
+# -d 发送 POST 数据，即 JSON 请求体
+# URL 最后，包含在双引号中以处理可能的特殊字符
+RESPONSE=$(curl -s -X POST "$API_URL" \
+    -H "Content-Type: application/json" \
+    -H "$AUTH_HEADER" \
+    -d "$JSON_PAYLOAD")
+
+# 停止加载动画
+kill $SPINNER_PID 2>/dev/null
+# 清除动画所在的行
+printf "\r%s\r" "                                                  "
+
+# 检查 curl 请求是否成功
+if [ $? -ne 0 ]; then
+    echo "错误：API 请求失败。请检查网络连接、API URL 或认证头。"
+    echo "原始响应 (如果存在): $RESPONSE"
+    trap - EXIT
+    exit 1
+fi
+
+# 使用 jq 解析响应，提取翻译结果
+# 假设响应结构是 { ..., "choices": [ { ..., "message": { "role": "assistant", "content": "翻译结果" } } ] }
+# .choices[0].message.content 提取第一个 choice 的 message 的 content 字段
+# -r 输出原始字符串（不带引号）
+TRANSLATED_TEXT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+
+# 检查 jq 解析是否成功或内容是否为空
+if [ $? -ne 0 ] || [ -z "$TRANSLATED_TEXT" ]; then
+    echo "错误：解析 API 响应失败或未获取到翻译结果。"
+    echo "请检查 API 响应结构是否符合预期或 API 是否返回了错误。"
+    echo "完整 API 响应: $RESPONSE"
+    trap - EXIT
+    exit 1
+fi
+
+# 输出翻译结果
+echo "$TRANSLATED_TEXT"
+
+trap - EXIT
+exit 0
