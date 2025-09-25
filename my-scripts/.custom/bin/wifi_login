@@ -56,9 +56,9 @@ if (localIP) {
 // npm install node-fetch
 // const fetch = require('node-fetch');
 // 或者在 Node.js 18 及以上版本中使用内置的 fetch
-
 const USERNAME = process.env.WIFI_USERNAME || ''; // 你的用户名
 const PASSWORD = process.env.WIFI_PASSWORD || ''; // 你的密码
+console.log(`name:${USERNAME}\npassword: ${PASSWORD}`)
 
 // 重要：这是连接时浏览器被重定向到的 *初始* URL。
 // 每次连接时你都必须准确捕获这个 URL，因为参数会发生变化。

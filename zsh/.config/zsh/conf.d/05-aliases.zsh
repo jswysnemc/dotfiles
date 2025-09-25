@@ -22,6 +22,12 @@ alias cl="claude"
 alias cc="ccr code"
 alias cu="ccr ui"
 
+# systemctl 相关短别名
+alias ssa="systemctl status"
+alias sss="systemctl start"
+alias sse="systemctl enable"
+alias sst="systemctl stop"
+
 alias zl='zoxide query -i' # z + Enter 打开 fzf 交互界面
 alias c='print -z $(zl)'
 
