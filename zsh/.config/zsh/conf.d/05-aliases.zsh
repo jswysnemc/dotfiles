@@ -40,3 +40,6 @@ alias ffd="find /usr/share/applications ~/.local/share/applications -name \"*.de
 
 # source zshrc
 alias s="source ~/.config/zsh/.zshrc"
+
+# 更新所有 ai 工具
+alias puai='pnpm install -g  @anthropic-ai/claude-code  @musistudio/claude-code-router  @google/gemini-cli @openai/codex  @iflow-ai/iflow-cli@latest'
