@@ -1,0 +1,51 @@
+# ~/.config/matugen/config.toml
+
+[config]
+# 风格变体：content, express, fidelity, fruit_salad, monochrome, neutral, rainbow, spot, tonal_spot
+scheme_variant = "tonal_spot"
+
+[templates.waybar]
+input_path = "~/.config/matugen/templates/waybar-colors.css"
+output_path = "~/.cache/matugen/waybar/colors.css"
+
+# Hook: 生成文件后，发送信号给 Waybar 让其热重载 CSS
+# SIGUSR2 是 Waybar 专门用来重载样式的信号
+[templates.waybar.hook]
+command = "pkill"
+args = ["-SIGUSR2", "waybar"]
+
+[templates.swaync]
+input_path = "~/.config/matugen/templates/swaync-colors.css"
+output_path = "~/.cache/matugen/swaync/colors.css"
+
+# Hook: 生成文件后，重载 swaync 样式
+[templates.swaync.hook]
+command = "swaync-client"
+args = ["-rs"]
+
+
+[templates.nwg-drawer]
+input_path = "~/.config/matugen/templates/nwg-drawer-colors.css"
+output_path = "~/.cache/matugen/nwg-drawer/colors.css"
+
+[templates.wofi-colors]
+input_path = "~/.config/matugen/templates/wofi-colors.css"
+output_path = "~/.cache/matugen/wofi/colors.css"
+
+[templates.eww]
+input_path = "~/.config/matugen/templates/eww-colors.scss"
+output_path = "~/.cache/matugen/eww/colors.scss"
+
+# Hook: 生成文件后，重新加载 eww
+[templates.eww.hook]
+command = "eww"
+args = ["reload"]
+
+[templates.ags]
+input_path = "~/.config/matugen/templates/ags-colors.scss"
+output_path = "~/.cache/matugen/ags/colors.scss"
+
+# Hook: 生成文件后，重启 AGS
+[templates.ags.hook]
+command = "ags"
+args = ["quit"]

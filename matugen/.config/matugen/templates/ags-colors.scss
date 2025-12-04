@@ -1,0 +1,160 @@
+// AGS 控制中心 matugen 颜色模板
+// 由 matugen 自动生成，请勿手动编辑
+
+// ============================================
+// Material You 核心颜色
+// ============================================
+
+// 主色调
+$primary: {{colors.primary.default.hex}};
+$primary-container: {{colors.primary_container.default.hex}};
+$on-primary: {{colors.on_primary.default.hex}};
+$on-primary-container: {{colors.on_primary_container.default.hex}};
+
+// 次要色调
+$secondary: {{colors.secondary.default.hex}};
+$secondary-container: {{colors.secondary_container.default.hex}};
+$on-secondary: {{colors.on_secondary.default.hex}};
+$on-secondary-container: {{colors.on_secondary_container.default.hex}};
+
+// 第三色调
+$tertiary: {{colors.tertiary.default.hex}};
+$tertiary-container: {{colors.tertiary_container.default.hex}};
+$on-tertiary: {{colors.on_tertiary.default.hex}};
+$on-tertiary-container: {{colors.on_tertiary_container.default.hex}};
+
+// 错误色
+$error: {{colors.error.default.hex}};
+$error-container: {{colors.error_container.default.hex}};
+$on-error: {{colors.on_error.default.hex}};
+$on-error-container: {{colors.on_error_container.default.hex}};
+
+// 背景与表面
+$background: {{colors.background.default.hex}};
+$on-background: {{colors.on_background.default.hex}};
+$surface: {{colors.surface.default.hex}};
+$on-surface: {{colors.on_surface.default.hex}};
+$surface-variant: {{colors.surface_variant.default.hex}};
+$on-surface-variant: {{colors.on_surface_variant.default.hex}};
+
+// 轮廓
+$outline: {{colors.outline.default.hex}};
+$outline-variant: {{colors.outline_variant.default.hex}};
+
+// 反转色
+$inverse-surface: {{colors.inverse_surface.default.hex}};
+$inverse-on-surface: {{colors.inverse_on_surface.default.hex}};
+$inverse-primary: {{colors.inverse_primary.default.hex}};
+
+// 阴影与遮罩
+$shadow: {{colors.shadow.default.hex}};
+$scrim: {{colors.scrim.default.hex}};
+
+// ============================================
+// 控制中心专用语义颜色
+// ============================================
+
+// 卡片背景 (毛玻璃效果基础色)
+$card-bg: rgba({{colors.surface.default.hex_stripped}}, 0.85);
+$card-bg-solid: {{colors.surface.default.hex}};
+$card-bg-hover: rgba({{colors.surface_variant.default.hex_stripped}}, 0.9);
+
+// 胶囊容器背景
+$pill-bg: rgba({{colors.surface_variant.default.hex_stripped}}, 0.7);
+$pill-bg-active: {{colors.primary.default.hex}};
+
+// 按钮状态
+$btn-bg: rgba({{colors.surface_variant.default.hex_stripped}}, 0.6);
+$btn-bg-hover: rgba({{colors.surface_variant.default.hex_stripped}}, 0.8);
+$btn-bg-active: {{colors.primary.default.hex}};
+$btn-text: {{colors.on_surface.default.hex}};
+$btn-text-active: {{colors.on_primary.default.hex}};
+
+// 滑块颜色
+$slider-bg: rgba({{colors.outline_variant.default.hex_stripped}}, 0.4);
+$slider-fill: {{colors.on_surface.default.hex}};
+$slider-handle: {{colors.primary.default.hex}};
+
+// 开关颜色
+$switch-bg: rgba({{colors.outline.default.hex_stripped}}, 0.3);
+$switch-bg-active: {{colors.primary.default.hex}};
+$switch-handle: {{colors.surface.default.hex}};
+
+// 文字颜色层级
+$text-primary: {{colors.on_surface.default.hex}};
+$text-secondary: rgba({{colors.on_surface.default.hex_stripped}}, 0.7);
+$text-tertiary: rgba({{colors.on_surface.default.hex_stripped}}, 0.5);
+$text-on-accent: {{colors.on_primary.default.hex}};
+
+// 图标颜色
+$icon-primary: {{colors.on_surface.default.hex}};
+$icon-secondary: rgba({{colors.on_surface.default.hex_stripped}}, 0.6);
+$icon-active: {{colors.on_primary.default.hex}};
+
+// 分割线与边框
+$divider: rgba({{colors.outline.default.hex_stripped}}, 0.2);
+$border: rgba({{colors.outline.default.hex_stripped}}, 0.3);
+
+// 状态颜色
+$success: #4caf50;
+$warning: #ff9800;
+$info: {{colors.tertiary.default.hex}};
+$danger: {{colors.error.default.hex}};
+
+// WiFi 信号强度颜色
+$wifi-excellent: #4caf50;
+$wifi-good: #8bc34a;
+$wifi-fair: #ff9800;
+$wifi-weak: {{colors.error.default.hex}};
+
+// 系统资源环形进度条颜色
+$cpu-color: {{colors.primary.default.hex}};
+$memory-color: {{colors.secondary.default.hex}};
+$disk-color: {{colors.tertiary.default.hex}};
+$temp-color: #ff5722;
+
+// ============================================
+// 设计系统变量
+// ============================================
+
+// 圆角
+$radius-xs: 8px;
+$radius-sm: 12px;
+$radius-md: 16px;
+$radius-lg: 20px;
+$radius-xl: 24px;
+$radius-pill: 50px;
+$radius-circle: 50%;
+
+// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+$spacing-2xl: 24px;
+
+// 阴影
+$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+// 过渡动画
+$transition-fast: 150ms ease;
+$transition-normal: 250ms ease;
+$transition-slow: 350ms ease;
+
+// 字体大小
+$font-xs: 10px;
+$font-sm: 12px;
+$font-md: 14px;
+$font-lg: 16px;
+$font-xl: 20px;
+$font-2xl: 24px;
+$font-3xl: 32px;
+
+// 字重
+$font-normal: 400;
+$font-medium: 500;
+$font-semibold: 600;
+$font-bold: 700;

@@ -6,3 +6,6 @@ yazi:~/.config/yazi
 font:~/.config/fontconfig/fonts.conf
 kitty:~/.config/kitty
 my-scripts:~/.custom/bin
+waybar:~/.config/waybar
+niri:~/.config/niri
+matugen:~/.config/matugen

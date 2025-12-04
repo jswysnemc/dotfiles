@@ -1,0 +1,24 @@
+// Niri 配置文件 - 模块化版本
+// https://yalter.github.io/niri/Configuration:-Introduction
+//
+// 配置已拆分为以下模块：
+// - conf.d/input.kdl       输入设备配置
+// - conf.d/output.kdl      显示器配置
+// - conf.d/layout.kdl      布局配置
+// - conf.d/appearance.kdl  外观配置
+// - conf.d/environment.kdl 环境变量配置
+// - conf.d/autostart.kdl   启动程序配置
+// - conf.d/window-rules.kdl 窗口规则配置
+// - conf.d/binds.kdl       快捷键配置
+//
+// 原配置已备份至 config.kdl.bak
+
+// 加载所有模块配置
+include "conf.d/input.kdl"
+include "conf.d/output.kdl"
+include "conf.d/layout.kdl"
+include "conf.d/appearance.kdl"
+include "conf.d/environment.kdl"
+include "conf.d/autostart.kdl"
+include "conf.d/window-rules.kdl"
+include "conf.d/binds.kdl"

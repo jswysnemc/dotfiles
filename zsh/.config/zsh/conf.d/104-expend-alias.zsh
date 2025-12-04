@@ -76,4 +76,4 @@ expand-alias-widget() {
 
 zle -N expand-alias-widget
 
-bindkey '^x' expand-alias-widget
+bindkey '^b' expand-alias-widget

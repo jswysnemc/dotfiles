@@ -1,0 +1,34 @@
+// 启动程序配置
+// Autostart configuration
+
+// --- 核心服务 ---
+spawn-at-startup "waybar"
+spawn-at-startup "fcitx5"
+// spawn-at-startup "clash-verge"
+// spawn-at-startup "setcap cap_net_bind_service,cap_net_admin,cap_dac_override=+ep /opt/gui-for-singbox/data/sing-box/sing-box"
+spawn-sh-at-startup "/usr/lib/hyprpolkitagent/hyprpolkitagent"
+spawn-sh-at-startup "swaync"
+
+// --- 剪贴板 ---
+spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
+spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
+spawn-sh-at-startup "wl-paste --watch cliphist store"
+spawn-sh-at-startup "clipse --listen"
+spawn-sh-at-startup "~/.config/niri/scripts/clipboard-sync"
+
+// --- 自定义脚本 ---
+spawn-at-startup "~/.config/niri/scripts/swayidle.sh"
+spawn-at-startup "~/.config/niri/scripts/swww.sh"
+
+// --- 环境变量导出 ---
+spawn-sh-at-startup "systemctl --user import-environment XDG_MENU_PREFIX"
+spawn-sh-at-startup "dbus-update-activation-environment XDG_MENU_PREFIX"
+spawn-sh-at-startup "systemctl --user import-environment XCURSOR_THEME XCURSOR_SIZE"
+spawn-sh-at-startup "systemctl --user import-environment QT_QPA_PLATFORMTHEME"
+
+// --- XDG Portal ---
+spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=niri & /usr/lib/xdg-desktop-portal &"
+spawn-sh-at-startup "systemctl --user restart plasma-xdg-desktop-portal-kde"
+
+// --- X11 兼容 ---
+spawn-sh-at-startup "xrdb -merge ~/.config/X11/Xresources"

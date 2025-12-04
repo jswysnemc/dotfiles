@@ -1,0 +1,24 @@
+// 外观配置
+// Appearance configuration
+
+cursor {
+    xcursor-theme "phinger-cursors-light"
+    xcursor-size 24
+}
+
+// 动画设置
+animations {
+    // off
+    // slowdown 3.0
+}
+
+// 禁用 CSD，使用 niri 的窗口装饰
+prefer-no-csd
+
+// 截图保存路径
+screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+// 启动时禁用快捷键提示
+hotkey-overlay {
+    skip-at-startup
+}

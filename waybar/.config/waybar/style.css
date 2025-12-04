@@ -1,0 +1,499 @@
+
+/* ==============================================================================
+ * 1. 颜色变量定义
+ * ============================================================================== */
+@import "colors.css";
+
+/*
+   注意：原本在这里定义的 @define-color 全部删除，
+   因为已经移到了 colors.css 中由 Matugen 自动生成。
+*/
+
+/* ==============================================================================
+ * 2. 全局设置
+ * ============================================================================== */
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "JetBrainsMono Nerd Font Propo", "FiraCode Nerd Font", sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    transition: background-color 0.3s ease;
+}
+
+window#waybar {
+    background: transparent;
+    color: @text-main;
+}
+
+tooltip {
+    /* 替换：#1e1e2e -> @tooltip-bg */
+    background: @tooltip-bg;
+    border: 1px solid @accent-purple;
+    border-radius: 8px;
+}
+
+tooltip label {
+    color: @text-main;
+}
+
+/* ==============================================================================
+ * 3. 模块通用样式 (胶囊风格 & Hover)
+ * ============================================================================== */
+#group-shot-recoder,
+#custom-arch,
+#niri-workspaces,
+#workspaces,
+#group-quick-start,
+#group-ai-drawer,
+#taskbar,
+#network,
+#bluetooth,
+#idle_inhibitor,
+#power-profiles-daemon,
+#battery,
+#clock,
+#tray,
+#custom-mihomo,
+#group-power {
+    background-color: @base-bg;
+    color: @text-main;
+    padding: 0 8px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 12px;
+}
+
+/* --- 通用 Hover 效果 --- */
+#custom-screenshot:hover,
+#custom-wfrec:hover,
+#custom-arch:hover,
+#workspaces button:hover,
+#group-quick-start:hover,
+#group-ai-drawer:hover,
+#taskbar button:hover,
+#group-hardware:hover,
+#network:hover,
+#bluetooth:hover,
+#group-audio:hover,
+#group-backlight:hover,
+#idle_inhibitor:hover,
+#power-profiles-daemon:hover #group-tools:hover,
+#battery:hover,
+#clock:hover,
+#tray:hover,
+#custom-mihomo:hover,
+#group-power:hover {
+    background-color: @hover-bg;
+    /* 替换：#ffffff -> @text-main (或者 @highlight) */
+    color: @text-main;
+    box-shadow: 0 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* ==============================================================================
+ * 4. 左侧模块
+ * ============================================================================== */
+#custom-arch {
+    color: @highlight;
+    /* 替换：rgba(137, 180, 250, 0.2) -> alpha(@highlight, 0.2) */
+    background-color: alpha(@highlight, 0.2);
+}
+
+#custom-arch:hover {
+    background-color: @highlight;
+    /* 替换：#1e1e2e -> @text-on-primary (确保背景变亮时文字反色可见) */
+    color: @text-on-primary;
+}
+
+#custom-separator-line,
+#custom-separator-arrow {
+    background: transparent;
+    color: @text-sub;
+}
+
+/* ==============================================================================
+ * Workspaces: 24px 终极修正 (基于 16px 实体对齐)
+ * ============================================================================== */
+
+/* 1. 外层容器 */
+#workspaces {
+    background-color: @base-bg;
+    border-radius: 12px;
+    padding: 0px 6px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+/* 2. 按钮通用样式 */
+#workspaces button {
+    border: none;
+    box-shadow: none;
+    text-shadow: none;
+    padding: 0;
+    margin: 1px 3px;
+    font-size: 0;
+    min-height: 16px;
+    min-width: 16px;
+    border-radius: 50%;
+
+    background-color: @secondary;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    opacity: 0.8;
+}
+
+/* 3. 激活状态 */
+#workspaces button.active {
+    min-width: 24px;
+    border-radius: 12px;
+    opacity: 1;
+    background-color: @highlight; /* 使用主色 */
+}
+
+/* 4. 悬停状态 */
+#workspaces button:hover {
+    /* 替换：rgba(255, 255, 255, 0.2) -> @hover-bg */
+    background-color: @hover-bg;
+    box-shadow: none;
+}
+
+/* ============================================================================== */
+
+/* 快捷启动 & AI (组内图标) */
+#custom-app-file,
+#custom-app-browser,
+#custom-app-term,
+#custom-ai-main,
+#custom-ai-gpt,
+#custom-ai-gemini,
+#custom-ai-deepseek,
+#custom-ai-aistudio {
+    padding: 0 6px;
+    border-radius: 6px;
+}
+
+#custom-app-file:hover,
+#custom-app-browser:hover,
+#custom-app-term:hover,
+#custom-ai-gpt:hover,
+#custom-ai-gemini:hover,
+#custom-ai-deepseek:hover,
+#custom-ai-aistudio:hover {
+    /* 替换：rgba(255, 255, 255, 0.2) -> @hover-bg */
+    background-color: @hover-bg;
+    color: @highlight;
+}
+
+/* 任务栏 */
+#taskbar button {
+    padding: 0 4px;
+    border-radius: 8px;
+}
+
+#taskbar button.active {
+    color: @text-main;
+    /* 替换：rgba(255, 255, 255, 0.1) -> @white-20 */
+    background: @white-20;
+}
+
+/* ==============================================================================
+ * 5. 右侧模块
+ * ============================================================================== */
+
+/* 网络 */
+#network.disconnected {
+    color: @accent-red;
+}
+
+/* 蓝牙 */
+#bluetooth {
+    color: @highlight;
+}
+
+#bluetooth.disabled {
+    color: @text-sub;
+}
+
+/* -----------------------------------------------------------------------------
+ * 关键修复：滑块 (Slider)
+ * ----------------------------------------------------------------------------- */
+scale {
+    min-width: 60px;
+    min-height: 14px;
+    margin: 0 2px;
+}
+
+scale trough {
+    min-height: 4px;
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    /* 替换：rgba(255, 255, 255, 0.2) -> @white-20 */
+    background-color: @white-20;
+    border-radius: 10px;
+}
+
+scale highlight {
+    background-color: @accent-orange;
+    border-radius: 10px;
+}
+
+scale slider {
+    min-height: 10px;
+    min-width: 10px;
+    margin: -3px 0;
+    /* 替换：#ffffff -> @text-main */
+    background-color: @text-main;
+    border-radius: 50%;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------------- */
+
+/* 电池 */
+#battery {
+    color: @accent-green;
+}
+
+#battery.warning {
+    color: @accent-orange;
+}
+
+#battery.critical {
+    color: @accent-red;
+    animation-name: blink;
+    animation-duration: 0.5s;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+/* 时钟 */
+#clock {
+    background-color: @accent-purple;
+    /* 替换：#1e1e2e -> @text-on-primary (因为背景是 accent-purple) */
+    color: @text-on-primary;
+}
+
+#clock:hover {
+    background-color: @highlight;
+}
+
+/* 托盘 */
+#tray>.passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray>.needs-attention {
+    -gtk-icon-effect: highlight;
+    background-color: @accent-red;
+}
+
+#power{
+    /* 替换：rgba(255, 0, 0, 0.492) -> alpha(@accent-red, 0.5) */
+    background-color: alpha(@accent-red, 0.5);
+    border-radius: 12px;
+    margin: 3px 0;
+}
+
+#custom-power-icon {
+    padding-right: 4px;
+}
+
+/* 电源抽屉内的按钮 */
+#custom-lock,
+#custom-sleep,
+#custom-logout,
+#custom-reboot,
+#custom-shutdown {
+    background: transparent;
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 4px;
+}
+
+/* 电源内部按钮 Hover */
+#custom-lock:hover,
+#custom-sleep:hover,
+#custom-logout:hover,
+#custom-reboot:hover,
+#custom-shutdown:hover {
+    background-color: @hover-bg;
+    color: @accent-red;
+}
+
+#custom-screenshot {
+    border-radius: 4px;
+    padding-right: 4px;
+    padding-left: 4px;
+}
+
+#custom-wfrec {
+    border-radius: 4px;
+    padding-right: 4px;
+    padding-left: 4px;
+}
+
+@keyframes blink {
+    to {
+        background-color: @text-main;
+        color: #000;
+    }
+}
+
+/* Tooltip 重复定义 (合并到顶部，但保留这里以防覆盖) */
+/* 这里只需更新颜色 */
+tooltip {
+    background: @tooltip-bg;
+    border: 1px solid @accent-purple;
+    border-radius: 12px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+tooltip label {
+    color: @text-main;
+    font-family: "JetBrainsMono Nerd Font", "FiraCode Nerd Font", sans-serif;
+    font-size: 12px;
+    padding: 8px 10px;
+}
+
+#power-profiles-daemon {
+    padding: 0 10px;
+    color: @text-main;
+}
+
+#power-profiles-daemon.performance {
+    /* 替换：#f53c3c -> @accent-red */
+    color: @accent-red;
+}
+
+#power-profiles-daemon.balanced {
+    /* 替换：#2980b9 -> @highlight (或蓝色系) */
+    color: @highlight;
+}
+
+#power-profiles-daemon.power-saver {
+    /* 替换：#2ecc71 -> @accent-green */
+    color: @accent-green;
+}
+
+
+/* 1. 硬件组内部 */
+#cpu,
+#memory,
+#temperature {
+    background: transparent;
+    padding: 0 5px;
+    margin: 0;
+}
+
+/* 温度颜色逻辑 */
+#temperature {
+    color: @accent-green;
+}
+
+#temperature.critical {
+    color: @accent-red;
+}
+
+/* 3. 音量 & 亮度组内部 */
+#group-audio scale trough,
+#group-backlight scale trough {
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+/* 咖啡模式激活状态 */
+#idle_inhibitor.activated {
+    /* 替换：#f9e2af -> @accent-orange */
+    color: @accent-orange;
+}
+
+#idle_inhibitor.deactivated {
+    color: @text-sub;
+}
+
+#cpu,
+#temperature,
+#memory {
+    background-color: @base-bg;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+#cpu {
+    border-radius: 12px 0 0 12px;
+    padding-left: 0;
+}
+
+#memory {
+    border-radius: 0 12px 12px 0;
+    border-right: none;
+}
+
+/* 4. 特殊处理温度颜色 */
+#temperature {
+    color: @accent-green;
+}
+
+#temperature.critical {
+    color: @accent-red;
+}
+
+#audio{
+    background-color: @base-bg;
+    border-radius: 12px 0 0 12px;
+    padding-left:4px;
+    padding-right:12px;
+    margin-right:-4px;
+    margin-top:3px;
+    margin-bottom:3px;
+    color: @accent-orange; /* 原来是 yellow */
+}
+
+#g-backlight{
+    background-color: @base-bg;
+    border-radius: 0 12px 12px 0;
+    padding-right:4px;
+    padding-left:4px;
+    margin-left:0;
+    margin-top:3px;
+    margin-bottom:3px;
+}
+
+
+#custom-mihomo {
+    padding: 0 10px;
+    font-weight: bold;
+    color: @text-main;
+}
+
+/* 规则模式 - 绿色或蓝色 */
+#custom-mihomo.rule {
+    background-color: @accent-green; /* 根据你的主题配色调整 */
+    color: #000000;
+}
+
+/* 全局模式 - 红色或紫色 (警示正在消耗流量) */
+#custom-mihomo.global {
+    background-color: @accent-red;
+    color: #000000;
+}
+
+/* 直连模式 - 灰色 (表示未工作) */
+#custom-mihomo.direct {
+    background-color: @accent-orange;
+    color: #000000;
+}
+
+/* 断开连接 */
+#custom-mihomo.disconnected {
+    background-color: #cc241d;
+    color: #ffffff;
+}

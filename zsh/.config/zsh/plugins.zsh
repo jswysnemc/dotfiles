@@ -17,6 +17,10 @@ zi light jeffreytse/zsh-vi-mode
 zi ice wait"0a" lucid atload"zicompinit; zicdreplay" blockf
 zi light zsh-users/zsh-completions
 
+# MoonshotAI/zsh-kimi-cli
+# zi light MoonshotAI/zsh-kimi-cli
+
+
 
 
 # fzf 补全
@@ -58,4 +62,7 @@ alias zl='zoxide query -i'
 alias z='__zoxide_z'
 alias c='print -z $(zl)'
 unset zi
+
+
+
 

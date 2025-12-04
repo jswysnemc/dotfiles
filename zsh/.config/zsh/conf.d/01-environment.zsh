@@ -1,5 +1,6 @@
 export PATH=$HOME/.custom/bin:$PATH
 export PATH=$PATH:$HOME/.local/share/cargo/bin
+export PATH=$PATH:$HOME/.local/bin
 
 # pnpm
 export PNPM_HOME="$HOME/.local/share/pnpm"

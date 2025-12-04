@@ -1,0 +1,146 @@
+// ============================================
+// EWW Matugen 颜色模板
+// 由 matugen 自动生成，请勿手动编辑
+// ============================================
+
+// ==========================================
+// 主要颜色 (Primary)
+// ==========================================
+$primary: {{colors.primary.default.hex}};
+$primary-container: {{colors.primary_container.default.hex}};
+$on-primary: {{colors.on_primary.default.hex}};
+$on-primary-container: {{colors.on_primary_container.default.hex}};
+$inverse-primary: {{colors.inverse_primary.default.hex}};
+
+// ==========================================
+// 次要颜色 (Secondary)
+// ==========================================
+$secondary: {{colors.secondary.default.hex}};
+$secondary-container: {{colors.secondary_container.default.hex}};
+$on-secondary: {{colors.on_secondary.default.hex}};
+$on-secondary-container: {{colors.on_secondary_container.default.hex}};
+
+// ==========================================
+// 第三颜色 (Tertiary)
+// ==========================================
+$tertiary: {{colors.tertiary.default.hex}};
+$tertiary-container: {{colors.tertiary_container.default.hex}};
+$on-tertiary: {{colors.on_tertiary.default.hex}};
+$on-tertiary-container: {{colors.on_tertiary_container.default.hex}};
+
+// ==========================================
+// 错误颜色 (Error)
+// ==========================================
+$error: {{colors.error.default.hex}};
+$error-container: {{colors.error_container.default.hex}};
+$on-error: {{colors.on_error.default.hex}};
+$on-error-container: {{colors.on_error_container.default.hex}};
+
+// ==========================================
+// 背景和表面颜色 (Background & Surface)
+// ==========================================
+$background: {{colors.background.default.hex}};
+$on-background: {{colors.on_background.default.hex}};
+$surface: {{colors.surface.default.hex}};
+$on-surface: {{colors.on_surface.default.hex}};
+$surface-variant: {{colors.surface_variant.default.hex}};
+$on-surface-variant: {{colors.on_surface_variant.default.hex}};
+$inverse-surface: {{colors.inverse_surface.default.hex}};
+$inverse-on-surface: {{colors.inverse_on_surface.default.hex}};
+
+// ==========================================
+// 表面层级颜色 (Surface Levels)
+// ==========================================
+$surface-dim: {{colors.surface_dim.default.hex}};
+$surface-bright: {{colors.surface_bright.default.hex}};
+$surface-container-lowest: {{colors.surface_container_lowest.default.hex}};
+$surface-container-low: {{colors.surface_container_low.default.hex}};
+$surface-container: {{colors.surface_container.default.hex}};
+$surface-container-high: {{colors.surface_container_high.default.hex}};
+$surface-container-highest: {{colors.surface_container_highest.default.hex}};
+
+// ==========================================
+// 轮廓颜色 (Outline)
+// ==========================================
+$outline: {{colors.outline.default.hex}};
+$outline-variant: {{colors.outline_variant.default.hex}};
+
+// ==========================================
+// 阴影和遮罩 (Shadow & Scrim)
+// ==========================================
+$shadow: {{colors.shadow.default.hex}};
+$scrim: {{colors.scrim.default.hex}};
+
+// ==========================================
+// 源颜色 (Source Color)
+// ==========================================
+$source-color: {{colors.source_color.default.hex}};
+
+// ==========================================
+// 语义颜色别名 (Semantic Aliases)
+// ==========================================
+$accent: $primary;
+$accent-bg: $primary-container;
+$fg: $on-background;
+$bg: $background;
+$card-bg: $surface-container;
+$card-bg-hover: $surface-container-high;
+$border: $outline-variant;
+$text-primary: $on-background;
+$text-secondary: $on-surface-variant;
+$text-disabled: transparentize($on-surface, 0.62);
+
+// ==========================================
+// 功能性颜色 (Functional Colors)
+// ==========================================
+$success: #4caf50;
+$warning: #ff9800;
+$info: $tertiary;
+
+// ==========================================
+// 透明度变体 (Transparency Variants)
+// ==========================================
+$primary-alpha-10: transparentize($primary, 0.9);
+$primary-alpha-20: transparentize($primary, 0.8);
+$primary-alpha-30: transparentize($primary, 0.7);
+$primary-alpha-50: transparentize($primary, 0.5);
+$surface-alpha-80: transparentize($surface, 0.2);
+$surface-alpha-90: transparentize($surface, 0.1);
+$background-alpha-80: transparentize($background, 0.2);
+$background-alpha-90: transparentize($background, 0.1);
+
+// ==========================================
+// 渐变颜色 (Gradients)
+// ==========================================
+$gradient-primary: linear-gradient(135deg, $primary 0%, $tertiary 100%);
+$gradient-surface: linear-gradient(180deg, $surface-container-low 0%, $surface-container-high 100%);
+
+// ==========================================
+// 圆角和间距 (Border Radius & Spacing)
+// ==========================================
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-xl: 24px;
+$radius-full: 9999px;
+
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+
+// ==========================================
+// 过渡动画 (Transitions)
+// ==========================================
+$transition-fast: 150ms ease;
+$transition-normal: 250ms ease;
+$transition-slow: 350ms ease;
+
+// ==========================================
+// 阴影 (Box Shadows)
+// ==========================================
+$shadow-sm: 0 1px 2px transparentize($shadow, 0.9);
+$shadow-md: 0 4px 6px transparentize($shadow, 0.85);
+$shadow-lg: 0 10px 15px transparentize($shadow, 0.8);
+$shadow-xl: 0 20px 25px transparentize($shadow, 0.75);

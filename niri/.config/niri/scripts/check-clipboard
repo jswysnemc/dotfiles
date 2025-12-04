@@ -1,0 +1,151 @@
+#!/bin/bash
+
+# check-clipboard - Check X11 and Wayland clipboard contents
+
+echo "=== Clipboard Content Checker ==="
+echo "Timestamp: $(date)"
+echo ""
+
+# Function to check X11 clipboard
+check_x11_clipboard() {
+    echo "--- X11 Clipboard (via xclip) ---"
+    
+    if command -v xclip >/dev/null 2>&1; then
+        # Check if clipboard has any content
+        if DISPLAY=:0 timeout 2 xclip -selection clipboard -o >/dev/null 2>&1; then
+            echo "✓ X11 clipboard has content"
+            
+            # Get available targets/types
+            echo "Available data types:"
+            DISPLAY=:0 timeout 2 xclip -selection clipboard -t TARGETS -o 2>/dev/null | while read -r target; do
+                echo "  - $target"
+                
+                # Check for common image types
+                case "$target" in
+                    image/*|image/png|image/jpeg|image/gif|image/bmp)
+                        echo "    → Image format detected!"
+                        ;;
+                    text/*)
+                        echo "    → Text format"
+                        ;;
+                esac
+            done
+            
+            # Try to get text content (first 100 chars)
+            echo ""
+            echo "Text content preview (first 100 chars):"
+            DISPLAY=:0 timeout 2 xclip -selection clipboard -o 2>/dev/null | head -c 100
+            if [ $? -eq 0 ]; then
+                echo ""
+                echo "..."
+            else
+                echo "No text content or content is binary"
+            fi
+            
+        else
+            echo "✗ X11 clipboard appears to be empty or inaccessible"
+        fi
+    else
+        echo "✗ xclip not found"
+    fi
+    echo ""
+}
+
+# Function to check Wayland clipboard
+check_wayland_clipboard() {
+    echo "--- Wayland Clipboard (via wl-clipboard) ---"
+    
+    if command -v wl-paste >/dev/null 2>&1; then
+        # Check available types
+        echo "Available data types:"
+        types=$(wl-paste --list-types 2>/dev/null)
+        if [ -n "$types" ]; then
+            echo "$types" | while read -r type; do
+                echo "  - $type"
+                
+                # Check for common image types
+                case "$type" in
+                    image/*|image/png|image/jpeg|image/gif|image/bmp)
+                        echo "    → Image format detected!"
+                        ;;
+                    text/*)
+                        echo "    → Text format"
+                        ;;
+                esac
+            done
+            
+            # Try to get text content (first 100 chars)
+            echo ""
+            echo "Text content preview (first 100 chars):"
+            wl-paste 2>/dev/null | head -c 100
+            if [ $? -eq 0 ]; then
+                echo ""
+                echo "..."
+            else
+                echo "No text content or content is binary"
+            fi
+            
+        else
+            echo "✗ Wayland clipboard appears to be empty or no types available"
+        fi
+    else
+        echo "✗ wl-paste not found"
+    fi
+    echo ""
+}
+
+# Function to save clipboard images for verification
+save_clipboard_images() {
+    echo "--- Attempting to Save Clipboard Images ---"
+    
+    # Create temp directory
+    temp_dir="/tmp/clipboard_check_$$"
+    mkdir -p "$temp_dir"
+    
+    # Try to save from X11 clipboard
+    echo "Trying to save from X11 clipboard:"
+    if DISPLAY=:0 timeout 5 xclip -selection clipboard -t image/png -o > "$temp_dir/x11_image.png" 2>/dev/null; then
+        if [ -s "$temp_dir/x11_image.png" ]; then
+            echo "✓ Saved X11 clipboard image to: $temp_dir/x11_image.png"
+            echo "  File size: $(du -h "$temp_dir/x11_image.png" | cut -f1)"
+        else
+            rm -f "$temp_dir/x11_image.png"
+            echo "✗ X11 clipboard image is empty"
+        fi
+    else
+        echo "✗ Failed to save X11 clipboard image"
+    fi
+    
+    # Try to save from Wayland clipboard
+    echo "Trying to save from Wayland clipboard:"
+    if wl-paste --type image/png > "$temp_dir/wayland_image.png" 2>/dev/null; then
+        if [ -s "$temp_dir/wayland_image.png" ]; then
+            echo "✓ Saved Wayland clipboard image to: $temp_dir/wayland_image.png"
+            echo "  File size: $(du -h "$temp_dir/wayland_image.png" | cut -f1)"
+        else
+            rm -f "$temp_dir/wayland_image.png"
+            echo "✗ Wayland clipboard image is empty"
+        fi
+    else
+        echo "✗ Failed to save Wayland clipboard image"
+    fi
+    
+    # Check if any files were created
+    if ls "$temp_dir"/*.png >/dev/null 2>&1; then
+        echo ""
+        echo "Image files saved in: $temp_dir"
+        echo "You can view them with: eog $temp_dir/*.png"
+        echo "Clean up with: rm -rf $temp_dir"
+    else
+        rmdir "$temp_dir" 2>/dev/null
+        echo "No image files were saved"
+    fi
+    echo ""
+}
+
+# Main execution
+check_x11_clipboard
+check_wayland_clipboard
+save_clipboard_images
+
+echo "=== Check Complete ==="

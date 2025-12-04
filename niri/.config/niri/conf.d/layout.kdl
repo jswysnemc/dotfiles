@@ -1,0 +1,45 @@
+// 布局配置
+// Layout configuration
+
+layout {
+    gaps 5
+
+    center-focused-column "never"
+
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+
+    default-column-width { proportion 0.5; }
+
+    focus-ring {
+        width 2
+        active-color "#7fc8ff"
+        inactive-color "#505050"
+    }
+
+    border {
+        off
+        width 1
+        active-color "#ffc87f"
+        inactive-color "#505050"
+        urgent-color "#9b0000"
+    }
+
+    shadow {
+        on
+        softness 20
+        spread 10
+        offset x=0 y=0
+        color "#0007"
+    }
+
+    struts {
+        left -2
+        right -2
+        top -2
+        bottom -2
+    }
+}

@@ -1,0 +1,35 @@
+// 环境变量配置
+// Environment variables configuration
+
+environment {
+    // --- 主题相关 ---
+    XDG_MENU_PREFIX "arch-"
+    QT_QPA_PLATFORMTHEME "qt6ct"
+    XCURSOR_THEME "phinger-cursors-light"
+    THEME_CURSOR "phinger-cursors-light"
+    THEME_CURSOR_SIZE "24"
+
+    // --- 语言区域设置 (中文) ---
+    LANG "zh_CN.UTF-8"
+    LC_CTYPE "zh_CN.UTF-8"
+    LC_NUMERIC "zh_CN.UTF-8"
+    LC_TIME "zh_CN.UTF-8"
+    LC_COLLATE "zh_CN.UTF-8"
+    LC_MONETARY "zh_CN.UTF-8"
+    LC_MESSAGES "zh_CN.UTF-8"
+    LC_PAPER "zh_CN.UTF-8"
+    LC_NAME "zh_CN.UTF-8"
+    LC_ADDRESS "zh_CN.UTF-8"
+    LC_TELEPHONE "zh_CN.UTF-8"
+    LC_MEASUREMENT "zh_CN.UTF-8"
+    LC_IDENTIFICATION "zh_CN.UTF-8"
+    LC_ALL null
+
+    // --- 输入法配置 (Fcitx5) ---
+    XMODIFIERS "@im=fcitx"
+    QT_IM_MODULE "fcitx"
+    QT_IM_MODULES "wayland;fcitx"
+    GTK_IM_MODULE null
+    SDL_IM_MODULE null
+    GLFW_IM_MODULE null
+}

@@ -1,0 +1,153 @@
+// 窗口规则配置
+// Window rules configuration
+
+// --- 全局窗口规则 ---
+window-rule {
+    clip-to-geometry true
+    opacity 0.99
+    draw-border-with-background false
+}
+
+window-rule {
+    geometry-corner-radius 2
+    clip-to-geometry false
+}
+
+// --- WezTerm 修复 ---
+window-rule {
+    match app-id=r#"^org\.wezfurlong\.wezterm$"#
+    default-column-width {}
+}
+
+// --- Fcitx5 输入法窗口 ---
+window-rule {
+    match app-id="fcitx"
+    match app-id="org.fcitx.Fcitx5"
+    match title="Fcitx5 Input Window"
+
+    focus-ring {
+        off
+    }
+    border {
+        off
+    }
+    shadow {
+        off
+    }
+    open-floating true
+}
+
+// --- 浮动窗口规则 ---
+window-rule {
+    match app-id="(?i)copyq"
+    open-floating true
+    min-width 800
+    max-width 800
+    min-height 600
+    max-height 600
+}
+
+window-rule {
+    match app-id="(?i)clash-verge"
+    open-floating true
+}
+
+window-rule {
+    match app-id="(?i)kitty-float"
+    open-floating true
+    default-column-width { fixed 1200; }
+    default-window-height { fixed 1000; }
+}
+
+window-rule {
+    match app-id="missioncenter"
+    open-floating true
+    default-column-width { fixed 1200; }
+    default-window-height { fixed 1000; }
+}
+
+// --- Firefox 画中画 ---
+window-rule {
+    match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    open-floating true
+}
+
+// --- 通用浮动窗口 ---
+window-rule {
+    match app-id="nm-connection-editor"
+    match app-id="steam" title="Friends List"
+    match app-id="blueberry.py" title="蓝牙"
+    match app-id="flameshot"
+    match app-id="com.github.hluk.copyq"
+    match app-id="be.alexandervanhee.gradia"
+    match app-id="org.pulseaudio.pavucontrol" title="音量控制"
+    match app-id="org.gnome.clocks" title="时钟"
+    match app-id="org.gnome.FileRoller"
+    match app-id="thunar" title="文件操作进度"
+    match app-id="waypaper"
+    match app-id="markpix"
+    match app-id="imv"
+    match app-id="clipse-gui"
+    match app-id="img-viewer"
+    match app-id="pot"
+    match app-id="mihomo-zashboard-nativefier-5a68a2"
+    match app-id="chrome-127.0.0.1__ui_zashboard_-Default"
+    match title="图片查看器"
+    match title="群聊的聊天记录"
+    match title="画中画"
+    match title="重命名"
+    match title="聊天记录"
+    match title="日历"
+    match title="图片和视频"
+    match title="视频播放器"
+    open-floating true
+}
+
+window-rule{
+
+    match title="新建数据库"
+    match app-id="navicat"
+
+    open-floating true
+}
+
+// --- 特殊窗口位置 ---
+window-rule {
+    match title="LongShotCtrl"
+    default-floating-position x=2100 y=40
+}
+
+window-rule {
+    match title="好友列表"
+    max-width 450
+}
+
+// --- 禁止自动聚焦 ---
+window-rule {
+    match app-id="fcitx"
+    match app-id="wechat"
+    match title="QQ"
+    open-focused false
+}
+
+// --- 全屏窗口 ---
+window-rule {
+    match title="gsr ui"
+    match app-id="waydroid"
+    open-fullscreen true
+    open-floating true
+    focus-ring {
+        off
+    }
+    shadow {
+        off
+    }
+}
+
+// --- 右上角浮动窗口 ---
+window-rule {
+    match app-id="blueman-manager" title="蓝牙设备"
+    match app-id="org.pulseaudio.pavucontrol" title="音量控制"
+    default-floating-position x=0 y=0 relative-to="top-right"
+    open-floating true
+}

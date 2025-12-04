@@ -1,0 +1,37 @@
+// 输入设备配置
+// Input device configuration
+
+input {
+    keyboard {
+        xkb {
+            // layout "us,ru"
+            // options "grp:win_space_toggle,compose:ralt,ctrl:nocaps"
+        }
+
+        // 启动时启用数字小键盘
+        numlock
+    }
+
+    touchpad {
+        tap
+        natural-scroll
+    }
+
+    mouse {
+        // natural-scroll
+        // accel-speed 0.2
+        // accel-profile "flat"
+    }
+
+    trackpoint {
+        // natural-scroll
+        // accel-speed 0.2
+        // accel-profile "flat"
+    }
+
+    // 鼠标在新窗口获得焦点时跳到其中心
+    warp-mouse-to-focus
+
+    // 鼠标移动进入窗口时自动聚焦
+    focus-follows-mouse
+}

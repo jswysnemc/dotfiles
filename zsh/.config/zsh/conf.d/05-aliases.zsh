@@ -15,6 +15,7 @@ alias wshowkeys="nohup wshowkeys -a bottom -F 'Sans Bold 30' -s '#B5B520ff' -f  
 alias uvr='/home/snemc/.conda/envs/uvr5/bin/python /home/snemc/.local/share/uvr5/ultimatevocalremovergui/UVR.py'
 alias tssh='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
 alias npm=pnpm
+alias yay=paru
 alias k="ps aux | fzf --height 40% --reverse | awk '{print $2}' | xargs kill -9"
 alias gc="git clone"
 alias lg="lazygit"
@@ -23,10 +24,10 @@ alias cc="ccr code"
 alias cu="ccr ui"
 
 # systemctl 相关短别名
-alias ssa="systemctl status"
-alias sss="systemctl start"
-alias sse="systemctl enable"
-alias sst="systemctl stop"
+alias ssta="systemctl status"
+alias sstr="systemctl start"
+alias ssen="systemctl enable"
+alias sstp="systemctl stop"
 
 alias zl='zoxide query -i' # z + Enter 打开 fzf 交互界面
 alias c='print -z $(zl)'

@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# ================= 配置 =================
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+TMP_VIDEO="/tmp/longshot_${TIMESTAMP}.mp4"
+OUTPUT_IMG="$HOME/Pictures/longshot_${TIMESTAMP}.png"
+# =======================================
+
+# 1. 检查必要命令
+for cmd in wf-recorder slurp wf-stitch zenity; do
+    if ! command -v $cmd &> /dev/null; then
+        notify-send "错误" "未找到命令 $cmd，请先安装"
+        exit 1
+    fi
+done
+
+# 2. 选取区域
+# 使用 slurp 选区，如果用户取消则退出
+GEOMETRY=$(slurp)
+if [ -z "$GEOMETRY" ]; then
+    exit 0
+fi
+
+# 3. 启动录制 (后台)
+# 使用 yuv420p 以获得最大兼容性
+wf-recorder -g "$GEOMETRY" -f "$TMP_VIDEO" -c libx264 -p crf=0 -p preset=ultrafast -p pixel_format=yuv420p &
+REC_PID=$!
+
+# 给 wf-recorder 一点启动时间，并检查是否存活
+sleep 0.5
+if ! kill -0 $REC_PID 2>/dev/null; then
+    notify-send "错误" "录屏进程启动失败"
+    exit 1
+fi
+
+# 4. 启动“键盘监听”窗口 (Zenity)
+# 原理：Zenity 会阻塞脚本，直到用户点击按钮或按回车。
+# --title: 标题
+# --text: 提示内容
+# --ok-label: 按钮名字
+# 注意：如果不指定 --cancel-label，关闭窗口也会返回非0值，我们统一处理
+zenity --info \
+    --title="正在录制长截图" \
+    --text="1. 请匀速滚动屏幕内容\n2. 滚动完毕后，请按 <b>Enter</b> 键或点击下方按钮结束" \
+    --ok-label="停止录制并拼接" \
+    --width=300
+
+# =======================================
+# 当 Zenity 关闭后 (用户按回车或点击停止)，脚本继续执行
+# =======================================
+
+# 5. 停止录制
+# 发送 SIGINT 让 ffmpeg 优雅结束（写完文件尾）
+kill -SIGINT $REC_PID
+# 等待进程彻底退出
+wait $REC_PID 2>/dev/null
+
+notify-send "长截图" "正在处理拼接，请稍候..."
+
+# 6. 调用 Python 脚本处理
+# 捕获日志方便排错
+LOG_FILE="/tmp/longshot.log"
+wf-stitch "$TMP_VIDEO" "$OUTPUT_IMG" > "$LOG_FILE" 2>&1
+
+# 7. 清理与展示
+rm -f "$TMP_VIDEO"
+
+if [ -f "$OUTPUT_IMG" ]; then
+    notify-send "完成" "图片已保存: $(basename "$OUTPUT_IMG")"
+    xdg-open "$OUTPUT_IMG"
+else
+    notify-send "失败" "拼接失败，请查看日志: $LOG_FILE"
+fi
