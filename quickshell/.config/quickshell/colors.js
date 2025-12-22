@@ -1,0 +1,1 @@
+/home/snemc/.cache/matugen/quickshell/colors.js

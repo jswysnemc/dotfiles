@@ -9,3 +9,4 @@ my-scripts:~/.custom/bin
 waybar:~/.config/waybar
 niri:~/.config/niri
 matugen:~/.config/matugen
+quickshell:~/.config/quickshell
