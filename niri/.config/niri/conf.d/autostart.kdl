@@ -2,12 +2,16 @@
 // Autostart configuration
 
 // --- 核心服务 ---
-spawn-at-startup "waybar"
 spawn-at-startup "fcitx5"
 // spawn-at-startup "clash-verge"
 // spawn-at-startup "setcap cap_net_bind_service,cap_net_admin,cap_dac_override=+ep /opt/gui-for-singbox/data/sing-box/sing-box"
 spawn-sh-at-startup "/usr/lib/hyprpolkitagent/hyprpolkitagent"
-spawn-sh-at-startup "swaync"
+// spawn-sh-at-startup "swaync"
+spawn-sh-at-startup "mako"
+spawn-sh-at-startup "/usr/bin/python ~/.config/quickshell/notification_daemon.py"
+
+spawn-sh-at-startup "sticky-notes start-server"
+
 
 // --- 剪贴板 ---
 spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
@@ -31,4 +35,8 @@ spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLA
 spawn-sh-at-startup "systemctl --user restart plasma-xdg-desktop-portal-kde"
 
 // --- X11 兼容 ---
-spawn-sh-at-startup "xrdb -merge ~/.config/X11/Xresources"
+// spawn-sh-at-startup "xrdb -merge ~/.config/X11/Xresources"
+
+
+// waybar 延迟启动，等待 DBus 服务就绪
+spawn-sh-at-startup "waybar"

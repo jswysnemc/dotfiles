@@ -1,6 +1,24 @@
 // 窗口规则配置
 // Window rules configuration
 
+
+layer-rule {
+    // 匹配常见的壁纸工具，确保其中有一个是你正在用的
+    match namespace="^swaybg$"
+    match namespace="^swww-daemon$"
+    match namespace="^wbg$"
+    match namespace="^hyprpaper$"
+
+    // 核心指令：将它们放入全局背景层，不随工作区缩放
+    place-within-backdrop true
+}
+
+layout {
+    // 格式是 RRGGBBAA，最后的 00 代表完全透明
+    // 只有这样，才能透视看到底层的壁纸
+    background-color "#00000000"
+}
+
 // --- 全局窗口规则 ---
 window-rule {
     clip-to-geometry true
@@ -92,14 +110,20 @@ window-rule {
     match app-id="pot"
     match app-id="mihomo-zashboard-nativefier-5a68a2"
     match app-id="chrome-127.0.0.1__ui_zashboard_-Default"
+    match app-id="image-viewer"
+    match app-id="yad"
+    match app-id="rnote"
+    match app-id="com.snemc.sticky-notes"
     match title="图片查看器"
     match title="群聊的聊天记录"
+    match title="视觉模型处理"
     match title="画中画"
     match title="重命名"
     match title="聊天记录"
     match title="日历"
     match title="图片和视频"
     match title="视频播放器"
+    match title="yad"
     open-floating true
 }
 

@@ -57,7 +57,8 @@ tooltip label {
 #battery,
 #clock,
 #tray,
-#custom-mihomo,
+#proxies,
+#custom-media,
 #group-power {
     background-color: @base-bg;
     color: @text-main;
@@ -87,7 +88,8 @@ tooltip label {
 #battery:hover,
 #clock:hover,
 #tray:hover,
-#custom-mihomo:hover,
+#proxies:hover,
+#custom-media:hover,
 #group-power:hover {
     background-color: @hover-bg;
     /* 替换：#ffffff -> @text-main (或者 @highlight) */
@@ -468,32 +470,184 @@ tooltip label {
 }
 
 
-#custom-mihomo {
+/* ==============================================================================
+ * 代理控制组 (Proxies Group)
+ * ============================================================================== */
+#proxies {
+    background-color: @base-bg;
+    border-radius: 12px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 2px;
+    margin-right: 2px;
+    padding: 0 4px;
+}
+
+/* 主状态模块 - 显示内核+模式 */
+#custom-proxy-status {
     padding: 0 10px;
     font-weight: bold;
     color: @text-main;
+    border-right: 1px solid alpha(@text-sub, 0.3);
 }
 
-/* 规则模式 - 绿色或蓝色 */
-#custom-mihomo.rule {
-    background-color: @accent-green; /* 根据你的主题配色调整 */
-    color: #000000;
+#custom-proxy-status.rule {
+    color: @accent-green;
 }
 
-/* 全局模式 - 红色或紫色 (警示正在消耗流量) */
-#custom-mihomo.global {
+#custom-proxy-status.global {
+    color: @accent-red;
+}
+
+#custom-proxy-status.direct {
+    color: @accent-orange;
+}
+
+#custom-proxy-status.stopped,
+#custom-proxy-status.disconnected {
+    color: @text-sub;
+}
+
+/* 内核切换按钮 - 紫色/蓝色区分 */
+#custom-proxy-kernel {
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+}
+
+#custom-proxy-kernel.mihomo {
+    color: #1e1e2e;
+    background-color: @accent-purple;
+}
+
+#custom-proxy-kernel.singbox {
+    color: #1e1e2e;
+    background-color: #89b4fa;
+}
+
+#custom-proxy-kernel.stopped {
+    color: @text-sub;
+    background-color: transparent;
+}
+
+/* 电源按钮 - 绿色运行/红色停止 */
+#custom-proxy-power {
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+}
+
+#custom-proxy-power.stopped {
+    color: #1e1e2e;
     background-color: @accent-red;
-    color: #000000;
 }
 
-/* 直连模式 - 灰色 (表示未工作) */
-#custom-mihomo.direct {
+#custom-proxy-power.running {
+    color: #1e1e2e;
+    background-color: @accent-green;
+}
+
+/* 模式切换按钮 - 带背景色区分 */
+#custom-proxy-rule,
+#custom-proxy-global,
+#custom-proxy-direct {
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+    color: @text-main;
+    background-color: #45475a;
+}
+
+#custom-proxy-rule.active {
+    color: #1e1e2e;
+    background-color: @accent-green;
+}
+
+#custom-proxy-global.active {
+    color: #1e1e2e;
+    background-color: @accent-red;
+}
+
+#custom-proxy-direct.active {
+    color: #1e1e2e;
     background-color: @accent-orange;
-    color: #000000;
 }
 
-/* 断开连接 */
-#custom-mihomo.disconnected {
-    background-color: #cc241d;
-    color: #ffffff;
+/* 代理组内按钮悬停效果 */
+#custom-proxy-status:hover {
+    background-color: alpha(@text-main, 0.1);
+    border-radius: 6px;
+}
+
+#custom-proxy-kernel:hover,
+#custom-proxy-power:hover {
+    box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.15);
+}
+
+#custom-proxy-rule:hover {
+    color: #1e1e2e;
+    background-color: @accent-green;
+}
+
+#custom-proxy-global:hover {
+    color: #1e1e2e;
+    background-color: @accent-red;
+}
+
+#custom-proxy-direct:hover {
+    color: #1e1e2e;
+    background-color: @accent-orange;
+}
+
+/* 抽屉子元素样式 */
+.child-proxies {
+    padding: 0 2px;
+}
+
+/* ==============================================================================
+ * 媒体播放模块
+ * ============================================================================== */
+#custom-media {
+    color: @accent-green;
+}
+
+#custom-media.playing {
+    color: @accent-green;
+}
+
+#custom-media.paused {
+    color: @accent-yellow;
+}
+
+#custom-media.stopped {
+    color: @text-dim;
+}
+
+#custom-media.empty {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    background: transparent;
+}
+
+/* ==============================================================================
+ * 音律条动画
+ * ============================================================================== */
+#custom-visualizer {
+    color: @accent-green;
+    padding: 0 4px;
+    margin: 0;
+    font-size: 10px;
+    min-width: 0;
+}
+
+#custom-visualizer.playing {
+    color: @accent-green;
+}
+
+#custom-visualizer.hidden {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    background: transparent;
 }

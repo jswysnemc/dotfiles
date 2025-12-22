@@ -1,0 +1,1 @@
+ pkill -f "POPUP_TYPE=calendar"; POPUP_TYPE=calendar quickshell -c ~/.config/quickshell

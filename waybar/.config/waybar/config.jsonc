@@ -2,21 +2,23 @@
     // ==============================================================================
     // 全局配置 (Global Configuration)
     // ==============================================================================
-    "layer": "top",           // 顶层显示，防止被窗口遮挡
-    "position": "top",        // 位置：顶部
-    "height": 24,             // 高度：稍微增加一点以容纳图标，24有点挤
-    "spacing": 4,             // 模块间距：给予少量间距，避免过于拥挤
+    "layer": "top", // 顶层显示，防止被窗口遮挡
+    "position": "top", // 位置：顶部
+    "height": 24, // 高度：稍微增加一点以容纳图标，24有点挤
+    "spacing": 4, // 模块间距：给予少量间距，避免过于拥挤
     "reload_style_on_change": true, // 修改CSS后自动重载
-
     // ==============================================================================
     // 模块布局 (Module Layout)
     // ==============================================================================
-
     // 左侧：Logo -> 工作区 -> 快捷启动 -> AI工具 -> 任务栏
     "modules-left": [
         "custom/arch",
+        "custom/weather",
         "custom/separator-line",
         "niri/workspaces",
+        "custom/separator-line",
+        "custom/media",
+        "custom/visualizer",
         "custom/separator-line",
         "group/quick-start",
         "custom/separator-arrow",
@@ -25,33 +27,28 @@
         "group/shot-recoder",
         "wlr/taskbar"
     ],
-
     // 中间：当前窗口标题
     "modules-center": [
         "niri/window"
     ],
-
     // 右侧：硬件监控 -> 网络 -> 蓝牙 -> 音频 -> 亮度 -> 电池 -> 抑制休眠 -> 时间 -> 托盘 -> 电源
     "modules-right": [
-        "custom/swaync",
-        "group/hardware",     // CPU/内存/温度
-        "network",            // 网络
-        "bluetooth",          // 蓝牙
-        "group/audio",        // 音量
-        "group/g-backlight",    // 屏幕亮度 (原 ddcutil)
-        "group/tools",        // 新增：咖啡 + 性能 (合并药丸)
-        "battery",            // 电池
-        "clock",              // 时钟
-        "custom/mihomo",              // 切换mihomo模式
-        "tray",               // 托盘
-        "group/power"         // 电源菜单
+        "custom/notification",
+        "group/hardware", // CPU/内存/温度
+        "network", // 网络
+        "bluetooth", // 蓝牙
+        "group/audio", // 音量
+        "group/g-backlight", // 屏幕亮度 (原 ddcutil)
+        "group/tools", // 新增：咖啡 + 性能 (合并药丸)
+        "battery", // 电池
+        "clock", // 时钟
+        "group/proxies", // 代理控制组
+        "tray", // 托盘
+        "group/power" // 电源菜单
     ],
-
-
     // ==============================================================================
     // 模块详情配置 (Module Configurations)
     // ==============================================================================
-
     // --- Logo / 启动器 ---
     "custom/arch": {
         "format": "",
@@ -59,7 +56,13 @@
         "on-click": "LANG=zh_CN.UTF-8 nwg-drawer",
         "on-click-right": "killall waybar ; waybar"
     },
-
+    // --- 天气 ---
+    "custom/weather": {
+        "exec": "python3 ~/.config/quickshell/scripts/weather_fetch.py --waybar",
+        "return-type": "json",
+        "interval": 1800,
+        "on-click": "~/.config/waybar/scripts/weather.sh"
+    },
     // --- 装饰性分隔符 ---
     "custom/separator-arrow": {
         "format": "󱋱",
@@ -69,19 +72,40 @@
         "format": "",
         "tooltip": false
     },
-
-
     // --- Niri 工作区 ---
     "niri/workspaces": {
         "format": "{index}",
         "format-icons": {}
     },
 
-
+    // --- 媒体播放模块 ---
+    "custom/media": {
+        "format": "{}",
+        "return-type": "json",
+        "max-length": 5,
+        "exec": "~/.config/quickshell/scripts/media_status.sh",
+        "on-click-right": "POPUP_TYPE=media quickshell -c ~/.config/quickshell",
+        "on-click": "playerctl play-pause",
+        "on-scroll-up": "playerctl next",
+        "on-scroll-down": "playerctl previous",
+        "escape": true
+    },
+    // --- 音律条动画 ---
+    "custom/visualizer": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/quickshell/scripts/media_visualizer.sh",
+        "on-click": "playerctl play-pause",
+        "escape": true
+    },
     // --- 快捷启动组 (Quick Start) ---
     "group/quick-start": {
         "orientation": "horizontal",
-        "modules": ["custom/app-file", "custom/app-browser", "custom/app-term"]
+        "modules": [
+            "custom/app-file",
+            "custom/app-browser",
+            "custom/app-term"
+        ]
     },
     "custom/app-file": {
         "format": "",
@@ -98,8 +122,6 @@
         "tooltip-format": "终端 (Kitty)",
         "on-click": "kitty"
     },
-
-
     // --- AI 工具抽屉 (AI Drawer) ---
     "group/ai-drawer": {
         "orientation": "horizontal",
@@ -116,37 +138,52 @@
             "custom/ai-deepseek"
         ]
     },
-    "custom/ai-main": { "format": "", "tooltip-format": "AI 助手集合" },
-    "custom/ai-gpt": { "format": "GPT", "on-click": "xdg-open https://chatgpt.com" },
-    "custom/ai-gemini": { "format": "Gemini", "on-click": "xdg-open https://gemini.google.com" },
-    "custom/ai-aistudio": { "format": "Ai-studio", "on-click": "xdg-open https://aistudio.google.com" },
-    "custom/ai-deepseek": { "format": "DeepSeek", "on-click": "xdg-open https://chat.deepseek.com" },
-
-
+    "custom/ai-main": {
+        "format": "",
+        "tooltip-format": "AI 助手集合"
+    },
+    "custom/ai-gpt": {
+        "format": "GPT",
+        "on-click": "xdg-open https://chatgpt.com"
+    },
+    "custom/ai-gemini": {
+        "format": "Gemini",
+        "on-click": "xdg-open https://gemini.google.com"
+    },
+    "custom/ai-aistudio": {
+        "format": "Ai-studio",
+        "on-click": "xdg-open https://aistudio.google.com"
+    },
+    "custom/ai-deepseek": {
+        "format": "DeepSeek",
+        "on-click": "xdg-open https://chat.deepseek.com"
+    },
     //截图
     "group/shot-recoder": {
         "orientation": "horizontal",
-        "modules": ["custom/screenshot", "custom/wfrec"]
+        "modules": [
+            "custom/screenshot",
+            "custom/wfrec"
+        ]
     },
-   "custom/screenshot" :{
-    "format": "",
-    "tooltip-format": "Click to easy Screenshot Right Click to power screenshot Middle Click to longshot",
-    "on-click":"~/.config/waybar/scripts/screenshot.sh",
-    "on-click-right": "~/.config/waybar/scripts/power-screenshot.sh",
-    "on-click-middle":"~/.config/waybar/scripts/longshot.sh"
-  },
-  //wf-recorder
-  "custom/wfrec": {
-  "exec": "~/.config/waybar/scripts/wf-recorder.sh status-json",
-  "return-type": "json",
-  "interval": 1,                 // 每秒刷新一次
-  "signal": 9,                   // 与脚本里的 WAYBAR_SIG 对应
-  "tooltip": true,
-  "on-click": "~/.config/waybar/scripts/wf-recorder.sh toggle",  // 左键：开始/停止
-  "on-click-right": "~/.config/waybar/scripts/wf-recorder.sh stop"
-  },
-
-
+    "custom/screenshot": {
+        "format": "",
+        "tooltip-format": "Click to easy Screenshot Right Click to power screenshot Middle Click to longshot",
+        "on-click": "~/.config/waybar/scripts/screenshot.sh",
+        "on-click-right": "~/.config/waybar/scripts/power-screenshot.sh",
+        // "on-click-middle":"~/.config/waybar/scripts/longshot.sh"
+        "on-click-middle": "~/.config/waybar/scripts/scroll-capture.sh"
+    },
+    //wf-recorder
+    "custom/wfrec": {
+        "exec": "~/.config/waybar/scripts/wf-recorder.sh status-json",
+        "return-type": "json",
+        "interval": 1, // 每秒刷新一次
+        "signal": 9, // 与脚本里的 WAYBAR_SIG 对应
+        "tooltip": true,
+        "on-click": "~/.config/waybar/scripts/wf-recorder.sh toggle", // 左键：开始/停止
+        "on-click-right": "~/.config/waybar/scripts/wf-recorder.sh stop"
+    },
     // --- Niri 任务栏 (Taskbar) ---
     // 注意：这里修复了键名，使其与 modules-left 中的引用一致
     // "wlr/niri-taskbar": {
@@ -163,8 +200,6 @@
     //     "on-click": "activate",
     //     "on-click-middle": "close"
     // },
-
-
     // 备用标准任务栏 (已注释)
     "wlr/taskbar": {
         "format": "{icon}",
@@ -172,14 +207,15 @@
         "tooltip-format": "{title}",
         "on-click": "activate",
         "on-click-middle": "close",
-        "ignore-list": ["wofi", "waybar"]
+        "ignore-list": [
+            "wofi",
+            "waybar"
+        ]
     },
-
-
     // --- 窗口标题与控制 (Window) ---
     "niri/window": {
         "format": "{title}",
-        "max-length": 50,        // 稍微增加长度限制
+        "max-length": 50, // 稍微增加长度限制
         "separate-outputs": true,
         "rewrite": {
             "(.*) - Mozilla Firefox": "Firefox  ",
@@ -194,8 +230,6 @@
         // 右键：切换预设列宽
         "on-click-right": "niri msg action switch-preset-column-width"
     },
-
-
     // ==================== 硬件监控组 (Hardware) ====================
     "group/hardware": {
         "orientation": "inherit",
@@ -221,15 +255,17 @@
         "critical-threshold": 80, // 超过80度变红
         "format-critical": "{icon} {temperatureC}°C",
         "format": "{icon} {temperatureC}°C",
-        "format-icons": ["", "", ""] // 温度计图标随温度变化
+        "format-icons": [
+            "",
+            "",
+            ""
+        ] // 温度计图标随温度变化
     },
     "memory": {
         "format": " {percentage}%",
         "interval": 5,
         "on-click": "kitty -e btop"
     },
-
-
     // --- 网络模块 (Network) ---
     "network": {
         "interval": 1,
@@ -238,11 +274,16 @@
         "format-ethernet": "󰈀 <span color='#fab387'>↓{bandwidthDownBytes}</span> <span color='#a6e3a1'>↑{bandwidthUpBytes}</span>",
         "format-disconnected": "󰤮",
         "tooltip-format": "{essid} ({signalStrength}%)\nIP: {ipaddr}",
-        "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+        "format-icons": [
+            "󰤯",
+            "󰤟",
+            "󰤢",
+            "󰤥",
+            "󰤨"
+        ],
         // "on-click": "nmtui",
         "on-click": "~/.config/waybar/scripts/wifi.sh"
     },
-
     // --- 蓝牙模块 (Bluetooth) ---
     "bluetooth": {
         "format": "",
@@ -254,17 +295,17 @@
         "on-click": "blueman-manager",
         //"on-click": "pkill -f 'POPUP_TYPE=bluetooth' || POPUP_TYPE=bluetooth quickshell -c ~/.config/quickshell"
     },
-
-
     // ==================== 多媒体与控制 (Media & Control) ====================
-
     // --- 音量控制组 (Audio) ---
     "group/audio": {
         "orientation": "inherit",
         "drawer": {
             "transition-left-to-right": false
         },
-        "modules": ["pulseaudio", "pulseaudio/slider"]
+        "modules": [
+            "pulseaudio",
+            "pulseaudio/slider"
+        ]
     },
     "pulseaudio": {
         "format": "{icon} {volume}%",
@@ -277,7 +318,11 @@
             "phone": "",
             "portable": "",
             "car": "",
-            "default": ["", "", ""]
+            "default": [
+                "",
+                "",
+                ""
+            ]
         },
         "scroll-step": 5,
         "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
@@ -290,8 +335,6 @@
         "max": 100,
         "orientation": "horizontal"
     },
-
-
     // --- 背光控制组 (Backlight) ---
     "group/g-backlight": {
         "orientation": "inherit",
@@ -306,7 +349,17 @@
     "backlight": {
         "device": "intel_backlight", // 如果不工作，尝试删除此行自动检测
         "format": "{icon} {percent}%",
-        "format-icons": ["", "", "", "", "", "", "", "", ""],
+        "format-icons": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
         "tooltip": false
     },
     "backlight/slider": {
@@ -314,9 +367,6 @@
         "max": 100,
         "orientation": "horizontal"
     },
-
-
-
     //==================== 新增：工具组 (Tools) ====================
     "group/tools": {
         "orientation": "inherit",
@@ -329,8 +379,8 @@
     "idle_inhibitor": {
         "format": "{icon}",
         "format-icons": {
-            "activated": "󰅶",      // 激活：常亮（咖啡）
-            "deactivated": "󰾪"     // 未激活：省电（空杯）
+            "activated": "󰅶", // 激活：常亮（咖啡）
+            "deactivated": "󰾪" // 未激活：省电（空杯）
         },
         "tooltip-format-activated": "咖啡模式：屏幕常亮",
         "tooltip-format-deactivated": "省电模式：自动息屏"
@@ -341,13 +391,11 @@
         "tooltip-format": "Performance mode:{profile}",
         "tooltip": true,
         "format-icons": {
-        "performance": "",
-        "balanced": "",
-        "power-saver": "",
+            "performance": "",
+            "balanced": "",
+            "power-saver": "",
         },
     },
-
-
     // --- 电池 (Battery) ---
     "battery": {
         "interval": 10,
@@ -358,62 +406,136 @@
         "format": "{icon} {capacity}%",
         "format-charging": "󰂄 {capacity}%",
         "format-plugged": " {capacity}%",
-        "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂂", "󰁹"],
+        "format-icons": [
+            "󰂎",
+            "󰁺",
+            "󰁻",
+            "󰁼",
+            "󰁽",
+            "󰁾",
+            "󰁿",
+            "󰂀",
+            "󰂂",
+            "󰁹"
+        ],
         "tooltip-format": "{timeTo} | Power: {power}W"
     },
-
-
     // --- 时钟 (Clock) ---
     "clock": {
         "interval": 60,
         "format": " {:%H:%M}",
         "format-alt": " {:%Y-%m-%d}",
-        "tooltip-format": "<tt><small>{calendar}</small></tt>"
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "on-click-right": "~/.config/waybar/scripts/calendar.sh"
     },
-
-
-    // -- mihomo ---
-
-    "custom/mihomo": {
+    // ==================== 代理控制组 (Proxies) ====================
+    "group/proxies": {
+        "orientation": "horizontal",
+        "drawer": {
+            "transition-duration": 500,
+            "children-class": "child-proxies",
+            "transition-left-to-right": false
+        },
+        "modules": [
+            "custom/proxy-status",
+            "custom/proxy-kernel",
+            "custom/proxy-power",
+            "custom/proxy-rule",
+            "custom/proxy-global",
+            "custom/proxy-direct"
+        ]
+    },
+    "custom/proxy-status": {
         "format": "{}",
         "return-type": "json",
-        "exec": "~/.config/waybar/scripts/mihomo-toggle.sh",
-        "on-click": "~/.config/waybar/scripts/mihomo-toggle.sh toggle",
-        "on-click-right": "google-chrome-stable --app=\"http://127.0.0.1:9090/ui/zashboard/#/proxies\"",
+        "exec": "~/.config/waybar/scripts/proxies-control.sh status",
+        "on-click": "~/.config/waybar/scripts/proxies-control.sh toggle-mode",
+        "on-click-right": "google-chrome-stable --app=\"http://127.0.0.1:9090/ui/#/proxies\"",
         "interval": 5,
         "signal": 8
     },
-
-
+    "custom/proxy-kernel": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/waybar/scripts/proxies-control.sh kernel-status",
+        "on-click": "~/.config/waybar/scripts/proxies-control.sh switch-kernel",
+        "interval": 5,
+        "signal": 8
+    },
+    "custom/proxy-power": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/waybar/scripts/proxies-control.sh power-status",
+        "on-click": "~/.config/waybar/scripts/proxies-control.sh toggle-power",
+        "interval": 5,
+        "signal": 8
+    },
+    "custom/proxy-rule": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/waybar/scripts/proxies-control.sh mode-rule-status",
+        "on-click": "~/.config/waybar/scripts/proxies-control.sh set-rule",
+        "interval": 5,
+        "signal": 8
+    },
+    "custom/proxy-global": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/waybar/scripts/proxies-control.sh mode-global-status",
+        "on-click": "~/.config/waybar/scripts/proxies-control.sh set-global",
+        "interval": 5,
+        "signal": 8
+    },
+    "custom/proxy-direct": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/waybar/scripts/proxies-control.sh mode-direct-status",
+        "on-click": "~/.config/waybar/scripts/proxies-control.sh set-direct",
+        "interval": 5,
+        "signal": 8
+    },
     // --- 系统托盘 (Tray) ---
     "tray": {
         "icon-size": 13,
         "spacing": 8
     },
-
-    // --- swaync 通知模块 ---
+    // --- swaync 不再使用，但是保留----
     "custom/swaync": {
-    "tooltip": false,
-    "format": "{icon}",
-    "format-icons": {
-      "notification": " <span foreground='red'><sup></sup></span>",
-      "none": " ",
-      "dnd-notification": " <span foreground='red'><sup></sup></span>",
-      "dnd-none": " ",
-      "inhibited-notification": " <span foreground='red'><sup></sup></span>",
-      "inhibited-none": " ",
-      "dnd-inhibited-notification": "<span foreground='red'><sup></sup></span>",
-      "dnd-inhibited-none": " ",
+        "tooltip": false,
+        "format": "{icon}",
+        "format-icons": {
+            "notification": " <span foreground='red'><sup></sup></span>",
+            "none": " ",
+            "dnd-notification": " <span foreground='red'><sup></sup></span>",
+            "dnd-none": " ",
+            "inhibited-notification": " <span foreground='red'><sup></sup></span>",
+            "inhibited-none": " ",
+            "dnd-inhibited-notification": "<span foreground='red'><sup></sup></span>",
+            "dnd-inhibited-none": " ",
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true,
     },
-    "return-type": "json",
-    "exec-if": "which swaync-client",
-    "exec": "swaync-client -swb",
-    "on-click": "swaync-client -t -sw",
-    "on-click-right": "swaync-client -d -sw",
-    "escape": true,
-  },
-
-
+    // --- 通知模块 (mako + quickshell) ---
+    "custom/notification": {
+        "tooltip": true,
+        "format": "{icon}",
+        "format-icons": {
+            "notification": " <span foreground='red'><sup></sup></span>",
+            "none": " ",
+            "dnd-notification": " <span foreground='red'><sup></sup></span>",
+            "dnd-none": ""
+        },
+        "return-type": "json",
+        "exec": "python3 ~/.config/quickshell/scripts/notification_daemon.py --waybar",
+        "on-click": "python3 ~/.config/quickshell/scripts/notification_daemon.py --seen && POPUP_TYPE=notification quickshell -c ~/.config/quickshell",
+        "on-click-right": "python3 ~/.config/quickshell/scripts/notification_daemon.py --toggle-dnd",
+        "escape": true
+    },
     // --- 电源菜单组 (Power Menu) ---
     "group/power": {
         "orientation": "horizontal",
@@ -431,7 +553,10 @@
             "custom/reboot",
         ]
     },
-    "custom/power-icon": { "format": "", "tooltip": false },
+    "custom/power-icon": {
+        "format": "",
+        "tooltip": false
+    },
     "custom/lock": {
         "format": "",
         "on-click": "loginctl lock-session",
