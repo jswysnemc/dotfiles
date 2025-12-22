@@ -1,4 +1,11 @@
 # Dotfiles 配置仓库
+- preview![image-20251222200951834](.assets/image-20251222200951834.png)
+![image-20251222195029965](.assets/image-20251222195029965.png)
+![image-20251222195239887](.assets/image-20251222195239887.png)
+![image-20251222195801393](.assets/image-20251222195801393.png)
+![image-20251222195830240](.assets/image-20251222195830240.png)
+![image-20251222195854008](.assets/image-20251222195854008.png)
+- 
 
 这个仓库包含了我的开发环境配置文件，使用 GNU Stow 进行管理。
 
@@ -9,6 +16,10 @@
 - **tmux** - Tmux 终端复用器配置
 - **yazi** - Yazi 文件管理器配置
 - **zsh** - Zsh shell 配置
+- waybar
+- niri
+- matugen
+- quickshell
 
 ## 安装和使用
 
@@ -29,7 +40,7 @@
    ```bash
    # 安装所有配置
    stow */
-
+   
    # 或者单独安装特定配置
    stow nvim
    stow starship
@@ -50,46 +61,6 @@
 ```bash
 ./to_stow.sh mainfest.txt
 ```
-
-## 配置详情
-
-### Neovim (nvim)
-
-- 配置文件位置：`~/.config/nvim/`
-- 使用 Lua 配置
-- 包含 LSP、格式化、代码补全等功能
-
-### Starship
-
-- 配置文件：`~/.config/starship.toml`
-- 跨 shell 提示符定制
-
-### Tmux
-
-- 配置文件：`~/.config/tmux/tmux.conf`
-- 终端会话管理快捷键和配置
-
-### Yazi
-
-- 配置文件：`~/.config/yazi/`
-- 文件管理器主题、键位映射等配置
-
-### Zsh
-
-- 配置文件：`~/.config/zsh/`
-- shell 别名、函数、插件配置
-
-## 维护
-
-### 添加新配置
-
-1. 将配置文件放入相应的目录
-2. 运行 `stow <directory>` 创建符号链接
-
-### 更新配置
-
-1. 修改配置文件
-2. 重新加载相关应用程序或重启终端
 
 ## 许可证
 
