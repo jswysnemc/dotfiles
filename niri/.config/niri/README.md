@@ -137,23 +137,102 @@
 | `Mod+Shift+P` | 关闭显示器 |
 | `Mod+Shift+?` | 显示快捷键帮助 |
 
-## 依赖
+## Arch Linux 依赖
 
-- **终端**: kitty
-- **启动器**: rofi
-- **文件管理器**: dolphin
-- **浏览器**: firefox
-- **状态栏**: waybar
-- **通知**: mako
-- **锁屏**: swaylock
-- **壁纸**: swww
-- **空闲管理**: swayidle
-- **截图**: grim, slurp, wayfreeze
-- **剪贴板**: wl-paste, cliphist, clipse
-- **输入法**: fcitx5
-- **权限认证**: hyprpolkitagent
-- **亮度控制**: brightnessctl
-- **音频控制**: wpctl (WirePlumber)
+### 核心依赖
+
+| 包名 | 用途 |
+|------|------|
+| `niri` | Wayland 窗口管理器 |
+| `fcitx5` | 中文输入法 |
+| `fcitx5-im` | 输入法集成 |
+| `fcitx5-chinese-addons` | 中文输入法支持 |
+
+### 桌面应用
+
+| 包名 | 用途 |
+|------|------|
+| `kitty` | 终端模拟器 |
+| `rofi` | 应用启动器 |
+| `dolphin` | 文件管理器 |
+| `firefox` | 浏览器 |
+
+### 系统服务
+
+| 包名 | 用途 |
+|------|------|
+| `waybar` | 状态栏 |
+| `mako` | 通知守护进程 |
+| `hyprlock` | 锁屏工具 |
+| `hyprpolkitagent` | 权限认证 |
+
+### 壁纸和主题
+
+| 包名 | 用途 |
+|------|------|
+| `swww` | 壁纸管理 |
+| `matugen` | 主题生成器 |
+
+### 空闲管理
+
+| 包名 | 用途 |
+|------|------|
+| `swayidle` | 空闲管理 |
+
+### 截图和录屏
+
+| 包名 | 用途 |
+|------|------|
+| `grim` | 截图工具 |
+| `slurp` | 区域选择工具 |
+| `wayfreeze` | 截图冻结工具 |
+| `wf-recorder` | 屏幕录制 |
+
+### 剪贴板
+
+| 包名 | 用途 |
+|------|------|
+| `wl-clipboard` | Wayland 剪贴板工具（wl-paste, wl-copy） |
+| `cliphist` | 剪贴板历史 |
+| `clipse` | 剪贴板管理器 |
+
+### 硬件控制
+
+| 包名 | 用途 |
+|------|------|
+| `brightnessctl` | 亮度控制 |
+| `wireplumber` | PipeWire 音频服务（提供 wpctl） |
+
+### 网络和蓝牙
+
+| 包名 | 用途 |
+|------|------|
+| `networkmanager` | 网络管理 |
+| `blueman` | 蓝牙管理 |
+
+### 其他工具
+
+| 包名 | 用途 |
+|------|------|
+| `nwg-drawer` | 应用启动器 |
+| `pavucontrol` | 音频控制面板 |
+| `btop` | 系统监控 |
+| `wtype` | 模拟键盘输入 |
+| `power-profiles-daemon` | 电源配置管理 |
+| `ffmpeg` | 视频处理 |
+| `imagemagick` | 图像处理 |
+| `xclip` | X11 剪贴板工具 |
+
+## 脚本依赖
+
+| 脚本 | 依赖 |
+|------|------|
+| `swww.sh` | `swww` |
+| `swayidle.sh` | `swayidle`, `hyprlock`, `wtype`, `niri` |
+| `clipboard-sync` | `wl-clipboard`, `xclip`, `md5sum` |
+| `wallpaper-selector.sh` | `rofi`, `swww`, `matugen`, `ffmpeg`, `imagemagick`, `notify-send` |
+| `wallpaper-selector-fuzzul.sh` | `fuzzel`, `swww`, `matugen`, `ffmpeg`, `imagemagick`, `notify-send` |
+| `niri-monitor-switch.sh` | `niri` |
 
 ## 参考
 

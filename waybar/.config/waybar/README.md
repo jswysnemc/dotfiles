@@ -104,19 +104,137 @@ POPUP_TYPE=notification quickshell -c ~/.config/quickshell
 matugen image /path/to/wallpaper.jpg
 ```
 
-## 依赖
+## Arch Linux 依赖
 
-- **waybar** - 状态栏
-- **niri** - Wayland 合成器
-- **playerctl** - 媒体控制
-- **wpctl** (WirePlumber) - 音频控制
-- **cava** - 音频可视化
-- **wf-recorder** - 屏幕录制
-- **grim + slurp** - 截图
-- **nwg-drawer** - 应用启动器
-- **blueman** - 蓝牙管理
-- **pavucontrol** - 音频控制面板
-- **quickshell** - QML 弹窗组件
+### 核心依赖
+
+| 包名 | 用途 |
+|------|------|
+| `waybar` | 状态栏 |
+| `niri` | Wayland 合成器 |
+
+### 媒体和音频
+
+| 包名 | 用途 |
+|------|------|
+| `playerctl` | 媒体控制 |
+| `wireplumber` | PipeWire 音频服务（提供 wpctl） |
+| `cava` | 音频可视化 |
+
+### 截图和录屏
+
+| 包名 | 用途 |
+|------|------|
+| `grim` | 截图工具 |
+| `slurp` | 区域选择工具 |
+| `wf-recorder` | 屏幕录制 |
+| `wayfreeze` | 截图冻结工具 |
+
+### 应用启动器
+
+| 包名 | 用途 |
+|------|------|
+| `nwg-drawer` | 应用启动器 |
+| `rofi` | 应用启动器（备用） |
+| `fuzzel` | 模糊菜单（备用） |
+| `wofi` | 应用启动器（备用） |
+
+### 蓝牙和网络
+
+| 包名 | 用途 |
+|------|------|
+| `blueman` | 蓝牙管理 |
+| `networkmanager` | 网络管理 |
+| `rfkill` | 蓝牙管理 |
+
+### 系统工具
+
+| 包名 | 用途 |
+|------|------|
+| `pavucontrol` | 音频控制面板 |
+| `btop` | 系统监控 |
+| `brightnessctl` | 亮度控制 |
+| `power-profiles-daemon` | 电源配置管理 |
+
+### Quickshell 集成
+
+| 包名 | 用途 |
+|------|------|
+| `quickshell` | QML 桌面组件框架 |
+| `qt6-quickcontrols` | Qt Quick 控件 |
+
+### 其他工具
+
+| 包名 | 用途 |
+|------|------|
+| `jq` | JSON 处理 |
+| `curl` | HTTP 客户端 |
+| `python` | Python 脚本 |
+| `python-pip` | Python 包管理器 |
+| `systemd` | 系统服务管理 |
+| `notify-send` | 通知发送 |
+
+### 脚本依赖
+
+| 脚本 | 依赖 |
+|------|------|
+| `cava.sh` | `cava` |
+| `longshot.sh` | `wf-recorder`, `slurp`, `wf-stitch`, `fuzzel`/`wofi`/`rofi`, `imv`/`markpix`, `wl-copy` |
+| `longshot_rust-v1.sh` | `wf-recorder`, `slurp`, `rust-stitch`, `fuzzel`/`wofi`/`rofi`, `imv`/`markpix`, `wl-copy` |
+| `longshot.sh.v1` | `wf-recorder`, `slurp`, `wf-stitch`, `zenity` |
+| `longshot.sh.v2` | `wf-recorder`, `slurp`, `wf-stitch`, `yad` |
+| `mihomo-toggle.sh` | `curl`, `jq` |
+| `power-screenshot.sh` | `wayfreeze`, `slurp`, `markpix` |
+| `proxies-control.sh` | `curl`, `jq`, `systemctl` |
+| `screenshot.sh` | `grim`, `slurp`, `wl-copy` |
+| `scroll-capture.sh` | `wf-recorder`, `slurp`, `rust-stitch`, `fuzzel`, `imv` |
+| `toggle-bluetooth.sh` | `rfkill` |
+| `wf-recorder.sh` | `wf-recorder`, `slurp`, `fuzzel`/`wofi`/`rofi`/`bemenu`/`fzf`, `notify-send`, `systemd` |
+| `weather.sh` | `quickshell`, `python` |
+| `wifi.sh` | `quickshell`, `python` |
+| `calendar.sh` | `quickshell`, `python` |
+
+### 图像和视频处理
+
+| 包名 | 用途 |
+|------|------|
+| `wf-stitch` | 长截图拼接工具 |
+| `rust-stitch` | 长截图拼接工具 |
+| `imv` | 图像查看器 |
+| `markpix` | 图像标记工具 |
+
+### 菜单工具
+
+| 包名 | 用途 |
+|------|------|
+| `fuzzel` | 模糊菜单工具 |
+| `wofi` | 模糊菜单工具 |
+| `rofi` | 模糊菜单工具 |
+| `bemenu` | 模糊菜单工具 |
+| `fzf` | 模糊查找工具 |
+| `zenity` | 图形对话框工具 |
+| `yad` | 图形对话框工具 |
+
+### 通知工具
+
+| 包名 | 用途 |
+|------|------|
+| `mako` | 通知守护进程（可选，Quickshell 有内置通知） |
+
+### Wayland 工具
+
+| 包名 | 用途 |
+|------|------|
+| `wl-clipboard` | Wayland 剪贴板工具（wl-paste, wl-copy） |
+| `wl-copy` | Wayland 剪贴板工具 |
+
+### 代理工具
+
+| 包名 | 用途 |
+|------|------|
+| `mihomo` | Mihomo 代理内核 |
+| `sing-box` | Sing-box 代理内核 |
+| `google-chrome-stable` | Chrome 浏览器（代理面板） |
 
 ## 样式特点
 

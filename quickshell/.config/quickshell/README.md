@@ -33,15 +33,71 @@
 └── visual_model_templates.json # 视觉模型模板配置
 ```
 
-## 依赖
+## Arch Linux 依赖
 
-- **Quickshell** - QML 桌面组件框架
-- **playerctl** - 媒体播放控制
-- **wpctl** (WirePlumber) - 音频音量控制
-- **bluetoothctl** - 蓝牙管理
-- **nmcli** (NetworkManager) - 网络管理
-- **cava** - 音频可视化 (可选)
-- **matugen** - 主题色生成 (可选)
+### 核心依赖
+
+| 包名 | 用途 |
+|------|------|
+| `quickshell` | QML 桌面组件框架 |
+| `qt6-declarative` | Qt Quick 声明 |
+| `qt6-quickcontrols` | Qt Quick 控件 |
+
+### 媒体和音频
+
+| 包名 | 用途 |
+|------|------|
+| `playerctl` | 媒体播放控制 |
+| `wireplumber` | PipeWire 音频服务（提供 wpctl） |
+| `cava` | 音频可视化 |
+
+### 网络和蓝牙
+
+| 包名 | 用途 |
+|------|------|
+| `blueman` | 蓝牙管理 |
+| `networkmanager` | 网络管理 |
+
+### 主题集成
+
+| 包名 | 用途 |
+|------|------|
+| `matugen` | 主题色生成器 |
+
+### 其他工具
+
+| 包名 | 用途 |
+|------|------|
+| `jq` | JSON 处理 |
+| `curl` | HTTP 客户端 |
+| `python` | Python 脚本 |
+| `python-pip` | Python 包管理器 |
+
+### 可选依赖
+
+| 包名 | 用途 |
+|------|------|
+| `bat` | Markdown 渲染（可选） |
+| `mdcat` | Markdown 渲染（可选） |
+| `glow` | Markdown 渲染（可选） |
+
+### 脚本依赖
+
+| 脚本 | 依赖 |
+|------|------|
+| `media_status.sh` | `bash`, `playerctl` |
+| `media_visualizer.sh` | `bash`, `cava`, `playerctl` |
+| `notification_daemon.py` | `python`, `dbus-monitor`, `makoctl` |
+| `weather_fetch.py` | `python`, `curl`, `urllib`, `subprocess`, `json` |
+| `visual-model-launcher.sh` | `bash`, `jq`, `quickshell` |
+| `lunar_calendar.py` | `python`, `lunarcalendar` (pip), `calendar`, `datetime` |
+
+### Python 依赖
+
+```bash
+# 安装农历转换库
+pip install lunarcalendar
+```
 
 ## 使用方式
 
