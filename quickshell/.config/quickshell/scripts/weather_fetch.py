@@ -1,323 +1,227 @@
 #!/usr/bin/env python3
 """
-天气数据获取脚本
-使用 IP 定位获取城市，然后从 wttr.in 获取天气
-支持缓存功能
+Waybar 天气模块脚本
+与 QuickShell 天气组件共享配置和缓存
+使用 Open-Meteo API
 """
 
-import urllib.request
-import subprocess
 import json
-import re
 import sys
 import os
+import urllib.request
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# 缓存配置
-CACHE_DIR = Path.home() / ".cache" / "quickshell-weather"
-CACHE_FILE = CACHE_DIR / "weather_cache.json"
-CACHE_DURATION = 30  # 缓存有效期（分钟）
+# 路径配置 - 与 QuickShell 天气组件共享
+XDG_DATA_HOME = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+XDG_CACHE_HOME = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
+CONFIG_PATH = Path(XDG_DATA_HOME) / "quickshell/weather/config.json"
+CACHE_PATH = Path(XDG_CACHE_HOME) / "quickshell/weather/cache.json"
+CACHE_MAX_AGE = 30 * 60 * 1000  # 30 minutes in ms
 
-def ensure_cache_dir():
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+# 默认位置
+DEFAULT_LAT = 39.9042
+DEFAULT_LON = 116.4074
+DEFAULT_LOCATION = "Beijing"
+
+def load_config():
+    """加载配置"""
+    try:
+        if CONFIG_PATH.exists():
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except:
+        pass
+    return {
+        "latitude": DEFAULT_LAT,
+        "longitude": DEFAULT_LON,
+        "locationName": DEFAULT_LOCATION,
+        "useCelsius": True
+    }
 
 def load_cache():
-    """加载缓存数据"""
-    if not CACHE_FILE.exists():
-        return None
+    """加载缓存"""
     try:
-        with open(CACHE_FILE, "r", encoding="utf-8") as f:
-            cache = json.load(f)
-            # 检查缓存是否过期
-            cached_time = datetime.fromisoformat(cache.get("_cached_at", "2000-01-01"))
-            if datetime.now() - cached_time < timedelta(minutes=CACHE_DURATION):
-                cache["_from_cache"] = True
-                return cache
+        if CACHE_PATH.exists():
+            with open(CACHE_PATH, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+                # 检查缓存是否有效
+                now = int(datetime.now().timestamp() * 1000)
+                if cache.get("time") and (now - cache["time"]) < CACHE_MAX_AGE:
+                    return cache.get("data")
     except:
         pass
     return None
 
-def save_cache(data):
-    """保存数据到缓存"""
-    ensure_cache_dir()
+def save_cache(data, lat, lon):
+    """保存缓存"""
     try:
-        now = datetime.now()
-        data["_cached_at"] = now.isoformat()
-        data["_last_update"] = now.strftime("%H:%M")  # 保存刷新时间
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
-    except:
-        pass
-
-def get_location_from_ip():
-    """通过 IP 获取城市名"""
-    try:
-        # 使用 ipip.net 获取位置
-        req = urllib.request.Request(
-            "http://myip.ipip.net",
-            headers={"User-Agent": "curl/7.0"}
-        )
-        with urllib.request.urlopen(req, timeout=5) as response:
-            text = response.read().decode("utf-8")
-            # 解析：当前 IP：xxx  来自于：中国 湖北 孝感  移动
-            match = re.search(r"来自于：中国\s+\S+\s+(\S+)", text)
-            if match:
-                return match.group(1)
-    except Exception as e:
-        pass
-    
-    # 备用：使用 ip-api.com
-    try:
-        req = urllib.request.Request(
-            "http://ip-api.com/json/?lang=zh-CN",
-            headers={"User-Agent": "curl/7.0"}
-        )
-        with urllib.request.urlopen(req, timeout=5) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            return data.get("city", "武汉")
-    except:
-        pass
-    
-    return "武汉"  # 默认城市
-
-def get_weather(city):
-    """获取天气数据"""
-    try:
-        # 使用 curl 获取数据（更可靠）
-        encoded_city = urllib.request.quote(city)
-        url = f"http://wttr.in/{encoded_city}?format=j1&lang=zh"
-        
-        result = subprocess.run(
-            ["curl", "-s", "--max-time", "15", url],
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode != 0 or not result.stdout.strip():
-            return {"error": "无法获取天气数据"}
-        
-        data = json.loads(result.stdout)
-        
-        current = data.get("current_condition", [{}])[0]
-        area = data.get("nearest_area", [{}])[0]
-        weather_list = data.get("weather", [])
-        
-        # 天气代码到图标的映射
-        weather_code = current.get("weatherCode", "")
-        icon = get_weather_icon(weather_code)
-        
-        # 获取中文天气描述
-        lang_zh = current.get("lang_zh", [{}])
-        weather_desc = lang_zh[0].get("value", "") if lang_zh else ""
-        if not weather_desc:
-            weather_desc = current.get("weatherDesc", [{}])[0].get("value", "")
-        
-        # 构建返回数据
-        weather_result = {
-            "city": city,
-            "area": area.get("areaName", [{}])[0].get("value", city),
-            "region": area.get("region", [{}])[0].get("value", ""),
-            "country": area.get("country", [{}])[0].get("value", ""),
-            "temp": current.get("temp_C", "0"),
-            "feelsLike": current.get("FeelsLikeC", "0"),
-            "humidity": current.get("humidity", "0"),
-            "windSpeed": current.get("windspeedKmph", "0"),
-            "windDir": current.get("winddir16Point", ""),
-            "visibility": current.get("visibility", ""),
-            "uvIndex": current.get("uvIndex", "0"),
-            "pressure": current.get("pressure", ""),
-            "weatherCode": weather_code,
-            "weatherDesc": weather_desc,
-            "icon": icon,
-            "observationTime": current.get("localObsDateTime", ""),
-            "forecast": []
+        CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        cache = {
+            "data": data,
+            "lat": lat,
+            "lon": lon,
+            "time": int(datetime.now().timestamp() * 1000)
         }
-        
-        # 添加未来几天预报
-        for day in weather_list[:3]:
-            astronomy = day.get("astronomy", [{}])[0]
-            hourly = day.get("hourly", [])
-            
-            # 获取白天天气描述
-            day_weather = ""
-            day_icon = "󰖐"
-            if hourly:
-                noon = hourly[len(hourly)//2] if len(hourly) > 1 else hourly[0]
-                day_lang_zh = noon.get("lang_zh", [{}])
-                day_weather = day_lang_zh[0].get("value", "") if day_lang_zh else ""
-                if not day_weather:
-                    day_weather = noon.get("weatherDesc", [{}])[0].get("value", "")
-                day_icon = get_weather_icon(noon.get("weatherCode", ""))
-            
-            weather_result["forecast"].append({
-                "date": day.get("date", ""),
-                "maxTemp": day.get("maxtempC", "0"),
-                "minTemp": day.get("mintempC", "0"),
-                "avgTemp": day.get("avgtempC", "0"),
-                "weatherDesc": day_weather,
-                "icon": day_icon,
-                "sunrise": astronomy.get("sunrise", ""),
-                "sunset": astronomy.get("sunset", ""),
-                "moonPhase": astronomy.get("moon_phase", "")
-            })
-        
-        return weather_result
-            
+        with open(CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    except:
+        pass
+
+def fetch_weather(lat, lon):
+    """从 Open-Meteo API 获取天气"""
+    try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return json.loads(response.read().decode("utf-8"))
     except Exception as e:
-        return {"error": str(e)}
+        return None
 
 def get_weather_icon(code):
     """根据天气代码返回 Nerd Font 图标"""
-    code = str(code)
-    icons = {
-        # 晴天
-        "113": "󰖙",  # Sunny
-        # 多云
-        "116": "󰖐",  # Partly cloudy
-        "119": "󰖐",  # Cloudy
-        "122": "󰖐",  # Overcast
-        # 雾
-        "143": "󰖑",  # Mist
-        "248": "󰖑",  # Fog
-        "260": "󰖑",  # Freezing fog
-        # 小雨
-        "176": "󰖗",  # Patchy rain
-        "263": "󰖗",  # Patchy light drizzle
-        "266": "󰖗",  # Light drizzle
-        "293": "󰖗",  # Patchy light rain
-        "296": "󰖗",  # Light rain
-        "353": "󰖗",  # Light rain shower
-        # 中雨/大雨
-        "299": "󰖖",  # Moderate rain
-        "302": "󰖖",  # Moderate rain
-        "305": "󰖖",  # Heavy rain
-        "308": "󰖖",  # Heavy rain
-        "356": "󰖖",  # Moderate rain shower
-        "359": "󰖖",  # Torrential rain
-        # 雷雨
-        "200": "󰙾",  # Thundery outbreaks
-        "386": "󰙾",  # Patchy light rain with thunder
-        "389": "󰙾",  # Moderate/heavy rain with thunder
-        # 雪
-        "179": "󰖘",  # Patchy snow
-        "182": "󰖘",  # Patchy sleet
-        "185": "󰖘",  # Patchy freezing drizzle
-        "227": "󰖘",  # Blowing snow
-        "230": "󰖘",  # Blizzard
-        "281": "󰖘",  # Freezing drizzle
-        "284": "󰖘",  # Heavy freezing drizzle
-        "311": "󰖘",  # Light freezing rain
-        "314": "󰖘",  # Moderate/heavy freezing rain
-        "317": "󰖘",  # Light sleet
-        "320": "󰖘",  # Moderate/heavy sleet
-        "323": "󰖘",  # Patchy light snow
-        "326": "󰖘",  # Light snow
-        "329": "󰖘",  # Patchy moderate snow
-        "332": "󰖘",  # Moderate snow
-        "335": "󰖘",  # Patchy heavy snow
-        "338": "󰖘",  # Heavy snow
-        "350": "󰖘",  # Ice pellets
-        "362": "󰖘",  # Light sleet showers
-        "365": "󰖘",  # Moderate/heavy sleet showers
-        "368": "󰖘",  # Light snow showers
-        "371": "󰖘",  # Moderate/heavy snow showers
-        "374": "󰖘",  # Light showers of ice pellets
-        "377": "󰖘",  # Moderate/heavy showers of ice pellets
-        "392": "󰖘",  # Patchy light snow with thunder
-        "395": "󰖘",  # Moderate/heavy snow with thunder
-    }
-    return icons.get(code, "󰖐")
+    if code == 0:
+        return "󰖙"  # 晴朗
+    elif code <= 3:
+        return "󰖐"  # 多云
+    elif code <= 48:
+        return "󰖑"  # 雾
+    elif code <= 57:
+        return "󰖗"  # 毛毛雨
+    elif code <= 67:
+        return "󰖖"  # 雨
+    elif code <= 77:
+        return "󰖘"  # 雪
+    elif code <= 86:
+        return "󰖘"  # 阵雪
+    else:
+        return "󰙾"  # 雷暴
 
-def format_waybar(data):
-    """格式化为 waybar 显示格式"""
-    if "error" in data:
+def get_weather_desc(code):
+    """根据天气代码返回中文描述"""
+    if code == 0:
+        return "晴朗"
+    elif code <= 3:
+        return "多云"
+    elif code <= 48:
+        return "有雾"
+    elif code <= 57:
+        return "毛毛雨"
+    elif code <= 67:
+        return "小雨"
+    elif code <= 77:
+        return "小雪"
+    elif code <= 86:
+        return "阵雪"
+    else:
+        return "雷暴"
+
+def format_temp(temp, use_celsius=True):
+    """格式化温度"""
+    if not use_celsius:
+        temp = temp * 9 / 5 + 32
+    return f"{round(temp)}"
+
+def get_day_name(date_str, idx):
+    """获取星期名称"""
+    if idx == 0:
+        return "今天"
+    if idx == 1:
+        return "明天"
+    day = datetime.strptime(date_str, "%Y-%m-%d").weekday()
+    names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    return names[day]
+
+def format_waybar(data, config):
+    """格式化为 waybar JSON 输出"""
+    if not data or "current_weather" not in data:
         return json.dumps({
-            "text": "󰖐 --°",
-            "tooltip": data.get("error", "错误"),
+            "text": " --",
+            "tooltip": "无法获取天气数据",
             "class": "error"
         }, ensure_ascii=False)
-    
-    icon = data.get("icon", "󰖐")
-    temp = data.get("temp", "--")
-    desc = data.get("weatherDesc", "")
-    city = data.get("city", "")
-    feels = data.get("feelsLike", "--")
-    humidity = data.get("humidity", "--")
-    
+
+    current = data["current_weather"]
+    daily = data.get("daily", {})
+    use_celsius = config.get("useCelsius", True)
+    location = config.get("locationName", "Unknown")
+
+    code = current.get("weathercode", 0)
+    temp = current.get("temperature", 0)
+    wind = current.get("windspeed", 0)
+
+    icon = get_weather_icon(code)
+    desc = get_weather_desc(code)
+    temp_str = format_temp(temp, use_celsius)
+    unit = "C" if use_celsius else "F"
+
     # 构建 tooltip
     tooltip_lines = [
-        f"{icon} {desc}  {city}",
-        f"温度: {temp}°C  体感: {feels}°C",
-        f"湿度: {humidity}%"
+        f"{icon} {desc}  {location}",
+        f"",
+        f"{temp_str}°{unit}  风速 {round(wind)} km/h"
     ]
-    
-    # 添加预报
-    forecast = data.get("forecast", [])
-    if forecast:
+
+    # 今日最高/最低
+    if daily.get("temperature_2m_max") and daily.get("temperature_2m_min"):
+        max_t = format_temp(daily["temperature_2m_max"][0], use_celsius)
+        min_t = format_temp(daily["temperature_2m_min"][0], use_celsius)
+        tooltip_lines.append(f"最高 {max_t}° / 最低 {min_t}°")
+
+    # 未来预报
+    if daily.get("time"):
         tooltip_lines.append("")
-        for day in forecast[:3]:
-            day_icon = day.get("icon", "󰖐")
-            max_t = day.get("maxTemp", "--")
-            min_t = day.get("minTemp", "--")
-            date = day.get("date", "")[-5:]  # MM-DD
-            tooltip_lines.append(f"{date}  {day_icon} {min_t}°/{max_t}°")
-    
+        tooltip_lines.append("7 天预报")
+        for i in range(min(7, len(daily["time"]))):
+            day_name = get_day_name(daily["time"][i], i)
+            day_icon = get_weather_icon(daily["weathercode"][i])
+            day_max = format_temp(daily["temperature_2m_max"][i], use_celsius)
+            day_min = format_temp(daily["temperature_2m_min"][i], use_celsius)
+            tooltip_lines.append(f"{day_name}  {day_icon}  {day_min}° ~ {day_max}°")
+
     return json.dumps({
-        "text": f"{icon} {temp}°",
+        "text": f"{icon} {temp_str}°",
         "tooltip": "\n".join(tooltip_lines),
-        "class": "normal"
+        "class": get_weather_class(code)
     }, ensure_ascii=False)
 
-if __name__ == "__main__":
-    # 解析参数
+def get_weather_class(code):
+    """根据天气代码返回 CSS class"""
+    if code == 0:
+        return "sunny"
+    elif code <= 3:
+        return "cloudy"
+    elif code <= 48:
+        return "foggy"
+    elif code <= 77:
+        return "rainy"
+    else:
+        return "stormy"
+
+def main():
     args = sys.argv[1:]
     force_refresh = "--force" in args
-    cache_only = "--cache" in args
     waybar_mode = "--waybar" in args
-    
-    # 获取城市参数
-    city = None
-    for arg in args:
-        if not arg.startswith("--"):
-            city = arg
-            break
-    
-    # 如果只要缓存，直接返回
-    if cache_only:
-        cache = load_cache()
-        if cache:
-            if waybar_mode:
-                print(format_waybar(cache))
-            else:
-                print(json.dumps(cache, ensure_ascii=False))
-        else:
-            if waybar_mode:
-                print(json.dumps({"text": "󰖐 --°", "tooltip": "加载中...", "class": "loading"}, ensure_ascii=False))
-            else:
-                print(json.dumps({"error": "无缓存数据", "loading": True}, ensure_ascii=False))
-        sys.exit(0)
-    
-    # 检查缓存（非强制刷新时）
+
+    config = load_config()
+    lat = config.get("latitude", DEFAULT_LAT)
+    lon = config.get("longitude", DEFAULT_LON)
+
+    # 尝试使用缓存
+    data = None
     if not force_refresh:
-        cache = load_cache()
-        if cache:
-            if waybar_mode:
-                print(format_waybar(cache))
-            else:
-                print(json.dumps(cache, ensure_ascii=False))
-            sys.exit(0)
-    
-    # 获取城市
-    if not city:
-        city = get_location_from_ip()
-    
-    # 获取天气并缓存
-    weather = get_weather(city)
-    if "error" not in weather:
-        save_cache(weather)
-    
+        data = load_cache()
+
+    # 如果没有缓存或强制刷新，获取新数据
+    if not data:
+        data = fetch_weather(lat, lon)
+        if data:
+            save_cache(data, lat, lon)
+
     if waybar_mode:
-        print(format_waybar(weather))
+        print(format_waybar(data, config))
     else:
-        print(json.dumps(weather, ensure_ascii=False))
+        print(json.dumps(data or {"error": "无法获取天气"}, ensure_ascii=False))
+
+if __name__ == "__main__":
+    main()

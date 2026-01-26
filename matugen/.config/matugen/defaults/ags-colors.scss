@@ -1,0 +1,159 @@
+// AGS 控制中心 matugen 颜色模板 - 默认深色主题
+
+// ============================================
+// Material You 核心颜色
+// ============================================
+
+// 主色调
+$primary: #89b4fa;
+$primary-container: #313244;
+$on-primary: #1e1e2e;
+$on-primary-container: #89b4fa;
+
+// 次要色调
+$secondary: #a6e3a1;
+$secondary-container: #313244;
+$on-secondary: #1e1e2e;
+$on-secondary-container: #a6e3a1;
+
+// 第三色调
+$tertiary: #fab387;
+$tertiary-container: #313244;
+$on-tertiary: #1e1e2e;
+$on-tertiary-container: #fab387;
+
+// 错误色
+$error: #f38ba8;
+$error-container: #313244;
+$on-error: #1e1e2e;
+$on-error-container: #f38ba8;
+
+// 背景与表面
+$background: #11111b;
+$on-background: #cdd6f4;
+$surface: #11111b;
+$on-surface: #cdd6f4;
+$surface-variant: #313244;
+$on-surface-variant: #a6adc8;
+
+// 轮廓
+$outline: #6c7086;
+$outline-variant: #45475a;
+
+// 反转色
+$inverse-surface: #cdd6f4;
+$inverse-on-surface: #1e1e2e;
+$inverse-primary: #1e66f5;
+
+// 阴影与遮罩
+$shadow: #000000;
+$scrim: #000000;
+
+// ============================================
+// 控制中心专用语义颜色
+// ============================================
+
+// 卡片背景 (毛玻璃效果基础色)
+$card-bg: rgba(17, 17, 27, 0.85);
+$card-bg-solid: #11111b;
+$card-bg-hover: rgba(49, 50, 68, 0.9);
+
+// 胶囊容器背景
+$pill-bg: rgba(49, 50, 68, 0.7);
+$pill-bg-active: #89b4fa;
+
+// 按钮状态
+$btn-bg: rgba(49, 50, 68, 0.6);
+$btn-bg-hover: rgba(49, 50, 68, 0.8);
+$btn-bg-active: #89b4fa;
+$btn-text: #cdd6f4;
+$btn-text-active: #1e1e2e;
+
+// 滑块颜色
+$slider-bg: rgba(69, 71, 90, 0.4);
+$slider-fill: #cdd6f4;
+$slider-handle: #89b4fa;
+
+// 开关颜色
+$switch-bg: rgba(108, 112, 134, 0.3);
+$switch-bg-active: #89b4fa;
+$switch-handle: #11111b;
+
+// 文字颜色层级
+$text-primary: #cdd6f4;
+$text-secondary: rgba(205, 214, 244, 0.7);
+$text-tertiary: rgba(205, 214, 244, 0.5);
+$text-on-accent: #1e1e2e;
+
+// 图标颜色
+$icon-primary: #cdd6f4;
+$icon-secondary: rgba(205, 214, 244, 0.6);
+$icon-active: #1e1e2e;
+
+// 分割线与边框
+$divider: rgba(108, 112, 134, 0.2);
+$border: rgba(108, 112, 134, 0.3);
+
+// 状态颜色
+$success: #a6e3a1;
+$warning: #fab387;
+$info: #fab387;
+$danger: #f38ba8;
+
+// WiFi 信号强度颜色
+$wifi-excellent: #a6e3a1;
+$wifi-good: #a6e3a1;
+$wifi-fair: #fab387;
+$wifi-weak: #f38ba8;
+
+// 系统资源环形进度条颜色
+$cpu-color: #89b4fa;
+$memory-color: #a6e3a1;
+$disk-color: #fab387;
+$temp-color: #f38ba8;
+
+// ============================================
+// 设计系统变量
+// ============================================
+
+// 圆角
+$radius-xs: 8px;
+$radius-sm: 12px;
+$radius-md: 16px;
+$radius-lg: 20px;
+$radius-xl: 24px;
+$radius-pill: 50px;
+$radius-circle: 50%;
+
+// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+$spacing-2xl: 24px;
+
+// 阴影
+$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+// 过渡动画
+$transition-fast: 150ms ease;
+$transition-normal: 250ms ease;
+$transition-slow: 350ms ease;
+
+// 字体大小
+$font-xs: 10px;
+$font-sm: 12px;
+$font-md: 14px;
+$font-lg: 16px;
+$font-xl: 20px;
+$font-2xl: 24px;
+$font-3xl: 32px;
+
+// 字重
+$font-normal: 400;
+$font-medium: 500;
+$font-semibold: 600;
+$font-bold: 700;

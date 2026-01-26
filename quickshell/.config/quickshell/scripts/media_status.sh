@@ -1,37 +1,75 @@
 #!/bin/bash
-# 媒体状态输出给 waybar - 使用 waybar 原生滚动
+# Waybar media status module - outputs JSON for waybar
 
-while true; do
-    players=$(playerctl --list-all 2>/dev/null)
+get_status() {
+    # Find the active player (prefer playing, then paused)
+    local player=""
+    local status=""
     
-    if [ -z "$players" ]; then
-        echo '{"text": "", "class": "empty"}'
-    else
-        status=$(playerctl status 2>/dev/null || echo "Stopped")
-        title=$(playerctl metadata title 2>/dev/null)
-        
-        # 过滤常见后缀
-        title=$(echo "$title" | sed -E 's/ - 哔哩哔哩.*//; s/_哔哩哔哩.*//; s/ - bilibili.*//i; s/ - YouTube.*//i')
-        
-        # 选择图标和状态
-        if [ "$status" = "Playing" ]; then
-            icon="󰐊"
-            class="playing"
-        elif [ "$status" = "Paused" ]; then
-            icon="󰏤"
-            class="paused"
-        else
-            icon="󰓛"
-            class="stopped"
+    # Check all players for one that's playing
+    for p in $(playerctl -l 2>/dev/null); do
+        local s=$(playerctl -p "$p" status 2>/dev/null)
+        if [[ "$s" == "Playing" ]]; then
+            player="$p"
+            status="Playing"
+            break
+        elif [[ "$s" == "Paused" && -z "$player" ]]; then
+            player="$p"
+            status="Paused"
         fi
-        
-        # 构建输出
-        [ -z "$title" ] && title="媒体"
-        display=$(echo "$icon $title" | sed 's/"/\\"/g')
-        tooltip=$(echo "$title" | sed 's/"/\\"/g')
-        
-        echo "{\"text\": \"$display\", \"tooltip\": \"$tooltip\", \"class\": \"$class\"}"
-    fi
+    done
     
+    # If no playing/paused player found, use default
+    if [[ -z "$player" ]]; then
+        status=$(playerctl status 2>/dev/null)
+        player=$(playerctl metadata --format '{{playerName}}' 2>/dev/null)
+    fi
+
+    local title=$(playerctl -p "$player" metadata title 2>/dev/null | cut -c1-30)
+    local artist=$(playerctl -p "$player" metadata artist 2>/dev/null | cut -c1-20)
+
+    local icon=$'\uf04b'  # play icon
+    local class="stopped"
+    local tooltip="没有正在播放的媒体"
+
+    if [[ -z "$status" || "$status" == "No players found" ]]; then
+        printf '{"text": "%s", "alt": "stopped", "tooltip": "%s", "class": "stopped"}\n' "$icon" "$tooltip"
+        return
+    fi
+
+    case "$status" in
+        Playing)
+            icon=$'\uf04c'  # pause icon
+            class="playing"
+            ;;
+        Paused)
+            icon=$'\uf04b'  # play icon
+            class="paused"
+            ;;
+        *)
+            icon=$'\uf04b'  # play icon
+            class="stopped"
+            ;;
+    esac
+
+    if [[ -n "$title" ]]; then
+        tooltip="$title"
+        if [[ -n "$artist" ]]; then
+            tooltip="$tooltip - $artist"
+        fi
+        if [[ -n "$player" ]]; then
+            tooltip="$tooltip\n$player"
+        fi
+    else
+        tooltip="$status"
+    fi
+
+    printf '{"text": "%s", "alt": "%s", "tooltip": "%s", "class": "%s"}\n' \
+        "$icon" "$class" "$tooltip" "$class"
+}
+
+# Continuous output mode for waybar
+while true; do
+    get_status
     sleep 1
 done

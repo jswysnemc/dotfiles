@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+# matugen-init - 初始化 matugen 颜色文件
+# 用于首次应用配置时，在没有运行 matugen 的情况下提供默认颜色文件
+
+set -euo pipefail
+
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 配置
+DEFAULTS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/matugen/defaults"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/matugen"
+
+# 输出目标映射 (与 matugen config.toml 保持一致)
+declare -A OUTPUT_MAP=(
+    ["waybar-colors.css"]="waybar/colors.css"
+    ["swaync-colors.css"]="swaync/colors.css"
+    ["nwg-drawer-colors.css"]="nwg-drawer/colors.css"
+    ["wofi-colors.css"]="wofi/colors.css"
+    ["eww-colors.scss"]="eww/colors.scss"
+    ["ags-colors.scss"]="ags/colors.scss"
+    ["quickshell-colors.js"]="quickshell/colors.js"
+)
+
+# 符号链接目标 (某些应用需要在配置目录创建符号链接)
+declare -A SYMLINK_MAP=(
+    ["waybar/colors.css"]="${XDG_CONFIG_HOME:-$HOME/.config}/waybar/colors.css"
+)
+
+print_header() {
+    echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║${NC}     Matugen 颜色文件初始化工具            ${BLUE}║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
+    echo
+}
+
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[OK]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+show_help() {
+    cat << EOF
+用法: $(basename "$0") [选项]
+
+初始化 matugen 颜色文件，为首次应用配置提供默认主题。
+
+选项:
+    -h, --help      显示此帮助信息
+    -f, --force     强制覆盖已存在的文件
+    -c, --check     仅检查文件状态，不进行任何操作
+    -l, --list      列出所有默认颜色文件
+    -s, --symlinks  同时创建符号链接
+
+示例:
+    $(basename "$0")           # 初始化缺失的颜色文件
+    $(basename "$0") -f        # 强制重置为默认主题
+    $(basename "$0") -c        # 检查当前状态
+    $(basename "$0") -s        # 初始化并创建符号链接
+
+EOF
+}
+
+list_defaults() {
+    print_header
+    echo "默认颜色文件列表:"
+    echo
+
+    for src in "${!OUTPUT_MAP[@]}"; do
+        dest="${OUTPUT_MAP[$src]}"
+        src_path="$DEFAULTS_DIR/$src"
+        dest_path="$CACHE_DIR/$dest"
+
+        if [[ -f "$src_path" ]]; then
+            status="${GREEN}[存在]${NC}"
+        else
+            status="${RED}[缺失]${NC}"
+        fi
+
+        if [[ -f "$dest_path" ]]; then
+            dest_status="${GREEN}[已部署]${NC}"
+        else
+            dest_status="${YELLOW}[未部署]${NC}"
+        fi
+
+        printf "  %-30s %s -> %s %s\n" "$src" "$status" "$dest" "$dest_status"
+    done
+    echo
+}
+
+check_status() {
+    print_header
+    echo "颜色文件状态检查:"
+    echo
+
+    local missing=0
+    local deployed=0
+
+    for src in "${!OUTPUT_MAP[@]}"; do
+        dest="${OUTPUT_MAP[$src]}"
+        dest_path="$CACHE_DIR/$dest"
+
+        if [[ -f "$dest_path" ]]; then
+            print_success "$dest"
+            ((deployed++))
+        else
+            print_warning "$dest (缺失)"
+            ((missing++))
+        fi
+    done
+
+    echo
+    echo "统计: $deployed 个已部署, $missing 个缺失"
+
+    if [[ $missing -gt 0 ]]; then
+        echo
+        echo -e "${YELLOW}提示: 运行 '$(basename "$0")' 来初始化缺失的文件${NC}"
+        return 1
+    fi
+
+    return 0
+}
+
+init_colors() {
+    local force="${1:-false}"
+    local create_symlinks="${2:-false}"
+
+    print_header
+    print_info "开始初始化颜色文件..."
+    echo
+
+    # 检查默认文件目录
+    if [[ ! -d "$DEFAULTS_DIR" ]]; then
+        print_error "默认文件目录不存在: $DEFAULTS_DIR"
+        exit 1
+    fi
+
+    local copied=0
+    local skipped=0
+    local failed=0
+
+    for src in "${!OUTPUT_MAP[@]}"; do
+        dest="${OUTPUT_MAP[$src]}"
+        src_path="$DEFAULTS_DIR/$src"
+        dest_path="$CACHE_DIR/$dest"
+        dest_dir=$(dirname "$dest_path")
+
+        # 检查源文件
+        if [[ ! -f "$src_path" ]]; then
+            print_warning "源文件不存在: $src"
+            ((failed++))
+            continue
+        fi
+
+        # 检查目标文件是否存在
+        if [[ -f "$dest_path" ]] && [[ "$force" != "true" ]]; then
+            print_info "跳过 (已存在): $dest"
+            ((skipped++))
+            continue
+        fi
+
+        # 创建目标目录
+        if [[ ! -d "$dest_dir" ]]; then
+            mkdir -p "$dest_dir"
+        fi
+
+        # 复制文件
+        if cp "$src_path" "$dest_path"; then
+            print_success "已创建: $dest"
+            ((copied++))
+        else
+            print_error "复制失败: $dest"
+            ((failed++))
+        fi
+    done
+
+    # 创建符号链接
+    if [[ "$create_symlinks" == "true" ]]; then
+        echo
+        print_info "创建符号链接..."
+
+        for cache_path in "${!SYMLINK_MAP[@]}"; do
+            link_path="${SYMLINK_MAP[$cache_path]}"
+            source_path="$CACHE_DIR/$cache_path"
+            link_dir=$(dirname "$link_path")
+
+            # 检查源文件
+            if [[ ! -f "$source_path" ]]; then
+                print_warning "源文件不存在，跳过符号链接: $cache_path"
+                continue
+            fi
+
+            # 创建目标目录
+            if [[ ! -d "$link_dir" ]]; then
+                mkdir -p "$link_dir"
+            fi
+
+            # 删除已存在的链接或文件
+            if [[ -L "$link_path" ]] || [[ -f "$link_path" ]]; then
+                if [[ "$force" == "true" ]]; then
+                    rm -f "$link_path"
+                else
+                    print_info "跳过符号链接 (已存在): $link_path"
+                    continue
+                fi
+            fi
+
+            # 创建符号链接
+            if ln -s "$source_path" "$link_path"; then
+                print_success "符号链接: $link_path -> $source_path"
+            else
+                print_error "创建符号链接失败: $link_path"
+            fi
+        done
+    fi
+
+    echo
+    echo "════════════════════════════════════════════"
+    echo "完成: $copied 个已创建, $skipped 个已跳过, $failed 个失败"
+
+    if [[ $copied -gt 0 ]]; then
+        echo
+        echo -e "${GREEN}提示: 颜色文件已初始化，可以正常启动应用了${NC}"
+        echo -e "${BLUE}提示: 运行 'matugen image <壁纸路径>' 来生成动态主题${NC}"
+    fi
+}
+
+# 主程序
+main() {
+    local force=false
+    local check_only=false
+    local list_only=false
+    local create_symlinks=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -f|--force)
+                force=true
+                shift
+                ;;
+            -c|--check)
+                check_only=true
+                shift
+                ;;
+            -l|--list)
+                list_only=true
+                shift
+                ;;
+            -s|--symlinks)
+                create_symlinks=true
+                shift
+                ;;
+            *)
+                print_error "未知选项: $1"
+                echo "使用 -h 查看帮助"
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ "$list_only" == "true" ]]; then
+        list_defaults
+        exit 0
+    fi
+
+    if [[ "$check_only" == "true" ]]; then
+        check_status
+        exit $?
+    fi
+
+    init_colors "$force" "$create_symlinks"
+}
+
+main "$@"

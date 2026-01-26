@@ -1,230 +1,239 @@
 #!/bin/bash
-# clipboard-sync - Sync Wayland and X11 clipboard
+# clipboard-sync-ultimate
+# 融合版:
+# 1. X11 监听使用 clipnotify (事件驱动，低延迟)
+# 2. Wayland 监听使用 Polling (轮询，高稳定性，解决回调失效问题)
+# 3. 传输逻辑使用 管道 (Pipe) (解决图片/截图损坏问题)
 
-SYNC_INTERVAL=1  # Default sync interval (seconds)
 LOG_FILE="$HOME/.local/share/clipboard-sync/clipboard-sync.log"
+SELF_PATH="$(realpath "$0")"
+export DISPLAY=${DISPLAY:-:0}
 
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --interval)
-            SYNC_INTERVAL="$2"
-            shift 2
-            ;;
-        --help|-h)
-            echo "Usage: $0 [--interval SECONDS]"
-            echo "Sync Wayland and X11 clipboard"
-            echo ""
-            echo "Options:"
-            echo "  --interval SECONDS  Sync interval (default: 1 second)"
-            echo "  --help, -h          Show this help message"
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Use --help for help"
-            exit 1
-            ;;
-    esac
-done
-
-# Create log directory
 mkdir -p "$(dirname "$LOG_FILE")"
 
-# Log function
+# -----------------------------------------------------------------------------
+# 工具函数: 日志与预览
+# -----------------------------------------------------------------------------
+
+get_preview() {
+    local type="$1"
+    if [[ "$type" == *"image/"* ]]; then
+        echo "[Binary Image: $type]"
+        return
+    fi
+
+    local content
+    if [[ "$2" == "wayland" ]]; then
+        content=$(timeout 1s wl-paste --no-newline 2>/dev/null)
+    else
+        content=$(timeout 1s xclip -selection clipboard -o 2>/dev/null | tr -d '\n')
+    fi
+
+    if [[ -z "$content" ]]; then
+        echo "(empty)"
+        return
+    fi
+
+    local clean_content="${content//[$'\t\r\n']/ }"
+    local char_len=${#content}
+    local byte_len=$(echo -n "$content" | wc -c)
+
+    if [ "$char_len" -eq "$byte_len" ]; then
+        echo "'${clean_content:0:4}...'"
+    else
+        echo "'${clean_content:0:2}...'"
+    fi
+}
+
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+    local direction="$1"
+    local type="$2"
+    local source="$3"
+    local preview=$(get_preview "$type" "$source")
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$direction] Type: $type | Content: $preview" >> "$LOG_FILE"
 }
 
-log "Starting clipboard sync service (interval: ${SYNC_INTERVAL}s)"
+# -----------------------------------------------------------------------------
+# 核心函数: 获取哈希 (带超时保护)
+# -----------------------------------------------------------------------------
 
-# Check if tools are available
-check_tools() {
-    if ! command -v wl-paste >/dev/null 2>&1; then
-        echo "Error: wl-paste not found, please install wl-clipboard" >&2
-        exit 1
+get_x11_hash() {
+    local targets
+    targets=$(timeout 0.5s xclip -selection clipboard -t TARGETS -o 2>/dev/null) || return 1
+
+    if echo "$targets" | grep -q "image/png"; then
+        local size=$(timeout 0.5s xclip -selection clipboard -t image/png -o 2>/dev/null | wc -c)
+        echo "${size} image/png"
+    elif echo "$targets" | grep -q "image/"; then
+        local img_type=$(echo "$targets" | grep "image/" | head -1)
+        local size=$(timeout 0.5s xclip -selection clipboard -t "$img_type" -o 2>/dev/null | wc -c)
+        echo "${size} ${img_type}"
+    elif echo "$targets" | grep -q "x-special/gnome-copied-files"; then
+        local hash=$(timeout 0.5s xclip -selection clipboard -t "x-special/gnome-copied-files" -o 2>/dev/null | md5sum | cut -d' ' -f1)
+        echo "${hash} x-special/gnome-copied-files"
+    elif echo "$targets" | grep -q "text/uri-list"; then
+        local hash=$(timeout 0.5s xclip -selection clipboard -t "text/uri-list" -o 2>/dev/null | md5sum | cut -d' ' -f1)
+        echo "${hash} text/uri-list"
+    else
+        local hash=$(timeout 0.5s xclip -selection clipboard -o 2>/dev/null | md5sum | cut -d' ' -f1)
+        echo "${hash} text/plain"
     fi
+}
 
-    if ! command -v wl-copy >/dev/null 2>&1; then
-        echo "Error: wl-copy not found, please install wl-clipboard" >&2
-        exit 1
+get_wayland_hash() {
+    local types
+    types=$(timeout 0.5s wl-paste --list-types 2>/dev/null) || return 1
+
+    if echo "$types" | grep -q "image/png"; then
+        local size=$(timeout 0.5s wl-paste --type image/png 2>/dev/null | wc -c)
+        echo "${size} image/png"
+    elif echo "$types" | grep -q "image/"; then
+        local img_type=$(echo "$types" | grep "image/" | head -1)
+        local size=$(timeout 0.5s wl-paste --type "$img_type" 2>/dev/null | wc -c)
+        echo "${size} ${img_type}"
+    elif echo "$types" | grep -q "x-special/gnome-copied-files"; then
+        local hash=$(timeout 0.5s wl-paste --type "x-special/gnome-copied-files" 2>/dev/null | md5sum | cut -d' ' -f1)
+        echo "${hash} x-special/gnome-copied-files"
+    elif echo "$types" | grep -q "text/uri-list"; then
+        local hash=$(timeout 0.5s wl-paste --type "text/uri-list" 2>/dev/null | md5sum | cut -d' ' -f1)
+        echo "${hash} text/uri-list"
+    else
+        local hash=$(timeout 0.5s wl-paste 2>/dev/null | md5sum | cut -d' ' -f1)
+        echo "${hash} text/plain"
     fi
-
-    if ! command -v xclip >/dev/null 2>&1; then
-        echo "Error: xclip not found, please install xclip" >&2
-        exit 1
-    fi
 }
 
-# Functions to get clipboard content
-get_wayland_clipboard() {
-    wl-paste 2>/dev/null || echo ""
-}
+# -----------------------------------------------------------------------------
+# 同步执行逻辑 (Pipe传输，确保图片完整)
+# -----------------------------------------------------------------------------
 
-get_x11_clipboard() {
-    DISPLAY=:0 xclip -selection clipboard -o 2>/dev/null || echo ""
-}
+# 将当前 Wayland 内容同步到 X11
+perform_sync_w2x() {
+    local w_sig="$1"
+    local w_type=${w_sig#* }
 
-# Functions to check clipboard content types
-get_wayland_types() {
-    wl-paste --list-types 2>/dev/null || echo ""
-}
+    local x_sig=$(get_x11_hash)
+    local w_hash=${w_sig%% *}
+    local x_hash=${x_sig%% *}
 
-get_x11_types() {
-    DISPLAY=:0 xclip -selection clipboard -t TARGETS -o 2>/dev/null || echo ""
-}
-
-# Functions to sync clipboard content with type detection
-sync_wayland_to_x11() {
-    local types=$(get_wayland_types)
-
-    # Check for image types first
-    if echo "$types" | grep -q "image/"; then
-        local image_type=$(echo "$types" | grep "image/" | head -1)
-        if wl-paste --type "$image_type" | DISPLAY=:0 xclip -selection clipboard -t "$image_type" 2>/dev/null; then
-            log "Wayland -> X11: Image ($image_type)"
-            return 0
-        fi
-    fi
-
-    # Fall back to text
-    local content=$(get_wayland_clipboard)
-    if [[ -n "$content" ]]; then
-        echo -n "$content" | DISPLAY=:0 xclip -selection clipboard 2>/dev/null
-        log "Wayland -> X11: $(echo "$content" | head -c 50)..."
+    if [[ "$w_hash" == "$x_hash" && -n "$w_hash" ]]; then
         return 0
     fi
 
-    return 1
-}
-
-sync_x11_to_wayland() {
-    local types=$(get_x11_types)
-
-    # Check for image types first
-    if echo "$types" | grep -q "image/"; then
-        local image_type=$(echo "$types" | grep "image/" | head -1)
-        if DISPLAY=:0 xclip -selection clipboard -t "$image_type" -o | wl-copy --type "$image_type" 2>/dev/null; then
-            log "X11 -> Wayland: Image ($image_type)"
-            return 0
+    if [[ "$w_type" == *"image/"* ]]; then
+        wl-paste --type "$w_type" 2>/dev/null | xclip -selection clipboard -t "$w_type" -in 2>/dev/null
+    elif [[ "$w_type" == "x-special/gnome-copied-files" || "$w_type" == "text/uri-list" ]]; then
+        wl-paste --type "$w_type" 2>/dev/null | xclip -selection clipboard -t "$w_type" -in 2>/dev/null
+    else
+        # 优先使用 UTF-8 编码
+        local types=$(wl-paste --list-types 2>/dev/null)
+        if echo "$types" | grep -q "text/plain;charset=utf-8"; then
+            wl-paste --type "text/plain;charset=utf-8" 2>/dev/null | xclip -selection clipboard -in 2>/dev/null
+        else
+            wl-paste 2>/dev/null | xclip -selection clipboard -in 2>/dev/null
         fi
     fi
+    log "Wayland -> X11" "$w_type" "wayland"
+}
 
-    # Fall back to text
-    local content=$(get_x11_clipboard)
-    if [[ -n "$content" ]]; then
-        echo -n "$content" | wl-copy 2>/dev/null
-        log "X11 -> Wayland: $(echo "$content" | head -c 50)..."
+# 将当前 X11 内容同步到 Wayland
+perform_sync_x2w() {
+    local x_sig=$(get_x11_hash)
+    local w_sig=$(get_wayland_hash)
+
+    local x_hash=${x_sig%% *}
+    local w_hash=${w_sig%% *}
+    local x_type=${x_sig#* }
+
+    if [[ "$x_hash" == "$w_hash" && -n "$x_hash" ]]; then
         return 0
     fi
 
-    return 1
+    if [[ "$x_type" == *"image/"* ]]; then
+        xclip -selection clipboard -t "$x_type" -o 2>/dev/null | wl-copy --type "$x_type" 2>/dev/null
+    elif [[ "$x_type" == "x-special/gnome-copied-files" || "$x_type" == "text/uri-list" ]]; then
+        xclip -selection clipboard -t "$x_type" -o 2>/dev/null | wl-copy --type "$x_type" 2>/dev/null
+    else
+        # 优先使用 UTF-8 编码
+        local targets=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null)
+        if echo "$targets" | grep -q "UTF8_STRING"; then
+            xclip -selection clipboard -t UTF8_STRING -o 2>/dev/null | wl-copy 2>/dev/null
+        else
+            xclip -selection clipboard -o 2>/dev/null | wl-copy 2>/dev/null
+        fi
+    fi
+    log "X11 -> Wayland" "$x_type" "x11"
 }
 
-# Functions to set clipboard content (legacy - for text only)
-set_wayland_clipboard() {
-    echo -n "$1" | wl-copy 2>/dev/null
-}
+# -----------------------------------------------------------------------------
+# 监听循环 (Watchers)
+# -----------------------------------------------------------------------------
 
-set_x11_clipboard() {
-    echo -n "$1" | DISPLAY=:0 xclip -selection clipboard 2>/dev/null
-}
+# 1. X11 监听器: 使用 clipnotify (事件驱动，高效)
+if [[ "$1" == "--watch-x11" ]]; then
+    while true; do
+        clipnotify -s clipboard >/dev/null 2>&1
+        sleep 0.1 # 等待写入稳定
+        perform_sync_x2w
+    done
+    exit 0
+fi
 
-# Calculate content hash (avoid infinite loop)
-hash_content() {
-    echo -n "$1" | md5sum | cut -d' ' -f1
-}
+# 2. Wayland 监听器: 使用 轮询 (解决回调不触发问题)
+if [[ "$1" == "--watch-wayland" ]]; then
+    LAST_W_HASH=""
+    while true; do
+        # 仅查询 Wayland 哈希 (非常快)
+        CURR_W_SIG=$(get_wayland_hash)
+        CURR_W_HASH=${CURR_W_SIG%% *}
 
-# Signal handler function
+        # 只有当 Wayland 本身发生变化时，才去尝试同步
+        # 这样避免了每一轮循环都去查询 X11，降低 CPU 消耗
+        if [[ -n "$CURR_W_HASH" && "$CURR_W_HASH" != "$LAST_W_HASH" ]]; then
+            perform_sync_w2x "$CURR_W_SIG"
+            LAST_W_HASH="$CURR_W_HASH"
+        fi
+
+        sleep 0.5
+    done
+    exit 0
+fi
+
+# -----------------------------------------------------------------------------
+# 主进程控制
+# -----------------------------------------------------------------------------
+
+# 检查依赖
+for tool in wl-paste xclip clipnotify; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Error: Missing dependency '$tool'" >&2
+        exit 1
+    fi
+done
+
+echo "Starting Clipboard Sync Ultimate..."
+echo "Log: $LOG_FILE"
+
+# 清理旧进程
+pkill -f "clipboard-sync-event --watch" 2>/dev/null
+
+# 启动 Wayland 轮询监听
+"$0" --watch-wayland &
+PID_WAYLAND=$!
+
+# 启动 X11 事件监听
+"$0" --watch-x11 &
+PID_X11=$!
+
+log "SYSTEM" "Service Started (Hybrid Mode)" "none"
+
 cleanup() {
-    log "Clipboard sync service stopped"
-    echo "Clipboard sync service stopped"
+    log "SYSTEM" "Stopping..." "none"
+    kill "$PID_WAYLAND" "$PID_X11" 2>/dev/null
+    pkill -P "$PID_X11" clipnotify 2>/dev/null
     exit 0
 }
 
-# Set signal handler
-trap cleanup SIGTERM SIGINT
+trap cleanup SIGINT SIGTERM
+wait
 
-
-# Check necessary tools
-check_tools
-
-# Initialize last sync timestamps and content hashes
-last_wayland_sync=0
-last_x11_sync=0
-last_wayland_hash=""
-last_x11_hash=""
-
-log "Clipboard sync service started, sync interval: ${SYNC_INTERVAL}s"
-
-# Function to get current timestamp
-current_time() {
-    date +%s
-}
-
-# Function to calculate content hash safely
-get_content_hash() {
-    local source="$1"
-    if [[ "$source" == "wayland" ]]; then
-        local types=$(get_wayland_types)
-        if echo "$types" | grep -q "image/"; then
-            # For images, use types + file size as hash
-            local image_type=$(echo "$types" | grep "image/" | head -1)
-            wl-paste --type "$image_type" 2>/dev/null | wc -c | md5sum | cut -d' ' -f1
-        else
-            # For text, use content
-            get_wayland_clipboard | md5sum | cut -d' ' -f1
-        fi
-    else
-        local types=$(get_x11_types)
-        if echo "$types" | grep -q "image/"; then
-            # For images, use types + file size as hash
-            local image_type=$(echo "$types" | grep "image/" | head -1)
-            DISPLAY=:0 xclip -selection clipboard -t "$image_type" -o 2>/dev/null | wc -c | md5sum | cut -d' ' -f1
-        else
-            # For text, use content
-            get_x11_clipboard | md5sum | cut -d' ' -f1
-        fi
-    fi
-}
-
-# Main sync loop
-while true; do
-    current_time=$(current_time)
-
-    # Get current content hashes
-    wayland_hash=$(get_content_hash "wayland")
-    x11_hash=$(get_content_hash "x11")
-
-    # Check if Wayland clipboard has new content
-    if [[ -n "$wayland_hash" && "$wayland_hash" != "$last_wayland_hash" && "$wayland_hash" != "$x11_hash" && $((current_time - last_x11_sync)) -gt 1 ]]; then
-        wayland_types=$(get_wayland_types)
-        if [[ -n "$wayland_types" ]]; then
-            if sync_wayland_to_x11; then
-                last_wayland_sync=$current_time
-                last_wayland_hash="$wayland_hash"
-            fi
-        fi
-    fi
-
-    # Check if X11 clipboard has new content
-    if [[ -n "$x11_hash" && "$x11_hash" != "$last_x11_hash" && "$x11_hash" != "$wayland_hash" && $((current_time - last_wayland_sync)) -gt 1 ]]; then
-        x11_types=$(get_x11_types)
-        if [[ -n "$x11_types" ]]; then
-            if sync_x11_to_wayland; then
-                last_x11_sync=$current_time
-                last_x11_hash="$x11_hash"
-            fi
-        fi
-    fi
-
-    # Update last known hashes
-    if [[ -n "$wayland_hash" ]]; then
-        last_wayland_hash="$wayland_hash"
-    fi
-    if [[ -n "$x11_hash" ]]; then
-        last_x11_hash="$x11_hash"
-    fi
-
-    sleep "$SYNC_INTERVAL"
-done

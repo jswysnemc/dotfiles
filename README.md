@@ -1,11 +1,11 @@
 # Dotfiles 配置仓库
+![destop](/.assets/destoktop.png)
+![shell](/.assets/shell.png)
+![launcher](./.assets/app-launcher.png)
+![paste](./.assets/paste-view.png)
+![wifi](./.assets/wifi.png)
+![nvim](./.assets/nvim.png)
 
-![preview](.assets/image-20251222200951834.png)
-![image-20251222195029965](.assets/image-20251222195029965.png)
-![image-20251222195239887](.assets/image-20251222195239887.png)
-![image-20251222195801393](.assets/image-20251222195801393.png)
-![image-20251222195830240](.assets/image-20251222195830240.png)
-![image-20251222195854008](.assets/image-20251222195854008.png)
 
 这个仓库包含了我的开发环境配置文件，使用 GNU Stow 进行管理。
 
@@ -244,7 +244,16 @@
     stow font
     ```
 
-3. 重新加载 shell 配置：
+3. 初始化 Matugen 颜色文件（首次安装必须）：
+    ```bash
+    # 如果遇到 Waybar/Quickshell 等组件因缺少颜色文件而报错，运行此脚本
+    ~/.config/matugen/defaults/matugen-init -s
+
+    # 或者直接使用 matugen 生成动态主题
+    matugen image /path/to/wallpaper.jpg
+    ```
+
+4. 重新加载 shell 配置：
     ```bash
     source ~/.zshrc
     ```

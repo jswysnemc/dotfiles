@@ -14,6 +14,6 @@ swayidle -w \
         resume       "$auth_trigger" \
     timeout 120 'niri msg action power-off-monitors' \
         resume       'niri msg action power-on-monitors; '"$auth_trigger" \
-    # timeout 300  'systemctl suspend' \
-    # before-sleep 'loginctl lock-session' \
     lock         "$lock_cmd"
+    # timeout 300  'systemctl suspend'
+    # before-sleep 'loginctl lock-session'

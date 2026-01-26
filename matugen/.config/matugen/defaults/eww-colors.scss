@@ -1,0 +1,145 @@
+// ============================================
+// EWW Matugen 颜色模板 - 默认深色主题
+// ============================================
+
+// ==========================================
+// 主要颜色 (Primary)
+// ==========================================
+$primary: #89b4fa;
+$primary-container: #313244;
+$on-primary: #1e1e2e;
+$on-primary-container: #89b4fa;
+$inverse-primary: #1e66f5;
+
+// ==========================================
+// 次要颜色 (Secondary)
+// ==========================================
+$secondary: #a6e3a1;
+$secondary-container: #313244;
+$on-secondary: #1e1e2e;
+$on-secondary-container: #a6e3a1;
+
+// ==========================================
+// 第三颜色 (Tertiary)
+// ==========================================
+$tertiary: #fab387;
+$tertiary-container: #313244;
+$on-tertiary: #1e1e2e;
+$on-tertiary-container: #fab387;
+
+// ==========================================
+// 错误颜色 (Error)
+// ==========================================
+$error: #f38ba8;
+$error-container: #313244;
+$on-error: #1e1e2e;
+$on-error-container: #f38ba8;
+
+// ==========================================
+// 背景和表面颜色 (Background & Surface)
+// ==========================================
+$background: #11111b;
+$on-background: #cdd6f4;
+$surface: #11111b;
+$on-surface: #cdd6f4;
+$surface-variant: #313244;
+$on-surface-variant: #a6adc8;
+$inverse-surface: #cdd6f4;
+$inverse-on-surface: #1e1e2e;
+
+// ==========================================
+// 表面层级颜色 (Surface Levels)
+// ==========================================
+$surface-dim: #11111b;
+$surface-bright: #45475a;
+$surface-container-lowest: #0b0b0f;
+$surface-container-low: #181825;
+$surface-container: #1e1e2e;
+$surface-container-high: #313244;
+$surface-container-highest: #45475a;
+
+// ==========================================
+// 轮廓颜色 (Outline)
+// ==========================================
+$outline: #6c7086;
+$outline-variant: #45475a;
+
+// ==========================================
+// 阴影和遮罩 (Shadow & Scrim)
+// ==========================================
+$shadow: #000000;
+$scrim: #000000;
+
+// ==========================================
+// 源颜色 (Source Color)
+// ==========================================
+$source-color: #89b4fa;
+
+// ==========================================
+// 语义颜色别名 (Semantic Aliases)
+// ==========================================
+$accent: $primary;
+$accent-bg: $primary-container;
+$fg: $on-background;
+$bg: $background;
+$card-bg: $surface-container;
+$card-bg-hover: $surface-container-high;
+$border: $outline-variant;
+$text-primary: $on-background;
+$text-secondary: $on-surface-variant;
+$text-disabled: transparentize($on-surface, 0.62);
+
+// ==========================================
+// 功能性颜色 (Functional Colors)
+// ==========================================
+$success: #a6e3a1;
+$warning: #fab387;
+$info: $tertiary;
+
+// ==========================================
+// 透明度变体 (Transparency Variants)
+// ==========================================
+$primary-alpha-10: transparentize($primary, 0.9);
+$primary-alpha-20: transparentize($primary, 0.8);
+$primary-alpha-30: transparentize($primary, 0.7);
+$primary-alpha-50: transparentize($primary, 0.5);
+$surface-alpha-80: transparentize($surface, 0.2);
+$surface-alpha-90: transparentize($surface, 0.1);
+$background-alpha-80: transparentize($background, 0.2);
+$background-alpha-90: transparentize($background, 0.1);
+
+// ==========================================
+// 渐变颜色 (Gradients)
+// ==========================================
+$gradient-primary: linear-gradient(135deg, $primary 0%, $tertiary 100%);
+$gradient-surface: linear-gradient(180deg, $surface-container-low 0%, $surface-container-high 100%);
+
+// ==========================================
+// 圆角和间距 (Border Radius & Spacing)
+// ==========================================
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-xl: 24px;
+$radius-full: 9999px;
+
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+
+// ==========================================
+// 过渡动画 (Transitions)
+// ==========================================
+$transition-fast: 150ms ease;
+$transition-normal: 250ms ease;
+$transition-slow: 350ms ease;
+
+// ==========================================
+// 阴影 (Box Shadows)
+// ==========================================
+$shadow-sm: 0 1px 2px transparentize($shadow, 0.9);
+$shadow-md: 0 4px 6px transparentize($shadow, 0.85);
+$shadow-lg: 0 10px 15px transparentize($shadow, 0.8);
+$shadow-xl: 0 20px 25px transparentize($shadow, 0.75);

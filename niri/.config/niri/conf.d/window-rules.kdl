@@ -22,7 +22,7 @@ layout {
 // --- 全局窗口规则 ---
 window-rule {
     clip-to-geometry true
-    opacity 0.99
+    opacity 0.9
     draw-border-with-background false
 }
 
@@ -47,7 +47,7 @@ window-rule {
         off
     }
     border {
-        off
+        on
     }
     shadow {
         off
@@ -65,10 +65,21 @@ window-rule {
     max-height 600
 }
 
+window-rule{
+    match app-id="(?i)waybar"
+    blur{
+        on
+        passes 2 // number of times to apply the blur effect
+        radius 4 // radius of the blur effect
+        noise 0.1//add grain to the blur
+    }
+}
+
 window-rule {
     match app-id="(?i)clash-verge"
     open-floating true
 }
+
 
 window-rule {
     match app-id="(?i)kitty-float"
@@ -114,6 +125,7 @@ window-rule {
     match app-id="yad"
     match app-id="rnote"
     match app-id="com.snemc.sticky-notes"
+    match app-id="Antigravity_tools"
     match title="图片查看器"
     match title="群聊的聊天记录"
     match title="视觉模型处理"

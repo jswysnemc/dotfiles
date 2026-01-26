@@ -8,8 +8,8 @@ binds {
     // === 程序启动 ===
     Mod+T hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
     Mod+Return hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
-    Alt+Space hotkey-overlay-title="应用启动器" { spawn-sh "rofi -show drun -theme ~/.config/rofi/grid.rasi"; }
-    Alt+V hotkey-overlay-title="剪贴板" { spawn "clipse-gui"; }
+    Alt+Space hotkey-overlay-title="应用启动器" { spawn-sh "qs-popup launcher"; }
+    Alt+V hotkey-overlay-title="剪贴板" { spawn-sh "qs-popup clipboard"; }
     Mod+B hotkey-overlay-title="浏览器" { spawn "firefox"; }
     Mod+E hotkey-overlay-title="文件管理器" { spawn "dolphin"; }
     Super+Alt+L hotkey-overlay-title="锁屏" { spawn "swaylock"; }
@@ -18,7 +18,7 @@ binds {
     Mod+Shift+Return hotkey-overlay-title="浮动终端" { spawn-sh "kitty --class kitty-float"; }
     Mod+Shift+B hotkey-overlay-title="重启waybar" { spawn-sh "killall waybar ; waybar"; }
     Mod+Z hotkey-overlay-title="任务管理器" { spawn-sh "missioncenter"; }
-    Mod+Shift+W hotkey-overlay-title="切换壁纸" { spawn-sh "~/.config/niri/scripts/wallpaper-selector.sh"; }
+    Mod+Shift+W hotkey-overlay-title="切换壁纸" { spawn-sh "qs-popup wallpaper"; }
     Mod+Ctrl+S hotkey-overlay-title="刷新率配置" { spawn-sh "~/.config/niri/scripts/niri-monitor-switch.sh"; }
 
     // === 屏幕阅读器 ===
@@ -172,7 +172,8 @@ binds {
     Alt+Print { screenshot-window; }
 
     // === 系统操作 ===
-    Mod+MouseMiddle { close-window; }
+    XF86PowerOff allow-when-locked=true hotkey-overlay-title="电源菜单" { spawn-sh "qs-popup power-menu"; }
+    Mod+MouseMiddle { spawn-sh "qs-popup close-confirm"; }
     Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
     Mod+Shift+E { quit; }
     Ctrl+Alt+Delete { quit; }

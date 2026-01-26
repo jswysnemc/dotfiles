@@ -56,6 +56,7 @@ tooltip label {
 #power-profiles-daemon,
 #battery,
 #clock,
+#custom-clock,
 #tray,
 #proxies,
 #custom-media,
@@ -87,6 +88,7 @@ tooltip label {
 #power-profiles-daemon:hover #group-tools:hover,
 #battery:hover,
 #clock:hover,
+#custom-clock:hover,
 #tray:hover,
 #proxies:hover,
 #custom-media:hover,
@@ -116,6 +118,48 @@ tooltip label {
 #custom-separator-arrow {
     background: transparent;
     color: @text-sub;
+}
+
+/* ==============================================================================
+ * 天气模块 (Weather)
+ * ============================================================================== */
+#custom-weather {
+    background-color: @base-bg;
+    color: @text-main;
+    padding: 0 10px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 12px;
+}
+
+#custom-weather:hover {
+    background-color: @hover-bg;
+}
+
+#custom-weather.sunny {
+    color: @accent-orange;
+}
+
+#custom-weather.cloudy {
+    color: @text-main;
+}
+
+#custom-weather.rainy {
+    color: @highlight;
+}
+
+#custom-weather.foggy {
+    color: @text-sub;
+}
+
+#custom-weather.stormy {
+    color: @accent-purple;
+}
+
+#custom-weather.error {
+    color: @accent-red;
 }
 
 /* ==============================================================================
@@ -167,27 +211,47 @@ tooltip label {
 
 /* ============================================================================== */
 
-/* 快捷启动 & AI (组内图标) */
+/* 快捷启动 (组内图标) */
 #custom-app-file,
 #custom-app-browser,
-#custom-app-term,
-#custom-ai-main,
-#custom-ai-gpt,
-#custom-ai-gemini,
-#custom-ai-deepseek,
-#custom-ai-aistudio {
+#custom-app-term {
     padding: 0 6px;
     border-radius: 6px;
 }
 
 #custom-app-file:hover,
 #custom-app-browser:hover,
-#custom-app-term:hover,
-#custom-ai-gpt:hover,
-#custom-ai-gemini:hover,
-#custom-ai-deepseek:hover,
-#custom-ai-aistudio:hover {
-    /* 替换：rgba(255, 255, 255, 0.2) -> @hover-bg */
+#custom-app-term:hover {
+    background-color: @hover-bg;
+    color: @highlight;
+}
+
+/* 快捷方式抽屉 (统一样式) */
+#custom-shortcuts-toggle {
+    padding: 0 8px;
+    border-radius: 6px;
+}
+
+/* 所有 link- 开头的快捷方式 */
+#custom-link-gpt,
+#custom-link-gemini,
+#custom-link-aistudio,
+#custom-link-deepseek,
+#custom-link-claude,
+#custom-link-linuxdo {
+    padding: 0 2px;
+    margin: 0 2px;
+    border-radius: 6px;
+    min-width: 30px;
+    transition: all 0.2s ease;
+}
+
+#custom-link-gpt:hover,
+#custom-link-gemini:hover,
+#custom-link-aistudio:hover,
+#custom-link-deepseek:hover,
+#custom-link-claude:hover,
+#custom-link-linuxdo {
     background-color: @hover-bg;
     color: @highlight;
 }
@@ -209,8 +273,31 @@ tooltip label {
  * ============================================================================== */
 
 /* 网络 */
+#network {
+    min-width: 140px;
+}
+
 #network.disconnected {
     color: @accent-red;
+    min-width: 0;
+}
+
+/* 通知 */
+#custom-notification {
+    padding: 0 8px;
+}
+
+#custom-notification.notification {
+    color: @highlight;
+}
+
+#custom-notification.dnd-notification,
+#custom-notification.dnd-none {
+    color: @accent-red;
+}
+
+#custom-notification.none {
+    color: @text-sub;
 }
 
 /* 蓝牙 */
@@ -277,13 +364,16 @@ scale slider {
 }
 
 /* 时钟 */
-#clock {
+#clock,
+#custom-clock {
     background-color: @accent-purple;
     /* 替换：#1e1e2e -> @text-on-primary (因为背景是 accent-purple) */
     color: @text-on-primary;
+    padding-top: 1px;
 }
 
-#clock:hover {
+#clock:hover,
+#custom-clock:hover {
     background-color: @highlight;
 }
 
@@ -431,12 +521,12 @@ tooltip label {
 
 #cpu {
     border-radius: 12px 0 0 12px;
-    padding-left: 0;
+    padding-left: 8px;
 }
 
 #memory {
     border-radius: 0 12px 12px 0;
-    border-right: none;
+    padding-right: 8px;
 }
 
 /* 4. 特殊处理温度颜色 */
@@ -635,17 +725,20 @@ tooltip label {
  * ============================================================================== */
 #custom-visualizer {
     color: @accent-green;
-    padding: 0 4px;
+    padding: 0 6px;
     margin: 0;
-    font-size: 10px;
+    font-size: 12px;
     min-width: 0;
+    letter-spacing: -2px;
+    opacity: 0.9;
 }
 
 #custom-visualizer.playing {
     color: @accent-green;
 }
 
-#custom-visualizer.hidden {
+#custom-visualizer.hidden,
+#custom-visualizer.stopped {
     padding: 0;
     margin: 0;
     min-width: 0;

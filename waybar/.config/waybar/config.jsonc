@@ -22,7 +22,7 @@
         "custom/separator-line",
         "group/quick-start",
         "custom/separator-arrow",
-        "group/ai-drawer",
+        "group/shortcuts",
         "custom/separator-line",
         "group/shot-recoder",
         "wlr/taskbar"
@@ -41,7 +41,7 @@
         "group/g-backlight", // 屏幕亮度 (原 ddcutil)
         "group/tools", // 新增：咖啡 + 性能 (合并药丸)
         "battery", // 电池
-        "clock", // 时钟
+        "custom/clock", // 时钟(带农历)
         "group/proxies", // 代理控制组
         "tray", // 托盘
         "group/power" // 电源菜单
@@ -52,16 +52,19 @@
     // --- Logo / 启动器 ---
     "custom/arch": {
         "format": "",
-        "tooltip": false,
-        "on-click": "LANG=zh_CN.UTF-8 nwg-drawer",
-        "on-click-right": "killall waybar ; waybar"
+        "tooltip-format": "移动到左上角: 打开预览\n左键: 应用启动器 \n中键: 选择壁纸\n右键:重启waybar",
+        "on-click": "qs-popup launcher --pos top-left",
+        "on-click-right": "killall waybar ; waybar",
+        "on-click-middle": "qs-popup wallpaper"
     },
     // --- 天气 ---
     "custom/weather": {
         "exec": "python3 ~/.config/quickshell/scripts/weather_fetch.py --waybar",
         "return-type": "json",
-        "interval": 1800,
-        "on-click": "~/.config/waybar/scripts/weather.sh"
+        "interval": 900,
+        "on-click": "qs-popup weather",
+        "on-click-right": "python3 ~/.config/quickshell/scripts/weather_fetch.py --waybar --force",
+        "tooltip": true
     },
     // --- 装饰性分隔符 ---
     "custom/separator-arrow": {
@@ -74,20 +77,19 @@
     },
     // --- Niri 工作区 ---
     "niri/workspaces": {
-        "format": "{index}",
-        "format-icons": {}
+        "format": "{index}"
     },
 
     // --- 媒体播放模块 ---
     "custom/media": {
         "format": "{}",
         "return-type": "json",
-        "max-length": 5,
         "exec": "~/.config/quickshell/scripts/media_status.sh",
-        "on-click-right": "POPUP_TYPE=media quickshell -c ~/.config/quickshell",
         "on-click": "playerctl play-pause",
+        "on-click-right": "qs-popup media",
         "on-scroll-up": "playerctl next",
         "on-scroll-down": "playerctl previous",
+        "tooltip": true,
         "escape": true
     },
     // --- 音律条动画 ---
@@ -96,6 +98,7 @@
         "return-type": "json",
         "exec": "~/.config/quickshell/scripts/media_visualizer.sh",
         "on-click": "playerctl play-pause",
+        "on-click-right": "qs-popup media",
         "escape": true
     },
     // --- 快捷启动组 (Quick Start) ---
@@ -119,44 +122,56 @@
     },
     "custom/app-term": {
         "format": "",
-        "tooltip-format": "终端 (Kitty)",
-        "on-click": "kitty"
+        "tooltip-format": "左键:终端 (Kitty)\n右键:以浮动方式打开终端",
+        "on-click": "kitty",
+        "on-click-right" : "kitty --class kitty-float"
     },
-    // --- AI 工具抽屉 (AI Drawer) ---
-    "group/ai-drawer": {
+    // --- 快捷方式抽屉 ---
+    "group/shortcuts": {
         "orientation": "horizontal",
         "drawer": {
-            "transition-duration": 500,
-            "children-class": "child-ai",
+            "transition-duration": 300,
+            "children-class": "shortcut-item",
             "transition-left-to-right": true
         },
         "modules": [
-            "custom/ai-main",
-            "custom/ai-gpt",
-            "custom/ai-gemini",
-            "custom/ai-aistudio",
-            "custom/ai-deepseek"
+            "custom/shortcuts-toggle",
+            "custom/link-gpt",
+            "custom/link-gemini",
+            "custom/link-aistudio",
+            "custom/link-deepseek",
+            "custom/link-claude",
+            "custom/link-linuxdo"
         ]
     },
-    "custom/ai-main": {
-        "format": "",
-        "tooltip-format": "AI 助手集合"
+    "custom/shortcuts-toggle": {
+        "format": "",
+        "tooltip-format": "快捷方式"
     },
-    "custom/ai-gpt": {
+    "custom/link-gpt": {
         "format": "GPT",
-        "on-click": "xdg-open https://chatgpt.com"
+        "on-click": "xdg-open https://chatgpt.com",
+        "tooltip-format": "ChatGPT"
     },
-    "custom/ai-gemini": {
+    "custom/link-gemini": {
         "format": "Gemini",
-        "on-click": "xdg-open https://gemini.google.com"
+        "on-click": "xdg-open https://gemini.google.com",
+        "tooltip-format": "Google Gemini"
     },
-    "custom/ai-aistudio": {
-        "format": "Ai-studio",
-        "on-click": "xdg-open https://aistudio.google.com"
+    "custom/link-aistudio": {
+        "format": "Studio",
+        "on-click": "xdg-open https://aistudio.google.com",
+        "tooltip-format": "Google AI Studio"
     },
-    "custom/ai-deepseek": {
-        "format": "DeepSeek",
-        "on-click": "xdg-open https://chat.deepseek.com"
+    "custom/link-deepseek": {
+        "format": "DS",
+        "on-click": "xdg-open https://chat.deepseek.com",
+        "tooltip-format": "DeepSeek"
+    },
+    "custom/link-linuxdo": {
+        "format": "Linuxdo",
+        "on-click": "xdg-open https://linux.do",
+        "tooltip-format": "Linuxdo"
     },
     //截图
     "group/shot-recoder": {
@@ -168,11 +183,11 @@
     },
     "custom/screenshot": {
         "format": "",
-        "tooltip-format": "Click to easy Screenshot Right Click to power screenshot Middle Click to longshot",
+        "tooltip-format": "左键:选区截图并复制到剪贴板\n中间:启用长截图\n右键:截图并使用markpix打开",
         "on-click": "~/.config/waybar/scripts/screenshot.sh",
         "on-click-right": "~/.config/waybar/scripts/power-screenshot.sh",
         // "on-click-middle":"~/.config/waybar/scripts/longshot.sh"
-        "on-click-middle": "~/.config/waybar/scripts/scroll-capture.sh"
+        "on-click-middle": "~/.local/bin/wayscrollshot  -a template"
     },
     //wf-recorder
     "custom/wfrec": {
@@ -184,29 +199,13 @@
         "on-click": "~/.config/waybar/scripts/wf-recorder.sh toggle", // 左键：开始/停止
         "on-click-right": "~/.config/waybar/scripts/wf-recorder.sh stop"
     },
-    // --- Niri 任务栏 (Taskbar) ---
-    // 注意：这里修复了键名，使其与 modules-left 中的引用一致
-    // "wlr/niri-taskbar": {
-    //     "module_path": "/usr/lib/waybar/libniri_taskbar.so",
-    //     "apps": {
-    //         "signal": [
-    //             {
-    //                 "match": "\\([0-9]+\\)$",
-    //                 "class": "unread"
-    //             }
-    //         ]
-    //     },
-    //     "icon-size": 18,
-    //     "on-click": "activate",
-    //     "on-click-middle": "close"
-    // },
-    // 备用标准任务栏 (已注释)
     "wlr/taskbar": {
         "format": "{icon}",
         "icon-size": 14,
         "tooltip-format": "{title}",
         "on-click": "activate",
         "on-click-middle": "close",
+        "on-click-right":"qs-popup windows",
         "ignore-list": [
             "wofi",
             "waybar"
@@ -225,8 +224,8 @@
         },
         // 左键：切换 浮动/平铺 模式
         "on-click": "niri msg action toggle-window-floating",
-        // 中键：关闭当前窗口
-        "on-click-middle": "niri msg action close-window",
+        // 中键：关闭当前窗口（带确认）
+        "on-click-middle": "qs-popup close-confirm",
         // 右键：切换预设列宽
         "on-click-right": "niri msg action switch-preset-column-width"
     },
@@ -240,40 +239,43 @@
         ]
     },
     "cpu": {
-        "format": "  {usage}%",
+        "format": "󰻠 {usage}%",
         "interval": 2,
+        "tooltip": true,
+        "tooltip-format": "󰻠 CPU 使用率: {usage}%",
         "on-click": "kitty -e btop"
     },
     // 温度组件：利用 format-critical 配合 CSS 变色
     "temperature": {
-        "interval": 2, // 刷新快一点
+        "interval": 2,
         "tooltip": true,
         "hwmon-path": [
             "/sys/class/hwmon/hwmon1/temp1_input",
             "/sys/class/thermal/thermal_zone0/temp"
         ],
-        "critical-threshold": 80, // 超过80度变红
-        "format-critical": "{icon} {temperatureC}°C",
-        "format": "{icon} {temperatureC}°C",
-        "format-icons": [
-            "",
-            "",
-            ""
-        ] // 温度计图标随温度变化
+        "critical-threshold": 80,
+        "format-critical": "󰸁 {temperatureC}°",
+        "format": "󰔏 {temperatureC}°",
+        "tooltip-format": "󰔏 温度: {temperatureC}°C"
     },
     "memory": {
-        "format": " {percentage}%",
+        "format": "󰍛 {percentage}%",
         "interval": 5,
+        "tooltip": true,
+        "tooltip-format": "󰍛 内存\n已用: {used:.1f}G / {total:.1f}G ({percentage}%)\n交换: {swapUsed:.1f}G / {swapTotal:.1f}G",
         "on-click": "kitty -e btop"
     },
     // --- 网络模块 (Network) ---
     "network": {
         "interval": 1,
         // 使用 Pango 语法分别给下载(淡黄)和上传(淡绿)上色，箭头用 Nerd Font
-        "format-wifi": "{icon} <span color='#fab387'>↓{bandwidthDownBytes}</span> <span color='#a6e3a1'>↑{bandwidthUpBytes}</span>",
-        "format-ethernet": "󰈀 <span color='#fab387'>↓{bandwidthDownBytes}</span> <span color='#a6e3a1'>↑{bandwidthUpBytes}</span>",
+        // 使用 monospace 字体确保数字等宽
+        "format-wifi": "{icon} <span font_family='monospace' color='#fab387'>↓{bandwidthDownBytes:>7}</span> <span font_family='monospace' color='#a6e3a1'>↑{bandwidthUpBytes:>7}</span>",
+        "format-ethernet": "󰈀 <span font_family='monospace' color='#fab387'>↓{bandwidthDownBytes:>7}</span> <span font_family='monospace' color='#a6e3a1'>↑{bandwidthUpBytes:>7}</span>",
         "format-disconnected": "󰤮",
-        "tooltip-format": "{essid} ({signalStrength}%)\nIP: {ipaddr}",
+        "tooltip-format-wifi": "󰤨 {essid}\n信号: {signalStrength}%\nIP: {ipaddr}\n网关: {gwaddr}",
+        "tooltip-format-ethernet": "󰈀 有线连接\nIP: {ipaddr}\n网关: {gwaddr}",
+        "tooltip-format-disconnected": "󰤮 未连接",
         "format-icons": [
             "󰤯",
             "󰤟",
@@ -281,8 +283,8 @@
             "󰤥",
             "󰤨"
         ],
-        // "on-click": "nmtui",
-        "on-click": "~/.config/waybar/scripts/wifi.sh"
+        "on-click-right": "kitty -e nmtui",
+        "on-click": "qs-popup wifi"
     },
     // --- 蓝牙模块 (Bluetooth) ---
     "bluetooth": {
@@ -292,8 +294,8 @@
         "tooltip-format": " {device_alias}",
         "tooltip-format-connected": "{device_enumerate}",
         "tooltip-format-enumerate-connected": " {device_alias} 󰂄{device_battery_percentage}%",
-        "on-click": "blueman-manager",
-        //"on-click": "pkill -f 'POPUP_TYPE=bluetooth' || POPUP_TYPE=bluetooth quickshell -c ~/.config/quickshell"
+        "on-click-right": "blueman-manager",
+        "on-click": "qs-popup bluetooth"
     },
     // ==================== 多媒体与控制 (Media & Control) ====================
     // --- 音量控制组 (Audio) ---
@@ -360,7 +362,9 @@
             "",
             ""
         ],
-        "tooltip": false
+        "tooltip": false,
+        "on-scroll-up": "brightnessctl set +5%",
+        "on-scroll-down": "brightnessctl set 5%-"
     },
     "backlight/slider": {
         "min": 5,
@@ -393,8 +397,8 @@
         "format-icons": {
             "performance": "",
             "balanced": "",
-            "power-saver": "",
-        },
+            "power-saver": ""
+        }
     },
     // --- 电池 (Battery) ---
     "battery": {
@@ -420,13 +424,13 @@
         ],
         "tooltip-format": "{timeTo} | Power: {power}W"
     },
-    // --- 时钟 (Clock) ---
-    "clock": {
-        "interval": 60,
-        "format": " {:%H:%M}",
-        "format-alt": " {:%Y-%m-%d}",
-        "tooltip-format": "<tt><small>{calendar}</small></tt>",
-        "on-click-right": "~/.config/waybar/scripts/calendar.sh"
+    // --- 时钟 (Clock with Lunar) ---
+    "custom/clock": {
+        "exec": "~/.config/quickshell/scripts/clock_lunar.sh",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "~/.config/quickshell/scripts/clock_toggle.sh",
+        "on-click-right": "qs-popup calendar"
     },
     // ==================== 代理控制组 (Proxies) ====================
     "group/proxies": {
@@ -499,40 +503,20 @@
         "icon-size": 13,
         "spacing": 8
     },
-    // --- swaync 不再使用，但是保留----
-    "custom/swaync": {
-        "tooltip": false,
-        "format": "{icon}",
-        "format-icons": {
-            "notification": " <span foreground='red'><sup></sup></span>",
-            "none": " ",
-            "dnd-notification": " <span foreground='red'><sup></sup></span>",
-            "dnd-none": " ",
-            "inhibited-notification": " <span foreground='red'><sup></sup></span>",
-            "inhibited-none": " ",
-            "dnd-inhibited-notification": "<span foreground='red'><sup></sup></span>",
-            "dnd-inhibited-none": " ",
-        },
-        "return-type": "json",
-        "exec-if": "which swaync-client",
-        "exec": "swaync-client -swb",
-        "on-click": "swaync-client -t -sw",
-        "on-click-right": "swaync-client -d -sw",
-        "escape": true,
-    },
-    // --- 通知模块 (mako + quickshell) ---
+    // --- 通知模块 (quickshell notification daemon) ---
     "custom/notification": {
         "tooltip": true,
         "format": "{icon}",
         "format-icons": {
-            "notification": " <span foreground='red'><sup></sup></span>",
-            "none": " ",
-            "dnd-notification": " <span foreground='red'><sup></sup></span>",
-            "dnd-none": ""
+            "notification": "󰂚<span foreground='#e04f5f'><sup></sup></span>",
+            "none": "󰂜",
+            "dnd-notification": "󰂛<span foreground='#e04f5f'><sup></sup></span>",
+            "dnd-none": "󰪑"
         },
         "return-type": "json",
+        "interval": 5,
         "exec": "python3 ~/.config/quickshell/scripts/notification_daemon.py --waybar",
-        "on-click": "python3 ~/.config/quickshell/scripts/notification_daemon.py --seen && POPUP_TYPE=notification quickshell -c ~/.config/quickshell",
+        "on-click": "python3 ~/.config/quickshell/scripts/notification_daemon.py --seen && qs-popup notifications",
         "on-click-right": "python3 ~/.config/quickshell/scripts/notification_daemon.py --toggle-dnd",
         "escape": true
     },
@@ -550,7 +534,7 @@
             "custom/lock",
             "custom/sleep",
             "custom/logout",
-            "custom/reboot",
+            "custom/reboot"
         ]
     },
     "custom/power-icon": {
@@ -564,22 +548,22 @@
     },
     "custom/sleep": {
         "format": "󰤄",
-        "on-click": "systemctl suspend",
+        "on-click": "QS_POWER_ACTION=suspend qs-popup power",
         "tooltip-format": "睡眠 (Sleep)"
     },
     "custom/logout": {
         "format": "",
-        "on-click": "niri msg action quit",
+        "on-click": "QS_POWER_ACTION=logout qs-popup power",
         "tooltip-format": "注销 (Logout)"
     },
     "custom/reboot": {
         "format": "",
-        "on-click": "systemctl reboot",
+        "on-click": "QS_POWER_ACTION=reboot qs-popup power",
         "tooltip-format": "重启 (Reboot)"
     },
     "custom/shutdown": {
         "format": "",
-        "on-click": "systemctl poweroff",
+        "on-click": "QS_POWER_ACTION=shutdown qs-popup power",
         "tooltip-format": "关机 (Shutdown)"
     }
 }

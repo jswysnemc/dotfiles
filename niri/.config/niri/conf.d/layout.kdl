@@ -6,10 +6,10 @@ layout {
 
     center-focused-column "never"
 
+    // 在全屏 / 半屏之间切换
     preset-column-widths {
-        proportion 0.33333
         proportion 0.5
-        proportion 0.66667
+        proportion 1.0
     }
 
     default-column-width { proportion 0.5; }
@@ -42,4 +42,12 @@ layout {
         top -2
         bottom -2
     }
+
+    blur {
+        on
+        passes 2 // number of times to apply the blur effect
+        radius 4 // radius of the blur effect
+        noise 0.1//add grain to the blur
+    }
 }
+

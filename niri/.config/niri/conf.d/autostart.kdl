@@ -6,9 +6,16 @@ spawn-at-startup "fcitx5"
 // spawn-at-startup "clash-verge"
 // spawn-at-startup "setcap cap_net_bind_service,cap_net_admin,cap_dac_override=+ep /opt/gui-for-singbox/data/sing-box/sing-box"
 spawn-sh-at-startup "/usr/lib/hyprpolkitagent/hyprpolkitagent"
+// spawn-at-startup "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
+// spawn-at-startup "/usr/bin/lxqt-policykit-agent"
+// spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
+
 // spawn-sh-at-startup "swaync"
-spawn-sh-at-startup "mako"
-spawn-sh-at-startup "/usr/bin/python ~/.config/quickshell/notification_daemon.py"
+// spawn-sh-at-startup "mako"
+// spawn-sh-at-startup "/usr/bin/python ~/.config/quickshell/scripts/notification_daemon.py"
+
+
+spawn-at-startup "sh" "-c" "cd /home/snemc/.config/quickshell && uv run python notifications/main.py"
 
 spawn-sh-at-startup "sticky-notes start-server"
 
@@ -16,13 +23,14 @@ spawn-sh-at-startup "sticky-notes start-server"
 // --- 剪贴板 ---
 spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
 spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
-spawn-sh-at-startup "wl-paste --watch cliphist store"
-spawn-sh-at-startup "clipse --listen"
+// spawn-sh-at-startup "wl-paste --watch cliphist store"
+// spawn-sh-at-startup "clipse --listen"
 spawn-sh-at-startup "~/.config/niri/scripts/clipboard-sync"
 
 // --- 自定义脚本 ---
 spawn-at-startup "~/.config/niri/scripts/swayidle.sh"
 spawn-at-startup "~/.config/niri/scripts/swww.sh"
+spawn-sh-at-startup "~/.config/niri/scripts/auto-archive.sh /home/snemc/Downloads/"
 
 // --- 环境变量导出 ---
 spawn-sh-at-startup "systemctl --user import-environment XDG_MENU_PREFIX"
@@ -40,3 +48,4 @@ spawn-sh-at-startup "systemctl --user restart plasma-xdg-desktop-portal-kde"
 
 // waybar 延迟启动，等待 DBus 服务就绪
 spawn-sh-at-startup "waybar"
+// spawn-sh-at-startup "qs -c noctalia-shell"
