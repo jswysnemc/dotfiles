@@ -19,6 +19,7 @@ ShellRoot {
     property var filteredWindows: []
     property string searchText: ""
     property int selectedIndex: 0
+    property bool showCloseAllConfirm: false
 
     // App icons mapping
     readonly property var appIcons: ({
@@ -234,6 +235,40 @@ ShellRoot {
         }
     }
 
+    // Close all windows
+    property int closeAllIndex: 0
+    property var windowsToClose: []
+
+    function closeAllWindows() {
+        if (filteredWindows.length === 0) return
+        showCloseAllConfirm = true
+    }
+
+    function confirmCloseAll() {
+        windowsToClose = filteredWindows.slice()
+        closeAllIndex = 0
+        closeNextWindow()
+    }
+
+    function closeNextWindow() {
+        if (closeAllIndex >= windowsToClose.length) {
+            showCloseAllConfirm = false
+            loadWindows.running = true
+            return
+        }
+        closeAllProcess.command = ["niri", "msg", "action", "close-window", "--id", String(windowsToClose[closeAllIndex].id)]
+        closeAllProcess.running = true
+    }
+
+    Process {
+        id: closeAllProcess
+        command: ["niri", "msg", "action", "close-window"]
+        onExited: {
+            root.closeAllIndex++
+            root.closeNextWindow()
+        }
+    }
+
     Component.onCompleted: loadWindows.running = true
 
     // UI
@@ -284,6 +319,7 @@ ShellRoot {
             Shortcut { sequence: "Return"; onActivated: root.focusSelected() }
             Shortcut { sequence: "Enter"; onActivated: root.focusSelected() }
             Shortcut { sequence: "Ctrl+D"; onActivated: root.closeSelected() }
+            Shortcut { sequence: "Ctrl+Shift+D"; onActivated: root.closeAllWindows() }
 
             Shortcut { sequence: "Left"; onActivated: root.moveLeft() }
             Shortcut { sequence: "Right"; onActivated: root.moveRight() }
@@ -413,6 +449,26 @@ ShellRoot {
                                     font.family: "monospace"
                                     color: Theme.textMuted
                                 }
+                            }
+
+                            // Close All Button
+                            Rectangle {
+                                visible: root.filteredWindows.length > 0
+                                width: closeAllText.implicitWidth + Theme.spacingM * 2
+                                height: 24
+                                radius: 12
+                                color: closeAllHover.hovered ? Theme.error : Theme.alpha(Theme.error, 0.1)
+
+                                Text {
+                                    id: closeAllText
+                                    anchors.centerIn: parent
+                                    text: "关闭全部"
+                                    font.pixelSize: Theme.fontSizeS
+                                    color: closeAllHover.hovered ? "white" : Theme.error
+                                }
+
+                                HoverHandler { id: closeAllHover }
+                                TapHandler { onTapped: root.closeAllWindows() }
                             }
                         }
                     }
@@ -703,6 +759,12 @@ ShellRoot {
 
                             RowLayout {
                                 spacing: Theme.spacingXS
+                                Text { text: "Ctrl+Shift+D"; font.pixelSize: Theme.fontSizeS; font.bold: true; color: Theme.textSecondary }
+                                Text { text: "Close All"; font.pixelSize: Theme.fontSizeS; color: Theme.textMuted }
+                            }
+
+                            RowLayout {
+                                spacing: Theme.spacingXS
                                 Text { text: "H/J/K/L"; font.pixelSize: Theme.fontSizeS; font.bold: true; color: Theme.textSecondary }
                                 Text { text: "Navigate"; font.pixelSize: Theme.fontSizeS; color: Theme.textMuted }
                             }
@@ -711,6 +773,137 @@ ShellRoot {
                                 spacing: Theme.spacingXS
                                 Text { text: "Esc"; font.pixelSize: Theme.fontSizeS; font.bold: true; color: Theme.textSecondary }
                                 Text { text: "Cancel"; font.pixelSize: Theme.fontSizeS; color: Theme.textMuted }
+                            }
+                        }
+                    }
+                }
+
+                // Close All Confirmation Dialog
+                Rectangle {
+                    visible: root.showCloseAllConfirm
+                    anchors.fill: parent
+                    color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.6)
+                    radius: Theme.radiusXL
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: root.showCloseAllConfirm = false
+                    }
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 320
+                        height: confirmContent.implicitHeight + Theme.spacingXL * 2
+                        color: Theme.background
+                        radius: Theme.radiusXL
+                        border.color: Theme.outline
+                        border.width: 1
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: function(mouse) { mouse.accepted = true }
+                        }
+
+                        ColumnLayout {
+                            id: confirmContent
+                            anchors.centerIn: parent
+                            anchors.margins: Theme.spacingXL
+                            spacing: Theme.spacingL
+
+                            // Warning Icon
+                            Rectangle {
+                                Layout.alignment: Qt.AlignHCenter
+                                width: 56
+                                height: 56
+                                radius: 28
+                                color: Theme.alpha(Theme.error, 0.1)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\uf071"
+                                    font.family: "Symbols Nerd Font Mono"
+                                    font.pixelSize: 26
+                                    color: Theme.error
+                                }
+                            }
+
+                            // Title
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "关闭全部窗口"
+                                font.pixelSize: Theme.fontSizeL
+                                font.bold: true
+                                color: Theme.textPrimary
+                            }
+
+                            // Message
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "确定要关闭全部 " + root.filteredWindows.length + " 个窗口吗？"
+                                font.pixelSize: Theme.fontSizeM
+                                color: Theme.textSecondary
+                            }
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "此操作不可撤销"
+                                font.pixelSize: Theme.fontSizeS
+                                color: Theme.warning
+                            }
+
+                            // Buttons
+                            RowLayout {
+                                Layout.alignment: Qt.AlignHCenter
+                                spacing: Theme.spacingM
+
+                                Rectangle {
+                                    width: 100
+                                    height: 36
+                                    radius: Theme.radiusM
+                                    color: cancelConfirmHover.hovered ? Theme.surfaceVariant : Theme.surface
+                                    border.color: Theme.outline
+                                    border.width: 1
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "取消 (N)"
+                                        font.pixelSize: Theme.fontSizeM
+                                        color: Theme.textSecondary
+                                    }
+
+                                    HoverHandler { id: cancelConfirmHover }
+                                    TapHandler { onTapped: root.showCloseAllConfirm = false }
+                                }
+
+                                Rectangle {
+                                    width: 120
+                                    height: 36
+                                    radius: Theme.radiusM
+                                    color: confirmCloseHover.hovered ? Theme.alpha(Theme.error, 0.8) : Theme.error
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "全部关闭 (Y)"
+                                        font.pixelSize: Theme.fontSizeM
+                                        font.bold: true
+                                        color: Theme.surface
+                                    }
+
+                                    HoverHandler { id: confirmCloseHover }
+                                    TapHandler { onTapped: root.confirmCloseAll() }
+                                }
+                            }
+                        }
+
+                        // Keyboard handling for confirm dialog
+                        focus: root.showCloseAllConfirm
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Y) {
+                                root.confirmCloseAll()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_N || event.key === Qt.Key_Escape) {
+                                root.showCloseAllConfirm = false
+                                event.accepted = true
                             }
                         }
                     }
