@@ -47,12 +47,12 @@ window-rule {
         off
     }
     border {
-        on
+        off
     }
     shadow {
         off
     }
-    open-floating true
+    open-floating false
 }
 
 // --- 浮动窗口规则 ---
@@ -67,12 +67,12 @@ window-rule {
 
 window-rule{
     match app-id="(?i)waybar"
-    blur{
-        on
-        passes 2 // number of times to apply the blur effect
-        radius 4 // radius of the blur effect
-        noise 0.1//add grain to the blur
-    }
+    // blur{
+    //     on
+    //     passes 2 // number of times to apply the blur effect
+    //     radius 4 // radius of the blur effect
+    //     noise 0.1//add grain to the blur
+    // }
 }
 
 window-rule {
