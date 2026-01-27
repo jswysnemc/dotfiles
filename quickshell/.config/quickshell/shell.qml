@@ -56,4 +56,9 @@ ShellRoot {
         active: root.popupType === "media"
         source: "MediaPopup.qml"
     }
+
+    Loader {
+        active: root.popupType === "todo"
+        source: "todo/shell.qml"
+    }
 }
