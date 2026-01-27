@@ -16,14 +16,7 @@
     ├── proxies-control.sh    # 代理控制 (Mihomo/Sing-box)
     ├── wf-recorder.sh        # 屏幕录制
     ├── screenshot.sh         # 截图
-    ├── power-screenshot.sh   # 高级截图 (Markpix)
-    ├── scroll-capture.sh     # 长截图 (rust-stitch)
-    ├── toggle-bluetooth.sh   # 蓝牙切换
-    ├── proxies-settings.sh   # 代理设置
-    ├── weather.sh            # 天气
-    ├── wifi.sh               # WiFi 管理
-    ├── calendar.sh           # 日历
-    └── cava.sh               # 音频可视化
+    └── power-screenshot.sh   # 高级截图 (Markpix)
 ```
 
 ## 模块布局

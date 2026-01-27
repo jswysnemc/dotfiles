@@ -251,7 +251,7 @@ tooltip label {
 #custom-link-aistudio:hover,
 #custom-link-deepseek:hover,
 #custom-link-claude:hover,
-#custom-link-linuxdo {
+#custom-link-linuxdo:hover {
     background-color: @hover-bg;
     color: @highlight;
 }

@@ -20,6 +20,7 @@
 #   starship:~/.config/starship/starship.toml
 #   tmux:~/.config/tmux
 #   zsh:~/.config/zsh
+#   electron-flags:~/.config/*-flags.conf    # 支持通配符
 #
 #   system:/etc/nsswitch.conf
 #
@@ -89,10 +90,58 @@ process_line() {
   fi
 
   local dest_name="${BASH_REMATCH[1]}"
-  local source_path="${BASH_REMATCH[2]}"
+  local source_pattern="${BASH_REMATCH[2]}"
 
   # 展开波浪号 ~
-  local expanded_source="${source_path/#\~/$HOME}"
+  local expanded_pattern="${source_pattern/#\~/$HOME}"
+
+  # 定义命令
+  local cmd_prefix=""
+  if [ "$use_sudo" = true ]; then
+    cmd_prefix="sudo"
+  fi
+
+  # 检查是否包含通配符
+  if [[ "$expanded_pattern" == *"*"* ]] || [[ "$expanded_pattern" == *"?"* ]] || [[ "$expanded_pattern" == *"["* ]]; then
+    # 使用通配符展开
+    local matched_files=()
+    # 启用 nullglob 以便在没有匹配时返回空数组
+    shopt -s nullglob
+    if [ "$use_sudo" = true ]; then
+      # sudo 模式下使用 bash -c 展开通配符
+      while IFS= read -r -d '' file; do
+        matched_files+=("$file")
+      done < <(sudo bash -c "printf '%s\0' $expanded_pattern" 2>/dev/null)
+    else
+      for file in $expanded_pattern; do
+        matched_files+=("$file")
+      done
+    fi
+    shopt -u nullglob
+
+    if [ ${#matched_files[@]} -eq 0 ]; then
+      echo "❌ 没有匹配的文件: '$source_pattern'"
+      return
+    fi
+
+    echo "📁 通配符展开: $source_pattern -> ${#matched_files[@]} 个文件"
+    for matched_file in "${matched_files[@]}"; do
+      process_single_file "$matched_file" "$dest_name" "$dotfiles_dir" "$use_sudo"
+    done
+  else
+    # 单个文件/目录
+    process_single_file "$expanded_pattern" "$dest_name" "$dotfiles_dir" "$use_sudo"
+  fi
+}
+
+# ------------------------------------------------------------------------------
+# 处理单个文件
+# ------------------------------------------------------------------------------
+process_single_file() {
+  local expanded_source="$1"
+  local dest_name="$2"
+  local dotfiles_dir="$3"
+  local use_sudo="$4"
 
   # 定义命令
   local cmd_prefix=""
@@ -122,7 +171,7 @@ process_line() {
   local dest_dir="$dotfiles_dir/$dest_name/$source_parent_dir"
 
   # 创建目标目录结构
-  echo "📁 正在处理: $source_path"
+  echo "  📄 $(basename "$expanded_source")"
   if ! $cmd_prefix mkdir -p "$dest_dir"; then
     echo "❌ 无法创建目录 '$dest_dir'，跳过。"
     return
