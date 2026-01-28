@@ -122,7 +122,23 @@ ShellRoot {
 
         PauseAnimation { duration: 200 }
 
+        ScriptAction {
+            script: {
+                // 先退出 idle-warning，然后延迟启动锁屏
+                // 使用 bash 在后台延迟执行，确保 idle-warning 完全退出后再启动锁屏
+                delayedLockProcess.running = true
+            }
+        }
+
+        PauseAnimation { duration: 100 }
+
         ScriptAction { script: Qt.quit() }
+    }
+
+    // 延迟启动锁屏（在后台执行，idle-warning 退出后才会真正启动）
+    Process {
+        id: delayedLockProcess
+        command: ["bash", "-c", "sleep 0.3 && qs-lock"]
     }
 
     // Fullscreen overlay

@@ -7,45 +7,13 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import QtQuick.Effects
 
-// Unified Lockscreen with Grace Period
-// Phase 1 (Grace): User can dismiss by moving mouse/pressing key
-// Phase 2 (Locked): Requires PAM authentication to unlock
+// QuickShell Lockscreen - using ext-session-lock-v1 protocol
+// Features: Wallpaper background, lunar calendar, PAM auth with howdy
 
 ShellRoot {
     id: root
 
-    // ==================== Configuration ====================
-    // Grace period duration (seconds) - can be set via environment variable
-    property int graceDuration: {
-        var envTimeout = Quickshell.env("LOCK_GRACE_TIMEOUT")
-        var t = parseInt(envTimeout)
-        return (!isNaN(t) && t > 0) ? t : 5
-    }
-
-    // Current phase: "grace" or "locked"
-    property string phase: "grace"
-    property int graceRemaining: graceDuration
-    property bool inputEnabled: false
-    property point lastMousePos: Qt.point(-1, -1)
-
-    // Grace period animation properties
-    property real graceProgress: 1.0 - (graceRemaining / graceDuration)
-    property real smoothGraceProgress: 0.0
-    property bool isTransitioning: false
-    property real ringScale: 1.0
-    property real lockIconScale: 0.0
-    property real transitionFade: 0.0
-
-    Behavior on smoothGraceProgress {
-        NumberAnimation {
-            duration: 800
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    onGraceProgressChanged: smoothGraceProgress = graceProgress
-
-    // ==================== Theme Colors ====================
+    // Theme colors
     readonly property color primaryColor: "#3b82f6"
     readonly property color secondaryColor: "#8b5cf6"
     readonly property color errorColor: "#ef4444"
@@ -53,44 +21,24 @@ ShellRoot {
     readonly property color textMuted: Qt.rgba(1, 1, 1, 0.7)
     readonly property color textDim: Qt.rgba(1, 1, 1, 0.5)
 
-    // ==================== Auth State ====================
     property bool authInProgress: false
     property string errorMessage: ""
     property string statusMessage: ""
     property string userName: Quickshell.env("USER") || "User"
     property string homeDir: Quickshell.env("HOME") || "/home"
 
-    // ==================== Time Properties ====================
+    // Time properties
     property string currentTime: ""
     property string currentDate: ""
+
+    // Lunar calendar properties
     property string lunarDate: ""
     property string lunarYear: ""
+    property string zodiac: ""
     property string festival: ""
+
+    // Wallpaper
     property string wallpaperPath: ""
-
-    // ==================== Timers ====================
-
-    // Delay before accepting input in grace phase
-    Timer {
-        id: inputDelayTimer
-        interval: 800
-        running: phase === "grace"
-        onTriggered: inputEnabled = true
-    }
-
-    // Grace period countdown
-    Timer {
-        id: graceTimer
-        interval: 1000
-        repeat: true
-        running: phase === "grace" && !isTransitioning
-        onTriggered: {
-            graceRemaining--
-            if (graceRemaining <= 0) {
-                triggerTransition()
-            }
-        }
-    }
 
     // Update time every second
     Timer {
@@ -104,8 +52,6 @@ ShellRoot {
             currentDate = Qt.formatDate(now, "M月d日 dddd")
         }
     }
-
-    // ==================== Processes ====================
 
     // Get lunar calendar info
     Process {
@@ -147,7 +93,7 @@ ShellRoot {
         wallpaperProcess.running = true
     }
 
-    // ==================== PAM Authentication ====================
+    // PAM authentication context
     PamContext {
         id: pam
         config: "sudo"
@@ -202,82 +148,7 @@ ShellRoot {
         onTriggered: errorMessage = ""
     }
 
-    // ==================== Transition Animation ====================
-    function triggerTransition() {
-        graceTimer.stop()
-        isTransitioning = true
-        transitionSequence.start()
-    }
-
-    SequentialAnimation {
-        id: transitionSequence
-
-        // Ring collapse
-        ParallelAnimation {
-            NumberAnimation {
-                target: root
-                property: "ringScale"
-                from: 1.0
-                to: 0.0
-                duration: 300
-                easing.type: Easing.InBack
-                easing.overshoot: 1.7
-            }
-        }
-
-        // Lock icon pop
-        ParallelAnimation {
-            SequentialAnimation {
-                NumberAnimation {
-                    target: root
-                    property: "lockIconScale"
-                    from: 0.0
-                    to: 1.15
-                    duration: 200
-                    easing.type: Easing.OutQuad
-                }
-                NumberAnimation {
-                    target: root
-                    property: "lockIconScale"
-                    to: 1.0
-                    duration: 150
-                    easing.type: Easing.InOutQuad
-                }
-            }
-
-            // Fade transition
-            SequentialAnimation {
-                PauseAnimation { duration: 100 }
-                NumberAnimation {
-                    target: root
-                    property: "transitionFade"
-                    from: 0.0
-                    to: 1.0
-                    duration: 300
-                    easing.type: Easing.OutQuad
-                }
-            }
-        }
-
-        PauseAnimation { duration: 200 }
-
-        ScriptAction {
-            script: {
-                phase = "locked"
-                isTransitioning = false
-            }
-        }
-    }
-
-    // ==================== Dismiss Function (Grace Phase Only) ====================
-    function dismiss() {
-        if (phase === "grace" && !isTransitioning) {
-            graceTimer.stop()
-            sessionLock.locked = false
-        }
-    }
-
-    // ==================== Session Lock ====================
+    // Session Lock - ext-session-lock-v1 protocol
     WlSessionLock {
         id: sessionLock
         locked: true
@@ -315,210 +186,19 @@ ShellRoot {
                     }
                 }
 
-                // Dark overlay - lighter during grace, darker when locked
+                // Dark overlay for readability
                 Rectangle {
                     anchors.fill: parent
-                    color: Qt.rgba(0, 0, 0, phase === "grace" ? 0.3 : 0.5)
-                    Behavior on color { ColorAnimation { duration: 300 } }
-                }
-
-                // ==================== Grace Phase UI ====================
-                Item {
-                    id: graceUI
-                    anchors.fill: parent
-                    opacity: phase === "grace" || isTransitioning ? 1 : 0
-                    visible: opacity > 0
-
-                    Behavior on opacity {
-                        NumberAnimation { duration: 300 }
-                    }
-
-                    // Input detection for grace phase
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        enabled: phase === "grace" && !isTransitioning
-                        onPositionChanged: function(mouse) {
-                            if (!inputEnabled || isTransitioning) return
-                            if (lastMousePos.x >= 0 && lastMousePos.y >= 0) {
-                                var dx = Math.abs(mouse.x - lastMousePos.x)
-                                var dy = Math.abs(mouse.y - lastMousePos.y)
-                                if (dx > 10 || dy > 10) {
-                                    root.dismiss()
-                                }
-                            }
-                            lastMousePos = Qt.point(mouse.x, mouse.y)
-                        }
-                        onClicked: if (inputEnabled && !isTransitioning) root.dismiss()
-                        onWheel: if (inputEnabled && !isTransitioning) root.dismiss()
-                    }
-
-                    // Center content - Ring progress
-                    Item {
-                        id: graceCenterContent
-                        anchors.centerIn: parent
-                        width: 200
-                        height: 200
-
-                        // Ring progress indicator
-                        Canvas {
-                            id: ringCanvas
-                            anchors.centerIn: parent
-                            width: 140
-                            height: 140
-
-                            property real prog: smoothGraceProgress
-                            property real scale: ringScale
-
-                            onProgChanged: requestPaint()
-                            onScaleChanged: requestPaint()
-
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.clearRect(0, 0, width, height)
-
-                                var cx = width / 2
-                                var cy = height / 2
-                                var radius = 60 * scale
-                                var thickness = 3
-
-                                if (radius < 1) return
-
-                                // Track (ultra faint)
-                                ctx.beginPath()
-                                ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-                                ctx.lineWidth = thickness
-                                ctx.strokeStyle = isTransitioning ? "#FFFFFF" : "rgba(255, 255, 255, 0.08)"
-                                ctx.stroke()
-
-                                // Progress arc
-                                if (!isTransitioning && prog > 0) {
-                                    var startAngle = -Math.PI / 2
-                                    var endAngle = startAngle + (Math.PI * 2 * prog)
-
-                                    ctx.beginPath()
-                                    ctx.arc(cx, cy, radius, startAngle, endAngle)
-                                    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)"
-                                    ctx.lineWidth = thickness
-                                    ctx.lineCap = "round"
-                                    ctx.stroke()
-                                }
-
-                                // Glow effect during transition
-                                if (isTransitioning && scale > 0.01) {
-                                    ctx.beginPath()
-                                    ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-                                    ctx.strokeStyle = "#FFFFFF"
-                                    ctx.lineWidth = thickness * 1.5
-                                    ctx.shadowColor = "rgba(255, 255, 255, 0.5)"
-                                    ctx.shadowBlur = 10
-                                    ctx.stroke()
-                                    ctx.shadowBlur = 0
-                                }
-                            }
-                        }
-
-                        // Lock icon (appears during transition)
-                        Item {
-                            id: lockIcon
-                            anchors.centerIn: parent
-                            width: 40
-                            height: 40
-                            scale: lockIconScale
-                            opacity: lockIconScale > 0 ? 1 : 0
-                            visible: isTransitioning
-
-                            Canvas {
-                                anchors.fill: parent
-
-                                function drawRoundedRect(ctx, x, y, w, h, r) {
-                                    ctx.beginPath()
-                                    ctx.moveTo(x + r, y)
-                                    ctx.lineTo(x + w - r, y)
-                                    ctx.arcTo(x + w, y, x + w, y + r, r)
-                                    ctx.lineTo(x + w, y + h - r)
-                                    ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-                                    ctx.lineTo(x + r, y + h)
-                                    ctx.arcTo(x, y + h, x, y + h - r, r)
-                                    ctx.lineTo(x, y + r)
-                                    ctx.arcTo(x, y, x + r, y, r)
-                                    ctx.closePath()
-                                }
-
-                                onPaint: {
-                                    var ctx = getContext("2d")
-                                    ctx.clearRect(0, 0, width, height)
-
-                                    var cx = width / 2
-                                    var cy = height / 2
-
-                                    ctx.fillStyle = "#FFFFFF"
-                                    ctx.strokeStyle = "#FFFFFF"
-                                    ctx.lineWidth = 4
-                                    ctx.lineCap = "round"
-
-                                    // Lock body
-                                    var bodyW = 28
-                                    var bodyH = 22
-                                    var bodyR = 4
-                                    var bodyY = cy - 2
-
-                                    drawRoundedRect(ctx, cx - bodyW/2, bodyY, bodyW, bodyH, bodyR)
-                                    ctx.fill()
-
-                                    // Lock shackle
-                                    ctx.beginPath()
-                                    ctx.arc(cx, bodyY - 2, 8, Math.PI, 0)
-                                    ctx.stroke()
-                                }
-
-                                Component.onCompleted: requestPaint()
-                            }
-                        }
-                    }
-
-                    // Grace phase text
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 120
-                        text: graceRemaining + " 秒后自动锁定"
-                        font.pixelSize: 13
-                        font.weight: Font.Normal
-                        font.letterSpacing: 0.5
-                        color: Qt.rgba(1, 1, 1, 0.3)
-                        opacity: isTransitioning ? 0 : 1
-                        visible: !isTransitioning
-
-                        Behavior on opacity {
-                            NumberAnimation { duration: 200 }
-                        }
-                    }
-
-                    // Bottom hint
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 50
-                        text: "移动鼠标或按任意键取消"
-                        font.pixelSize: 11
-                        font.weight: Font.Light
-                        color: Qt.rgba(1, 1, 1, 0.2)
-                        opacity: isTransitioning ? 0 : 1
-                        visible: !isTransitioning
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.3) }
+                        GradientStop { position: 0.4; color: Qt.rgba(0, 0, 0, 0.4) }
+                        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.6) }
                     }
                 }
 
-                // ==================== Locked Phase UI ====================
+                // Main content
                 Item {
-                    id: lockedUI
                     anchors.fill: parent
-                    opacity: phase === "locked" ? 1 : 0
-                    visible: opacity > 0
-
-                    Behavior on opacity {
-                        NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
-                    }
 
                     // ===== Top: Clock and Date =====
                     Column {
@@ -708,6 +388,7 @@ ShellRoot {
                                     font.pixelSize: 16
                                     echoMode: TextInput.Password
                                     clip: true
+                                    focus: true
 
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
@@ -841,13 +522,9 @@ ShellRoot {
                             }
                         }
                     }
-                }
 
-                // ==================== Global Key Handler ====================
-                Item {
-                    anchors.fill: parent
+                    // Global key handler
                     focus: true
-
                     Keys.onPressed: function(event) {
                         // Emergency exit: Ctrl+Alt+Q (for testing only)
                         if (event.key === Qt.Key_Q &&
@@ -859,27 +536,17 @@ ShellRoot {
                             return
                         }
 
-                        // Grace phase: any key dismisses
-                        if (phase === "grace" && inputEnabled && !isTransitioning) {
-                            root.dismiss()
-                            event.accepted = true
-                            return
-                        }
-
-                        // Locked phase: forward to password field
-                        if (phase === "locked") {
-                            if (!passwordField.activeFocus) {
-                                passwordField.forceActiveFocus()
-                                if (event.text.length > 0 && !event.modifiers) {
-                                    passwordField.text += event.text
-                                    event.accepted = true
-                                }
+                        if (!passwordField.activeFocus) {
+                            passwordField.forceActiveFocus()
+                            if (event.text.length > 0 && !event.modifiers) {
+                                passwordField.text += event.text
+                                event.accepted = true
                             }
                         }
                     }
 
                     Component.onCompleted: {
-                        forceActiveFocus()
+                        passwordField.forceActiveFocus()
                     }
                 }
 
