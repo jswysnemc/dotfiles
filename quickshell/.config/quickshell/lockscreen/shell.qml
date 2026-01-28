@@ -149,53 +149,112 @@ ShellRoot {
     }
 
     // ==================== PAM Authentication ====================
+    // 两个独立的 PAM 上下文：
+    // - pamFace: 使用 sudo 配置（包含 howdy 人脸识别）
+    // - pamPassword: 使用 qs-lock 配置（只有密码）
+
     PamContext {
-        id: pam
+        id: pamFace
         config: "sudo"
         user: userName
 
         onActiveChanged: {
             if (active) {
                 authInProgress = true
-                statusMessage = "正在认证..."
+                statusMessage = "正在进行人脸识别..."
             }
         }
 
         onPamMessage: {
-            console.log("PAM message:", pam.message, "responseRequired:", pam.responseRequired)
-            if (pam.responseRequired) {
-                if (pam.responseVisible) {
-                    pam.respond(userName)
+            console.log("PAM Face message:", pamFace.message, "responseRequired:", pamFace.responseRequired)
+            if (pamFace.responseRequired) {
+                if (pamFace.responseVisible) {
+                    pamFace.respond(userName)
                 } else {
-                    statusMessage = pam.message || "请输入密码或进行人脸识别"
+                    // howdy 失败后会要求密码，这时候切换到密码认证
+                    statusMessage = "人脸识别失败，请输入密码"
                     authInProgress = false
                 }
             } else {
-                statusMessage = pam.message
+                statusMessage = pamFace.message
             }
         }
 
         onCompleted: function(result) {
-            console.log("PAM completed:", result)
+            console.log("PAM Face completed:", result)
             authInProgress = false
             statusMessage = ""
 
             if (result === PamResult.Success) {
                 sessionLock.locked = false
             } else {
-                errorMessage = "认证失败"
+                // 人脸识别失败，不显示错误，让用户输入密码
+                statusMessage = "请输入密码"
+            }
+        }
+
+        onError: function(err) {
+            console.log("PAM Face error:", err)
+            authInProgress = false
+            statusMessage = "请输入密码"
+        }
+    }
+
+    PamContext {
+        id: pamPassword
+        config: "qs-lock"
+        user: userName
+
+        onActiveChanged: {
+            if (active) {
+                authInProgress = true
+                statusMessage = "正在验证密码..."
+            }
+        }
+
+        onPamMessage: {
+            console.log("PAM Password message:", pamPassword.message, "responseRequired:", pamPassword.responseRequired)
+            if (pamPassword.responseRequired) {
+                // 如果有待处理的密码，直接提交
+                if (pendingPassword.length > 0) {
+                    pamPassword.respond(pendingPassword)
+                    pendingPassword = ""
+                    return
+                }
+                if (pamPassword.responseVisible) {
+                    pamPassword.respond(userName)
+                } else {
+                    statusMessage = pamPassword.message || "请输入密码"
+                    authInProgress = false
+                }
+            } else {
+                statusMessage = pamPassword.message
+            }
+        }
+
+        onCompleted: function(result) {
+            console.log("PAM Password completed:", result)
+            authInProgress = false
+            statusMessage = ""
+
+            if (result === PamResult.Success) {
+                sessionLock.locked = false
+            } else {
+                errorMessage = "密码错误"
                 errorClearTimer.restart()
             }
         }
 
         onError: function(err) {
-            console.log("PAM error:", err)
+            console.log("PAM Password error:", err)
             authInProgress = false
             statusMessage = ""
             errorMessage = "认证错误"
             errorClearTimer.restart()
         }
     }
+
+    property string pendingPassword: ""
 
     Timer {
         id: errorClearTimer
@@ -675,7 +734,7 @@ ShellRoot {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                enabled: !authInProgress && !pam.responseRequired
+                                enabled: !authInProgress && !pamFace.responseRequired && !pamPassword.responseRequired
                                 onClicked: root.startAuth()
                             }
                         }
@@ -742,12 +801,8 @@ ShellRoot {
 
                                     onAccepted: {
                                         if (text.length > 0) {
-                                            if (pam.responseRequired) {
-                                                pam.respond(text)
-                                                text = ""
-                                            } else {
-                                                root.startAuthWithPassword(text)
-                                            }
+                                            root.startAuthWithPassword(text)
+                                            text = ""
                                         }
                                     }
 
@@ -778,12 +833,8 @@ ShellRoot {
                                         enabled: !authInProgress && passwordField.text.length > 0
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
-                                            if (pam.responseRequired) {
-                                                pam.respond(passwordField.text)
-                                                passwordField.text = ""
-                                            } else {
-                                                root.startAuthWithPassword(passwordField.text)
-                                            }
+                                            root.startAuthWithPassword(passwordField.text)
+                                            passwordField.text = ""
                                         }
                                     }
                                 }
@@ -805,7 +856,7 @@ ShellRoot {
                             text: "点击头像进行人脸识别，或输入密码"
                             font.pixelSize: 12
                             color: Qt.rgba(1, 1, 1, 0.4)
-                            visible: !authInProgress && !pam.responseRequired && passwordField.text.length === 0
+                            visible: !authInProgress && !pamPassword.responseRequired && passwordField.text.length === 0
                         }
                     }
 
@@ -914,23 +965,37 @@ ShellRoot {
         }
     }
 
-    property string pendingPassword: ""
-
+    // 启动人脸识别（点击头像）
     function startAuth() {
-        if (authInProgress || pam.active) return
+        if (authInProgress || pamFace.active || pamPassword.active) return
         errorMessage = ""
         pendingPassword = ""
-        pam.start()
+        pamFace.start()
     }
 
+    // 启动密码认证（输入密码后回车）
     function startAuthWithPassword(password) {
-        if (authInProgress) return
         errorMessage = ""
-        pendingPassword = password
-        if (!pam.active) {
-            pam.start()
-        } else if (pam.responseRequired) {
-            pam.respond(password)
+
+        // 如果人脸识别正在进行，中断它
+        if (pamFace.active) {
+            pamFace.abort()
         }
+
+        // 如果密码认证正在等待输入，直接提交
+        if (pamPassword.responseRequired) {
+            pamPassword.respond(password)
+            return
+        }
+
+        // 如果密码认证已经在进行中，保存密码等待
+        if (pamPassword.active) {
+            pendingPassword = password
+            return
+        }
+
+        // 启动密码认证
+        pendingPassword = password
+        pamPassword.start()
     }
 }
