@@ -101,7 +101,8 @@ ShellRoot {
         onTriggered: {
             var now = new Date()
             currentTime = Qt.formatTime(now, "HH:mm")
-            currentDate = Qt.formatDate(now, "M月d日 dddd")
+            var weekdays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
+            currentDate = Qt.formatDate(now, "M月d日 ") + weekdays[now.getDay()]
         }
     }
 
@@ -337,6 +338,7 @@ ShellRoot {
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         enabled: phase === "grace" && !isTransitioning
                         onPositionChanged: function(mouse) {
                             if (!inputEnabled || isTransitioning) return
@@ -349,9 +351,30 @@ ShellRoot {
                             }
                             lastMousePos = Qt.point(mouse.x, mouse.y)
                         }
-                        onClicked: if (inputEnabled && !isTransitioning) root.dismiss()
+                        onClicked: function(mouse) {
+                            if (!inputEnabled || isTransitioning) return
+                            if (mouse.button === Qt.RightButton) {
+                                root.triggerTransition()  // Right click: lock immediately
+                            } else {
+                                root.dismiss()  // Left click: dismiss
+                            }
+                        }
                         onWheel: if (inputEnabled && !isTransitioning) root.dismiss()
                     }
+
+                    // Key handler for grace phase
+                    Keys.onPressed: function(event) {
+                        if (!inputEnabled || isTransitioning) return
+                        // Win+L or Super+L: lock immediately
+                        if (event.key === Qt.Key_L && (event.modifiers & Qt.MetaModifier)) {
+                            root.triggerTransition()
+                            event.accepted = true
+                            return
+                        }
+                        // Any other key: dismiss
+                        root.dismiss()
+                    }
+                    focus: phase === "grace"
 
                     // Center content - Ring progress
                     Item {
@@ -500,7 +523,7 @@ ShellRoot {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 50
-                        text: "移动鼠标或按任意键取消"
+                        text: "移动鼠标或按任意键取消 | 右键或 Super+L 立即锁定"
                         font.pixelSize: 11
                         font.weight: Font.Light
                         color: Qt.rgba(1, 1, 1, 0.2)

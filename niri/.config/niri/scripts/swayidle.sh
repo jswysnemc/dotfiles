@@ -13,14 +13,14 @@
 # ============================================================================
 
 # 配置时间 (秒) - 正式使用
-# IDLE_TIMEOUT=45       # 多久后启动锁屏
-# GRACE_DURATION=30     # Grace period 时长（在锁屏组件内部）
-# DPMS_TIMEOUT=120      # 多久后关闭显示器
+IDLE_TIMEOUT=45       # 多久后启动锁屏
+GRACE_DURATION=30     # Grace period 时长（在锁屏组件内部）
+DPMS_TIMEOUT=120      # 多久后关闭显示器
 
 # 测试用短时间
-IDLE_TIMEOUT=5
-GRACE_DURATION=5
-DPMS_TIMEOUT=15
+# IDLE_TIMEOUT=5
+# GRACE_DURATION=5
+# DPMS_TIMEOUT=15
 
 # 锁屏命令 - 使用环境变量传递 grace period 时长
 LOCK_CMD="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=${GRACE_DURATION} qs-lock"
