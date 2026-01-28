@@ -3,8 +3,9 @@ import Quickshell.Wayland
 import Quickshell.Io
 import QtQuick
 
-// Idle warning - fullscreen with realistic moon phase animation
-// Dismisses on any user input (mouse move / key press)
+// Phantom Lock - Minimal, low-intrusion idle warning
+// Design: Ultra-thin ring progress, ghost-like presence
+// Lock animation: Ring collapse + lock icon pop + screen fade
 
 ShellRoot {
     id: root
@@ -17,24 +18,27 @@ ShellRoot {
     property int remainingSeconds: warningSeconds
     property bool inputEnabled: false
     property point lastMousePos: Qt.point(-1, -1)
-    property string currentTime: ""
-    property string currentDate: ""
 
-    // Moon phase: 1.0 = full moon, 0.0 = new moon
-    property real moonPhase: remainingSeconds / warningSeconds
+    // Progress: 0.0 = start, 1.0 = complete
+    property real progress: 1.0 - (remainingSeconds / warningSeconds)
 
-    // Update time
-    Timer {
-        interval: 1000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            var now = new Date()
-            currentTime = Qt.formatTime(now, "HH:mm")
-            currentDate = Qt.formatDate(now, "M月d日 dddd")
+    // Animation states
+    property bool isLocking: false
+    property real ringScale: 1.0
+    property real lockIconScale: 0.0
+    property real screenFade: 0.0
+
+    // Smooth progress for rendering
+    property real smoothProgress: 0.0
+
+    Behavior on smoothProgress {
+        NumberAnimation {
+            duration: 800
+            easing.type: Easing.OutCubic
         }
     }
+
+    onProgressChanged: smoothProgress = progress
 
     // Delay before accepting input
     Timer {
@@ -53,12 +57,75 @@ ShellRoot {
         onTriggered: {
             remainingSeconds--
             if (remainingSeconds <= 0) {
-                Qt.quit()
+                triggerLockAnimation()
             }
         }
     }
 
-    // Fullscreen overlay - covers everything including waybar
+    // Lock animation sequence
+    function triggerLockAnimation() {
+        countdownTimer.stop()
+        isLocking = true
+        lockSequence.start()
+    }
+
+    SequentialAnimation {
+        id: lockSequence
+
+        // Ring collapse with easeInBack
+        ParallelAnimation {
+            NumberAnimation {
+                target: root
+                property: "ringScale"
+                from: 1.0
+                to: 0.0
+                duration: 300
+                easing.type: Easing.InBack
+                easing.overshoot: 1.7
+            }
+        }
+
+        // Lock icon pop (with slight delay)
+        ParallelAnimation {
+            // Lock icon spring animation
+            SequentialAnimation {
+                NumberAnimation {
+                    target: root
+                    property: "lockIconScale"
+                    from: 0.0
+                    to: 1.15
+                    duration: 200
+                    easing.type: Easing.OutQuad
+                }
+                NumberAnimation {
+                    target: root
+                    property: "lockIconScale"
+                    to: 1.0
+                    duration: 150
+                    easing.type: Easing.InOutQuad
+                }
+            }
+
+            // Screen fade to black
+            SequentialAnimation {
+                PauseAnimation { duration: 100 }
+                NumberAnimation {
+                    target: root
+                    property: "screenFade"
+                    from: 0.0
+                    to: 1.0
+                    duration: 300
+                    easing.type: Easing.OutQuad
+                }
+            }
+        }
+
+        PauseAnimation { duration: 200 }
+
+        ScriptAction { script: Qt.quit() }
+    }
+
+    // Fullscreen overlay
     PanelWindow {
         id: overlay
         anchors {
@@ -70,8 +137,8 @@ ShellRoot {
 
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "idle-warning"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-        WlrLayershell.exclusiveZone: -1  // Cover exclusive zones (waybar)
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+        WlrLayershell.exclusiveZone: -1
 
         color: "transparent"
 
@@ -81,24 +148,32 @@ ShellRoot {
             color: "transparent"
             focus: true
 
-            property real bgOpacity: 0
+            property real fadeIn: 0
 
             Component.onCompleted: fadeInAnim.start()
 
             NumberAnimation {
                 id: fadeInAnim
                 target: content
-                property: "bgOpacity"
+                property: "fadeIn"
                 from: 0
                 to: 1
                 duration: 500
                 easing.type: Easing.OutCubic
             }
 
-            // Dark background
+            // Semi-transparent background (very subtle)
             Rectangle {
                 anchors.fill: parent
-                color: Qt.rgba(0.02, 0.02, 0.06, 0.92 * content.bgOpacity)
+                color: Qt.rgba(0, 0, 0, 0.3 * content.fadeIn)
+            }
+
+            // Black screen overlay for lock transition
+            Rectangle {
+                anchors.fill: parent
+                color: "#000000"
+                opacity: screenFade
+                z: 100
             }
 
             // Input detection
@@ -106,7 +181,7 @@ ShellRoot {
                 anchors.fill: parent
                 hoverEnabled: true
                 onPositionChanged: function(mouse) {
-                    if (!inputEnabled) return
+                    if (!inputEnabled || isLocking) return
                     if (lastMousePos.x >= 0 && lastMousePos.y >= 0) {
                         var dx = Math.abs(mouse.x - lastMousePos.x)
                         var dy = Math.abs(mouse.y - lastMousePos.y)
@@ -116,104 +191,107 @@ ShellRoot {
                     }
                     lastMousePos = Qt.point(mouse.x, mouse.y)
                 }
-                onClicked: if (inputEnabled) root.dismiss()
-                onWheel: if (inputEnabled) root.dismiss()
+                onClicked: if (inputEnabled && !isLocking) root.dismiss()
+                onWheel: if (inputEnabled && !isLocking) root.dismiss()
             }
 
             Keys.onPressed: function(event) {
-                if (inputEnabled) root.dismiss()
+                if (inputEnabled && !isLocking) root.dismiss()
             }
 
             // Center content
             Item {
                 id: centerContent
                 anchors.centerIn: parent
-                width: 400
-                height: 320
-                opacity: content.bgOpacity
+                width: 200
+                height: 200
+                opacity: content.fadeIn
 
-                property real slideY: 20
+                // Ring progress indicator
+                Canvas {
+                    id: ringCanvas
+                    anchors.centerIn: parent
+                    width: 140
+                    height: 140
 
-                Component.onCompleted: slideAnim.start()
+                    property real prog: smoothProgress
+                    property real scale: ringScale
 
-                NumberAnimation {
-                    id: slideAnim
-                    target: centerContent
-                    property: "slideY"
-                    from: 20
-                    to: 0
-                    duration: 600
-                    easing.type: Easing.OutCubic
-                }
+                    onProgChanged: requestPaint()
+                    onScaleChanged: requestPaint()
 
-                transform: Translate { y: centerContent.slideY }
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
 
-                // Time
-                Text {
-                    id: timeText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    text: currentTime
-                    font.pixelSize: 64
-                    font.weight: Font.Light
-                    font.letterSpacing: -1
-                    color: "#ffffff"
-                }
+                        var cx = width / 2
+                        var cy = height / 2
+                        var radius = 60 * scale
+                        var thickness = 3
 
-                // Date
-                Text {
-                    id: dateText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: timeText.bottom
-                    anchors.topMargin: 4
-                    text: currentDate
-                    font.pixelSize: 16
-                    color: Qt.rgba(1, 1, 1, 0.6)
-                }
+                        if (radius < 1) return
 
-                // Moon container
-                Item {
-                    id: moonContainer
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: dateText.bottom
-                    anchors.topMargin: 36
-                    width: 90
-                    height: 90
+                        // Track (ultra faint)
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+                        ctx.lineWidth = thickness
+                        ctx.strokeStyle = isLocking ? "#FFFFFF" : "rgba(255, 255, 255, 0.08)"
+                        ctx.stroke()
 
-                    // Outer glow ring
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: 110
-                        height: 110
-                        radius: 55
-                        color: "transparent"
-                        border.width: 1
-                        border.color: Qt.rgba(1, 1, 1, 0.08)
+                        // Progress arc (low contrast gray)
+                        if (!isLocking && prog > 0) {
+                            var startAngle = -Math.PI / 2
+                            var endAngle = startAngle + (Math.PI * 2 * prog)
 
-                        SequentialAnimation on scale {
-                            running: true
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 1.1; duration: 2500; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1.0; duration: 2500; easing.type: Easing.InOutSine }
+                            ctx.beginPath()
+                            ctx.arc(cx, cy, radius, startAngle, endAngle)
+                            ctx.strokeStyle = "rgba(255, 255, 255, 0.35)"
+                            ctx.lineWidth = thickness
+                            ctx.lineCap = "round"
+                            ctx.stroke()
                         }
 
-                        SequentialAnimation on opacity {
-                            running: true
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.3; duration: 2500; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1.0; duration: 2500; easing.type: Easing.InOutSine }
+                        // Glow effect during lock
+                        if (isLocking && scale > 0.01) {
+                            ctx.beginPath()
+                            ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+                            ctx.strokeStyle = "#FFFFFF"
+                            ctx.lineWidth = thickness * 1.5
+                            ctx.shadowColor = "rgba(255, 255, 255, 0.5)"
+                            ctx.shadowBlur = 10
+                            ctx.stroke()
+                            ctx.shadowBlur = 0
                         }
                     }
+                }
 
-                    // Moon canvas - realistic moon phase
+                // Lock icon (appears during lock animation)
+                Item {
+                    id: lockIcon
+                    anchors.centerIn: parent
+                    width: 40
+                    height: 40
+                    scale: lockIconScale
+                    opacity: lockIconScale > 0 ? 1 : 0
+                    visible: isLocking
+
                     Canvas {
-                        id: moonCanvas
-                        anchors.centerIn: parent
-                        width: 80
-                        height: 80
-                        property real phase: moonPhase
+                        anchors.fill: parent
 
-                        onPhaseChanged: requestPaint()
+                        // Helper function: draw rounded rectangle (QML Canvas doesn't have roundRect)
+                        function drawRoundedRect(ctx, x, y, w, h, r) {
+                            ctx.beginPath()
+                            ctx.moveTo(x + r, y)
+                            ctx.lineTo(x + w - r, y)
+                            ctx.arcTo(x + w, y, x + w, y + r, r)
+                            ctx.lineTo(x + w, y + h - r)
+                            ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
+                            ctx.lineTo(x + r, y + h)
+                            ctx.arcTo(x, y + h, x, y + h - r, r)
+                            ctx.lineTo(x, y + r)
+                            ctx.arcTo(x, y, x + r, y, r)
+                            ctx.closePath()
+                        }
 
                         onPaint: {
                             var ctx = getContext("2d")
@@ -221,117 +299,47 @@ ShellRoot {
 
                             var cx = width / 2
                             var cy = height / 2
-                            var r = 38
 
-                            // Draw the dark moon base
-                            ctx.beginPath()
-                            ctx.arc(cx, cy, r, 0, Math.PI * 2)
-                            ctx.fillStyle = Qt.rgba(0.12, 0.12, 0.18, 1)
+                            ctx.fillStyle = "#FFFFFF"
+                            ctx.strokeStyle = "#FFFFFF"
+                            ctx.lineWidth = 4
+                            ctx.lineCap = "round"
+
+                            // Lock body (rounded rectangle)
+                            var bodyW = 28
+                            var bodyH = 22
+                            var bodyR = 4
+                            var bodyY = cy - 2
+
+                            drawRoundedRect(ctx, cx - bodyW/2, bodyY, bodyW, bodyH, bodyR)
                             ctx.fill()
 
-                            // Draw the lit portion using proper moon phase geometry
-                            ctx.save()
+                            // Lock shackle (arc)
                             ctx.beginPath()
-
-                            // Clip to moon circle
-                            ctx.arc(cx, cy, r, 0, Math.PI * 2)
-                            ctx.clip()
-
-                            // Calculate terminator curve
-                            // phase 1.0 = full moon (all lit)
-                            // phase 0.5 = half moon
-                            // phase 0.0 = new moon (all dark)
-
-                            var illumination = phase
-
-                            if (illumination > 0) {
-                                ctx.beginPath()
-
-                                // Draw lit portion from right side (waning)
-                                // Right semicircle is always lit for waning moon
-                                ctx.arc(cx, cy, r, -Math.PI/2, Math.PI/2, false)
-
-                                // Terminator curve (the shadow edge)
-                                // When phase = 1.0, terminator is at left edge (full moon)
-                                // When phase = 0.5, terminator is at center (half moon)
-                                // When phase = 0.0, terminator is at right edge (new moon)
-
-                                var terminatorX = cx + r * (2 * illumination - 1)
-                                var curveWidth = r * Math.abs(2 * illumination - 1)
-
-                                if (illumination >= 0.5) {
-                                    // Gibbous phase - terminator curves outward on left
-                                    ctx.ellipse(terminatorX - curveWidth, cy - r, curveWidth * 2, r * 2)
-                                } else {
-                                    // Crescent phase - terminator curves inward on right
-                                    ctx.ellipse(terminatorX - curveWidth, cy - r, curveWidth * 2, r * 2)
-                                }
-
-                                // Moon surface gradient
-                                var gradient = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, 0, cx, cy, r)
-                                gradient.addColorStop(0, Qt.rgba(1, 1, 0.95, 1))
-                                gradient.addColorStop(0.5, Qt.rgba(0.95, 0.93, 0.85, 1))
-                                gradient.addColorStop(1, Qt.rgba(0.85, 0.82, 0.75, 1))
-
-                                ctx.fillStyle = gradient
-                                ctx.fill()
-                            }
-
-                            ctx.restore()
-
-                            // Add subtle crater texture
-                            ctx.globalAlpha = 0.1
-                            ctx.beginPath()
-                            ctx.arc(cx - 10, cy - 8, 6, 0, Math.PI * 2)
-                            ctx.fillStyle = Qt.rgba(0.5, 0.5, 0.5, 0.3)
-                            ctx.fill()
-
-                            ctx.beginPath()
-                            ctx.arc(cx + 12, cy + 5, 4, 0, Math.PI * 2)
-                            ctx.fill()
-
-                            ctx.beginPath()
-                            ctx.arc(cx - 5, cy + 15, 5, 0, Math.PI * 2)
-                            ctx.fill()
-
-                            ctx.globalAlpha = 1.0
+                            ctx.arc(cx, bodyY - 2, 8, Math.PI, 0)
+                            ctx.stroke()
                         }
 
-                        Behavior on phase {
-                            NumberAnimation { duration: 600; easing.type: Easing.OutQuad }
-                        }
+                        Component.onCompleted: requestPaint()
                     }
                 }
+            }
 
-                // Lock message
-                Row {
-                    id: lockRow
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: moonContainer.bottom
-                    anchors.topMargin: 28
-                    spacing: 8
+            // Instruction text (minimal)
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 120
+                text: remainingSeconds + " 秒后自动锁定"
+                font.pixelSize: 13
+                font.weight: Font.Normal
+                font.letterSpacing: 0.5
+                color: Qt.rgba(1, 1, 1, 0.3)
+                opacity: content.fadeIn * (isLocking ? 0 : 1)
+                visible: !isLocking
 
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "\uf023"
-                        font.family: "Symbols Nerd Font Mono"
-                        font.pixelSize: 14
-                        color: Qt.rgba(1, 1, 1, 0.6)
-
-                        SequentialAnimation on opacity {
-                            running: true
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.3; duration: 1800; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1.0; duration: 1800; easing.type: Easing.InOutSine }
-                        }
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "屏幕即将锁定"
-                        font.pixelSize: 14
-                        color: Qt.rgba(1, 1, 1, 0.6)
-                    }
+                Behavior on opacity {
+                    NumberAnimation { duration: 200 }
                 }
             }
 
@@ -339,18 +347,13 @@ ShellRoot {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 40
+                anchors.bottomMargin: 50
                 text: "移动鼠标或按任意键取消"
-                font.pixelSize: 12
-                color: Qt.rgba(1, 1, 1, 0.3)
-                opacity: content.bgOpacity
-
-                SequentialAnimation on opacity {
-                    running: true
-                    loops: Animation.Infinite
-                    NumberAnimation { to: 0.15; duration: 3000; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.5; duration: 3000; easing.type: Easing.InOutSine }
-                }
+                font.pixelSize: 11
+                font.weight: Font.Light
+                color: Qt.rgba(1, 1, 1, 0.2)
+                opacity: content.fadeIn * (isLocking ? 0 : 1)
+                visible: !isLocking
             }
         }
     }
