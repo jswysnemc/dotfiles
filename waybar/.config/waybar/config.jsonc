@@ -168,6 +168,11 @@
         "on-click": "xdg-open https://chat.deepseek.com",
         "tooltip-format": "DeepSeek"
     },
+    "custom/link-claude": {
+        "format": "Claude",
+        "on-click": "xdg-open https://claude.ai",
+        "tooltip-format": "Claude"
+    },
     "custom/link-linuxdo": {
         "format": "Linuxdo",
         "on-click": "xdg-open https://linux.do",
@@ -391,7 +396,7 @@
     //左键循环切换性能模式
     "power-profiles-daemon": {
         "format": "{icon}",
-        "tooltip-format": "Performance mode:{profile}",
+        "tooltip-format": "性能模式\n当前: {profile}\n\n[性能] 最大性能，风扇全速\n[平衡] 性能与功耗平衡\n[省电] 延长续航，降低性能",
         "tooltip": true,
         "format-icons": {
             "performance": "",
@@ -421,7 +426,10 @@
             "󰂂",
             "󰁹"
         ],
-        "tooltip-format": "{timeTo} | Power: {power}W"
+        "tooltip-format": "󰁹 电池信息\n容量: {capacity}%\n状态: 放电中\n{timeTo}\n功率: {power:.2f}W\n循环: {cycles} 次\n健康: {health}%",
+        "tooltip-format-charging": "󰂄 电池信息\n容量: {capacity}%\n状态: 充电中\n{timeTo}\n功率: {power:.2f}W\n循环: {cycles} 次\n健康: {health}%",
+        "tooltip-format-plugged": " 电池信息\n容量: {capacity}%\n状态: 已充满\n功率: {power:.2f}W\n循环: {cycles} 次\n健康: {health}%",
+        "tooltip-format-full": "󰁹 电池信息\n容量: {capacity}%\n状态: 已充满\n循环: {cycles} 次\n健康: {health}%"
     },
     // --- 时钟 (Clock with Lunar) ---
     "custom/clock": {
