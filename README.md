@@ -13,13 +13,8 @@
 
 - [包含的配置](#包含的配置)
 - [从零开始安装](#从零开始安装)
-  - [第一步：安装基础工具](#第一步安装基础工具)
-  - [第二步：克隆仓库](#第二步克隆仓库)
-  - [第三步：安装依赖包](#第三步安装依赖包)
-  - [第四步：应用配置](#第四步应用配置)
-  - [第五步：初始化主题](#第五步初始化主题)
-  - [第六步：配置 Shell](#第六步配置-shell)
-  - [第七步：启动桌面环境](#第七步启动桌面环境)
+  - [一键安装脚本（推荐）](#一键安装脚本推荐)
+  - [手动安装](#手动安装)
 - [依赖列表](#arch-linux-依赖)
 - [环境变量配置](#环境变量)
 - [常见问题](#常见问题)
@@ -45,7 +40,57 @@
 
 以下步骤适用于全新安装的 Arch Linux 系统。
 
-### 第一步：安装基础工具
+### 一键安装脚本（推荐）
+
+仓库提供自动化安装脚本，可一键完成所有配置：
+
+```bash
+# 方式一：从 GitHub 直接运行（全新系统）
+curl -fsSL https://raw.githubusercontent.com/jswysnemc/dotfiles/main/install.sh | bash
+
+# 方式二：克隆后运行
+git clone https://github.com/jswysnemc/dotfiles ~/.dotfiles
+cd ~/.dotfiles
+./install.sh
+```
+
+#### 安装脚本功能
+
+| 阶段 | 功能 |
+|------|------|
+| Pre-Flight | 系统检查（Arch Linux、网络、非 root） |
+| Phase 1 | 安装基础工具（git、stow、base-devel） |
+| Phase 2 | 安装 AUR 助手（paru，通过 archlinuxcn 镜像） |
+| Phase 3 | 克隆 dotfiles 仓库 |
+| Phase 4 | 安装核心包组（窗口管理器、终端、编辑器等） |
+| Phase 4b | 安装 AUR 包（quickshell、xwayland-satellite 等） |
+| Phase 4c | 可选包（交互式选择） |
+| Phase 5 | 使用 stow 应用配置文件 |
+| Phase 6 | Zsh/Bash 配置 |
+| Phase 7 | Quickshell 配置与 PAM 锁屏 |
+| Phase 8 | Matugen 主题生成 + GTK/Qt 主题配置 |
+| Phase 9 | 启用系统服务（NetworkManager、蓝牙） |
+| Phase 10 | 创建用户目录、复制壁纸 |
+
+#### 安装选项
+
+```bash
+./install.sh              # 完整安装（推荐）
+./install.sh --minimal    # 最小安装（跳过可选包）
+./install.sh --no-aur     # 跳过 AUR 助手安装
+./install.sh --no-stow    # 跳过配置文件部署
+./install.sh --reset      # 清除进度，重新开始
+```
+
+> 脚本支持断点续传：如果安装中断，重新运行会自动跳过已完成的步骤。
+
+---
+
+### 手动安装
+
+如果不使用自动脚本，可按以下步骤手动安装。
+
+#### 第一步：安装基础工具
 
 ```bash
 # 安装基础工具
@@ -60,41 +105,49 @@ cd paru && makepkg -si && cd .. && rm -rf paru
 # cd yay && makepkg -si && cd .. && rm -rf yay
 ```
 
-### 第二步：克隆仓库
+#### 第二步：克隆仓库
 
 ```bash
-git clone <repository-url> ~/.dotfiles
+git clone https://github.com/jswysnemc/dotfiles ~/.dotfiles
 cd ~/.dotfiles
 ```
 
-### 第三步：安装依赖包
+#### 第三步：安装依赖包
 
-#### 一键安装所有依赖
+##### 一键安装所有依赖
 
 ```bash
 # 核心依赖 (必须)
 paru -S --needed \
-    niri waybar quickshell-git \
-    kitty zsh starship tmux neovim yazi \
-    matugen swww swayidle hyprlock \
+    niri waybar quickshell \
+    kitty zsh starship tmux neovim yazi dolphin \
+    matugen kvantum qt5ct qt6ct swww swayidle \
     fcitx5 fcitx5-im fcitx5-chinese-addons \
-    wl-clipboard cliphist grim slurp wayfreeze \
-    brightnessctl wireplumber pipewire \
-    networkmanager bluez blueman \
-    hyprpolkitagent xdg-desktop-portal xdg-desktop-portal-kde \
-    python python-pip nodejs npm uv \
-    ripgrep fd fzf bat eza zoxide jq curl wget \
-    noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols-mono
+    wl-clipboard cliphist grim slurp wayfreeze xclip \
+    wireplumber pipewire pipewire-pulse pipewire-alsa playerctl \
+    networkmanager bluez bluez-utils \
+    hyprpolkitagent xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
+    fuzzel libnotify brightnessctl \
+    python python-pip nodejs npm \
+    ripgrep fd fzf bat eza zoxide jq curl wget unzip psmisc gawk \
+    noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols-mono \
+    papirus-icon-theme phinger-cursors
+
+# AUR 包
+paru -S --needed \
+    uv xwayland-satellite clipse clipnotify \
+    catppuccin-gtk-theme-latte catppuccin-gtk-theme-mocha \
+    catppuccin-cursors-latte kvantum-theme-matchama
 
 # 可选依赖 (推荐)
 paru -S --needed \
-    firefox dolphin btop pavucontrol \
+    firefox firefox-i18n-zh-cn btop pavucontrol blueman \
     ffmpegthumbnailer poppler imagemagick ffmpeg mpv \
-    playerctl cava wf-recorder \
-    atuin thefuck
+    cava wf-recorder atuin thefuck \
+    tree-sitter-cli clang stylua ruff pyright lua-language-server
 ```
 
-#### 按模块安装依赖
+##### 按模块安装依赖
 
 <details>
 <summary>点击展开各模块依赖</summary>
@@ -102,9 +155,10 @@ paru -S --needed \
 **Niri (Wayland 合成器)**
 ```bash
 paru -S niri fcitx5 fcitx5-im fcitx5-chinese-addons \
-    swww swayidle hyprlock brightnessctl wireplumber \
-    wl-clipboard cliphist grim slurp wayfreeze \
-    hyprpolkitagent xdg-desktop-portal xdg-desktop-portal-kde
+    swww swayidle hyprpolkitagent brightnessctl wireplumber \
+    wl-clipboard cliphist grim slurp wayfreeze xclip \
+    xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
+    xwayland-satellite
 ```
 
 **Waybar (状态栏)**
@@ -115,22 +169,22 @@ paru -S waybar playerctl cava wf-recorder jq \
 
 **Quickshell (桌面组件)**
 ```bash
-paru -S quickshell-git ttf-nerd-fonts-symbols-mono \
+paru -S quickshell ttf-nerd-fonts-symbols-mono \
     networkmanager bluez pipewire brightnessctl \
-    cliphist wl-clipboard swww playerctl
+    cliphist wl-clipboard swww playerctl uv
 # Python 依赖
 cd ~/.config/quickshell && uv sync
 ```
 
 **Matugen (主题生成)**
 ```bash
-paru -S matugen
+paru -S matugen kvantum qt5ct qt6ct
 ```
 
 **Neovim (编辑器)**
 ```bash
 paru -S neovim nodejs npm ripgrep fd bat fzf \
-    tree-sitter clang stylua ruff pyright lua-language-server
+    tree-sitter-cli clang stylua ruff pyright lua-language-server
 ```
 
 **Zsh (Shell)**
@@ -140,7 +194,7 @@ paru -S zsh starship fzf fd ripgrep bat eza zoxide atuin thefuck
 
 **Yazi (文件管理器)**
 ```bash
-paru -S yazi ffmpegthumbnailer poppler jq imagemagick ffmpeg mpv
+paru -S yazi dolphin ffmpegthumbnailer poppler jq imagemagick ffmpeg mpv
 ```
 
 **Kitty (终端)**
@@ -153,9 +207,16 @@ paru -S kitty ttf-jetbrains-mono-nerd
 paru -S noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols-mono
 ```
 
+**外观主题**
+```bash
+paru -S papirus-icon-theme phinger-cursors \
+    catppuccin-gtk-theme-latte catppuccin-gtk-theme-mocha \
+    catppuccin-cursors-latte kvantum-theme-matchama
+```
+
 </details>
 
-### 第四步：应用配置
+#### 第四步：应用配置
 
 ```bash
 cd ~/.dotfiles
@@ -179,7 +240,7 @@ stow my-scripts
 stow electron-flags
 ```
 
-### 第五步：初始化主题
+#### 第五步：初始化主题
 
 **重要**：首次安装必须初始化颜色文件，否则 Waybar、Quickshell 等组件会因缺少颜色文件而报错。
 
@@ -191,7 +252,7 @@ stow electron-flags
 matugen image /path/to/your/wallpaper.jpg
 ```
 
-### 第六步：配置 Shell
+#### 第六步：配置 Shell
 
 ```bash
 # 设置 Zsh 为默认 shell
@@ -222,7 +283,7 @@ cd ~/.config/quickshell && uv sync
 source ~/.zshrc
 ```
 
-### 第七步：启动桌面环境
+#### 第七步：启动桌面环境
 
 ```bash
 # 启用必要的系统服务
@@ -251,22 +312,26 @@ niri-session
 | 包名 | 用途 |
 |------|------|
 | `niri` | Wayland 窗口管理器 |
+| `xwayland-satellite` | XWayland 兼容层（AUR） |
 | `fcitx5` | 中文输入法 |
 | `fcitx5-im` | 输入法集成 |
 | `fcitx5-chinese-addons` | 中文输入法支持 |
 | `swww` | 壁纸管理 |
 | `swayidle` | 空闲管理 |
-| `hyprlock` | 锁屏工具 |
 | `hyprpolkitagent` | 权限认证 |
 | `brightnessctl` | 亮度控制 |
 | `wireplumber` | PipeWire 音频服务 |
 | `wl-clipboard` | Wayland 剪贴板工具 |
+| `xclip` | X11 剪贴板工具 |
 | `cliphist` | 剪贴板历史 |
+| `clipse` | 剪贴板管理器（AUR） |
+| `clipnotify` | 剪贴板事件监听（AUR） |
 | `grim` | 截图工具 |
 | `slurp` | 区域选择工具 |
 | `wayfreeze` | 截图冻结工具 |
 | `xdg-desktop-portal` | XDG Portal |
-| `xdg-desktop-portal-kde` | KDE XDG Portal |
+| `xdg-desktop-portal-gtk` | GTK XDG Portal |
+| `xdg-desktop-portal-kde` | KDE XDG Portal（AUR） |
 
 ### Waybar
 
@@ -282,17 +347,27 @@ niri-session
 
 | 包名 | 用途 |
 |------|------|
-| `quickshell-git` | QML 桌面组件框架 (AUR) |
+| `quickshell` | QML 桌面组件框架 (AUR) |
 | `ttf-nerd-fonts-symbols-mono` | Nerd Font 图标 |
-| `uv` | Python 包管理器 |
+| `uv` | Python 包管理器 (AUR) |
 | `networkmanager` | 网络管理 |
 | `bluez` | 蓝牙协议栈 |
+| `bluez-utils` | 蓝牙工具 |
 
-### Matugen
+### Matugen 与主题
 
 | 包名 | 用途 |
 |------|------|
 | `matugen` | 主题色生成器 |
+| `kvantum` | Qt 主题引擎 |
+| `qt5ct` | Qt5 配置工具 |
+| `qt6ct` | Qt6 配置工具 |
+| `kvantum-theme-matchama` | Matchama Kvantum 主题 (AUR) |
+| `catppuccin-gtk-theme-latte` | Catppuccin GTK 主题 (AUR) |
+| `catppuccin-gtk-theme-mocha` | Catppuccin GTK 主题 (AUR) |
+| `papirus-icon-theme` | Papirus 图标主题 |
+| `phinger-cursors` | Phinger 光标主题 |
+| `catppuccin-cursors-latte` | Catppuccin 光标主题 (AUR) |
 
 ### Neovim
 
@@ -305,7 +380,7 @@ niri-session
 | `fd` | 文件查找 |
 | `bat` | 文件查看 |
 | `fzf` | 模糊查找 |
-| `tree-sitter` | 语法高亮 |
+| `tree-sitter-cli` | 语法高亮 |
 | `clang` | C/C++ 编译器 |
 | `stylua` | Lua 格式化 |
 | `ruff` | Python Linter/Formatter |
@@ -338,6 +413,7 @@ niri-session
 | 包名 | 用途 |
 |------|------|
 | `yazi` | 文件管理器 |
+| `dolphin` | KDE 文件管理器 |
 | `ffmpegthumbnailer` | 视频缩略图 |
 | `poppler` | PDF 预览 |
 | `imagemagick` | 图像处理 |
@@ -364,10 +440,12 @@ niri-session
 | 包名 | 用途 |
 |------|------|
 | `firefox` | 浏览器 |
-| `dolphin` | 文件管理器 |
+| `firefox-i18n-zh-cn` | Firefox 中文语言包 |
 | `btop` | 系统监控 |
 | `pavucontrol` | 音频控制面板 |
 | `blueman` | 蓝牙管理 |
+| `fuzzel` | 应用启动器 |
+| `libnotify` | 通知库 |
 
 ## 环境变量
 
