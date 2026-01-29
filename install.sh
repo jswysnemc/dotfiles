@@ -79,8 +79,7 @@ AUR_PACKAGES=(
     quickshell
     uv
     xdg-desktop-portal-kde
-    missioncenter
-    clipse
+    clipse-wayland-bin
     clipnotify
 )
 
@@ -531,7 +530,7 @@ install_packages() {
         echo -e "   ${DIM}${AUR_PACKAGES[*]}${NC}"
         echo ""
 
-        if exe_live "Installing AUR packages" "$AUR_HELPER -S --needed --noconfirm ${AUR_PACKAGES[*]}"; then
+        if exe_live "Installing AUR packages" "$AUR_HELPER -S --needed --noconfirm --skipreview ${AUR_PACKAGES[*]}"; then
             mark_done "aur_packages"
         else
             print_warn "Some AUR packages failed"
