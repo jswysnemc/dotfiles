@@ -1,0 +1,226 @@
+#!/bin/bash
+# QuickShell popup launcher for Waybar integration
+
+QS_CONFIG_DIR="$HOME/.config/quickshell"
+QS_POS_CONF="$QS_CONFIG_DIR/position.conf"
+
+COMPONENT="$1"
+if [ $# -gt 0 ]; then
+    shift
+fi
+
+show_help() {
+    echo "Usage: qs-popup <component> [options]"
+    echo ""
+    echo "Components:"
+    echo "  wifi           - WiFi and Bluetooth connection manager"
+    echo "  bluetooth      - Bluetooth connection manager"
+    echo "  notifications  - Notification center"
+    echo "  weather        - Weather widget"
+    echo "  calendar       - Calendar widget"
+    echo "  media          - Media player controls"
+    echo "  volume         - Volume and brightness controls"
+    echo "  screen-recorder - Screen recording control panel"
+    echo "  launcher       - Application launcher"
+    echo "  clipboard      - Clipboard manager"
+    echo "  wallpaper      - Wallpaper selector"
+    echo "  close-confirm  - Close window confirmation"
+    echo "  window-switcher - Window switcher with fzf-style filter"
+    echo "  todo           - Todo list / sticky notes"
+    echo "  control-center - Unified control center"
+    echo ""
+    echo "Options:"
+    echo "  --pos <position>   Position (see below)"
+    echo "  --margin <value>   Margin value(s)"
+    echo ""
+    echo "Positions & Margins:"
+    echo "  top-left,T,L       top-center,T       top-right,T,R"
+    echo "  center-left,L      center             center-right,R"
+    echo "  bottom-left,B,L    bottom-center,B    bottom-right,B,R"
+    echo ""
+    echo "Examples:"
+    echo "  wifi=top-right,8,10      # top=8, right=10"
+    echo "  calendar=top-center,50   # top=50"
+    echo "  media=center             # no margin needed"
+}
+
+# Apply margins based on position
+# Args: position, margin1, [margin2]
+apply_margins() {
+    local pos="$1"
+    local m1="${2:-8}"
+    local m2="${3:-$m1}"
+
+    QS_MARGIN_T="0"
+    QS_MARGIN_R="0"
+    QS_MARGIN_B="0"
+    QS_MARGIN_L="0"
+
+    case "$pos" in
+        top-left)
+            QS_MARGIN_T="$m1"
+            QS_MARGIN_L="$m2"
+            ;;
+        top-center)
+            QS_MARGIN_T="$m1"
+            ;;
+        top-right)
+            QS_MARGIN_T="$m1"
+            QS_MARGIN_R="$m2"
+            ;;
+        center-left)
+            QS_MARGIN_L="$m1"
+            ;;
+        center)
+            # No margins needed
+            ;;
+        center-right)
+            QS_MARGIN_R="$m1"
+            ;;
+        bottom-left)
+            QS_MARGIN_B="$m1"
+            QS_MARGIN_L="$m2"
+            ;;
+        bottom-center)
+            QS_MARGIN_B="$m1"
+            ;;
+        bottom-right)
+            QS_MARGIN_B="$m1"
+            QS_MARGIN_R="$m2"
+            ;;
+    esac
+}
+
+# Read position from config file
+read_config() {
+    local name="$1"
+    QS_POS="top-right"
+
+    if [[ -f "$QS_POS_CONF" ]]; then
+        local line
+        line=$(grep "^${name}=" "$QS_POS_CONF" 2>/dev/null | head -1)
+        if [[ -n "$line" ]]; then
+            local value="${line#*=}"
+            IFS=',' read -ra parts <<< "$value"
+            [[ -n "${parts[0]}" ]] && QS_POS="${parts[0]}"
+            apply_margins "$QS_POS" "${parts[1]}" "${parts[2]}"
+        else
+            apply_margins "$QS_POS" "8"
+        fi
+    else
+        apply_margins "$QS_POS" "8"
+    fi
+}
+
+# Parse command line arguments (override config)
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --pos)
+                QS_POS="$2"
+                shift 2
+                ;;
+            --margin)
+                local margin="$2"
+                IFS=',' read -ra m <<< "$margin"
+                apply_margins "$QS_POS" "${m[0]}" "${m[1]}"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+}
+
+toggle_popup() {
+    local name="$1"
+    local shell_path="$QS_CONFIG_DIR/$name/shell.qml"
+
+    if pgrep -f "quickshell.*$name/shell.qml" > /dev/null; then
+        pkill -f "quickshell.*$name/shell.qml"
+    else
+        if [[ -f "$shell_path" ]]; then
+            read_config "$name"
+            parse_args $ARGS
+            QS_POS="$QS_POS" \
+            QS_MARGIN_T="$QS_MARGIN_T" \
+            QS_MARGIN_R="$QS_MARGIN_R" \
+            QS_MARGIN_B="$QS_MARGIN_B" \
+            QS_MARGIN_L="$QS_MARGIN_L" \
+            quickshell -p "$shell_path" &
+        else
+            notify-send "QuickShell" "Component not found: $shell_path"
+            exit 1
+        fi
+    fi
+}
+
+if [[ -z "$COMPONENT" ]]; then
+    show_help
+    exit 0
+fi
+
+ARGS="$*"
+
+case "$COMPONENT" in
+    wifi)
+        toggle_popup "wifi"
+        ;;
+    bluetooth)
+        toggle_popup "bluetooth"
+        ;;
+    notifications|notif)
+        toggle_popup "notifications"
+        ;;
+    weather)
+        toggle_popup "weather"
+        ;;
+    calendar|cal)
+        toggle_popup "calendar"
+        ;;
+    media|player)
+        toggle_popup "media"
+        ;;
+    volume|vol|brightness)
+        toggle_popup "volume"
+        ;;
+    screen-recorder|recorder|record|rec)
+        toggle_popup "screen-recorder"
+        ;;
+    launcher|launch|app)
+        toggle_popup "launcher"
+        ;;
+    clipboard|clip|cb)
+        toggle_popup "clipboard"
+        ;;
+    control-center|control|cc)
+        toggle_popup "control-center"
+        ;;
+    power-menu|power|pm)
+        toggle_popup "power-menu"
+        ;;
+    wallpaper-selector|wallpaper|wp)
+        toggle_popup "wallpaper-selector"
+        ;;
+    close-confirm|close|cc-close)
+        toggle_popup "close-confirm"
+        ;;
+    window-switcher|windows|ws|switcher)
+        toggle_popup "window-switcher"
+        ;;
+    todo|todos|note|notes)
+        toggle_popup "todo"
+        ;;
+    ai-launcher|ai)
+        toggle_popup "ai-launcher"
+        ;;
+    -h|--help|help)
+        show_help
+        ;;
+    *)
+        echo "Unknown component: $COMPONENT"
+        show_help
+        exit 1
+        ;;
+esac

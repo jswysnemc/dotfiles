@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# QuickShell Lockscreen launcher
+# Usage: qs-lock
+
+# Prevent multiple instances - check for actual quickshell process with lockscreen config
+# Use -x to match exact program name "quickshell" and filter by command line
+if pgrep -x quickshell >/dev/null && pgrep -xaf quickshell | grep -q 'lockscreen'; then
+    echo "Lockscreen already running"
+    exit 0
+fi
+
+exec quickshell -p ~/.config/quickshell/lockscreen
