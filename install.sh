@@ -44,7 +44,8 @@ PKG_GROUPS[bar]="waybar"
 PKG_GROUPS[terminal]="kitty zsh starship tmux"
 PKG_GROUPS[editor]="neovim"
 PKG_GROUPS[files]="yazi dolphin"
-PKG_GROUPS[theme]="matugen"
+PKG_GROUPS[theme]="matugen kvantum qt5ct qt6ct"
+PKG_GROUPS[appearance]="papirus-icon-theme phinger-cursors"
 PKG_GROUPS[input]="fcitx5 fcitx5-im fcitx5-chinese-addons"
 PKG_GROUPS[clipboard]="wl-clipboard cliphist grim slurp wayfreeze xclip"
 PKG_GROUPS[audio]="wireplumber pipewire pipewire-pulse pipewire-alsa playerctl"
@@ -62,7 +63,8 @@ PKG_GROUP_NAMES=(
     "terminal:Terminal & Shell"
     "editor:Editor (neovim)"
     "files:File Manager"
-    "theme:Theme System (matugen)"
+    "    "theme:Theme System (matugen/kvantum/qt*ct)"
+    "appearance:Appearance (icons/cursors)""
     "input:Input Method (fcitx5)"
     "clipboard:Clipboard & Screenshot"
     "audio:Audio (pipewire)"
@@ -81,6 +83,10 @@ AUR_PACKAGES=(
     xdg-desktop-portal-kde
     clipse-wayland-bin
     clipnotify
+    catppuccin-gtk-theme-latte
+    catppuccin-gtk-theme-mocha
+    catppuccin-cursors-latte
+    kvantum-theme-matchama
 )
 
 OPTIONAL_GROUPS=(
@@ -844,6 +850,152 @@ setup_matugen() {
     log "Matugen initialized"
 }
 
+setup_theme() {
+    section "Phase 8b" "GTK/Qt Theme Configuration"
+
+    if is_done "setup_theme"; then
+        print_skip "Theme setup (already done)"
+        return
+    fi
+
+    # Theme settings
+    local GTK_THEME="catppuccin-latte-blue-standard+default"
+    local ICON_THEME="Papirus-Light"
+    local CURSOR_THEME="phinger-cursors-light"
+    local CURSOR_SIZE="24"
+    local FONT_NAME="Adwaita Sans 11"
+    local KVANTUM_THEME="KvArc"
+
+    # --- GTK-3.0 ---
+    print_info "Configuring GTK-3.0..."
+    mkdir -p "$HOME/.config/gtk-3.0"
+    cat > "$HOME/.config/gtk-3.0/settings.ini" << GTKCONF
+[Settings]
+gtk-theme-name=${GTK_THEME}
+gtk-icon-theme-name=${ICON_THEME}
+gtk-font-name=${FONT_NAME}
+gtk-cursor-theme-name=${CURSOR_THEME}
+gtk-cursor-theme-size=${CURSOR_SIZE}
+gtk-toolbar-style=GTK_TOOLBAR_ICONS
+gtk-toolbar-icon-size=GTK_ICON_SIZE_LARGE_TOOLBAR
+gtk-button-images=0
+gtk-menu-images=0
+gtk-enable-event-sounds=1
+gtk-enable-input-feedback-sounds=0
+gtk-xft-antialias=1
+gtk-xft-hinting=1
+gtk-xft-hintstyle=hintslight
+gtk-xft-rgba=rgb
+gtk-application-prefer-dark-theme=0
+GTKCONF
+    print_ok "GTK-3.0 configured"
+
+    # --- GTK-4.0 ---
+    print_info "Configuring GTK-4.0..."
+    mkdir -p "$HOME/.config/gtk-4.0"
+    cat > "$HOME/.config/gtk-4.0/settings.ini" << GTKCONF
+[Settings]
+gtk-theme-name=${GTK_THEME}
+gtk-icon-theme-name=${ICON_THEME}
+gtk-font-name=${FONT_NAME}
+gtk-cursor-theme-name=${CURSOR_THEME}
+gtk-cursor-theme-size=${CURSOR_SIZE}
+gtk-application-prefer-dark-theme=0
+GTKCONF
+    print_ok "GTK-4.0 configured"
+
+    # --- Qt5ct ---
+    print_info "Configuring Qt5ct..."
+    mkdir -p "$HOME/.config/qt5ct"
+    cat > "$HOME/.config/qt5ct/qt5ct.conf" << QT5CONF
+[Appearance]
+custom_palette=false
+icon_theme=${ICON_THEME}
+standard_dialogs=default
+style=Fusion
+
+[Fonts]
+fixed="Noto Sans,12,-1,5,50,0,0,0,0,0"
+general="Noto Sans,12,-1,5,50,0,0,0,0,0"
+
+[Interface]
+activate_item_on_single_click=1
+buttonbox_layout=0
+cursor_flash_time=1000
+dialog_buttons_have_icons=1
+double_click_interval=400
+gui_effects=@Invalid()
+keyboard_scheme=2
+menus_have_icons=true
+show_shortcuts_in_context_menus=true
+stylesheets=@Invalid()
+toolbutton_style=4
+underline_shortcut=1
+wheel_scroll_lines=3
+
+[Troubleshooting]
+force_raster_widgets=1
+QT5CONF
+    print_ok "Qt5ct configured"
+
+    # --- Qt6ct ---
+    print_info "Configuring Qt6ct..."
+    mkdir -p "$HOME/.config/qt6ct"
+    cat > "$HOME/.config/qt6ct/qt6ct.conf" << QT6CONF
+[Appearance]
+custom_palette=false
+icon_theme=${ICON_THEME}
+standard_dialogs=default
+style=kvantum
+
+[Fonts]
+fixed="Noto Sans,12,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+general="Noto Sans,12,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+
+[Interface]
+activate_item_on_single_click=1
+buttonbox_layout=0
+cursor_flash_time=1000
+dialog_buttons_have_icons=1
+double_click_interval=400
+gui_effects=@Invalid()
+keyboard_scheme=2
+menus_have_icons=true
+show_shortcuts_in_context_menus=true
+stylesheets=@Invalid()
+toolbutton_style=4
+underline_shortcut=1
+wheel_scroll_lines=3
+
+[Troubleshooting]
+force_raster_widgets=1
+QT6CONF
+    print_ok "Qt6ct configured"
+
+    # --- Kvantum ---
+    print_info "Configuring Kvantum..."
+    mkdir -p "$HOME/.config/Kvantum"
+    cat > "$HOME/.config/Kvantum/kvantum.kvconfig" << KVCONF
+[General]
+theme=${KVANTUM_THEME}
+KVCONF
+    print_ok "Kvantum configured"
+
+    # --- Default cursor ---
+    print_info "Setting default cursor..."
+    mkdir -p "$HOME/.icons/default"
+    cat > "$HOME/.icons/default/index.theme" << CURSORCONF
+[Icon Theme]
+Name=Default
+Comment=Default Cursor Theme
+Inherits=${CURSOR_THEME}
+CURSORCONF
+    print_ok "Default cursor configured"
+
+    mark_done "setup_theme"
+    log "Theme configured"
+}
+
 enable_services() {
     section "Phase 9" "System Services"
 
@@ -1023,6 +1175,7 @@ main() {
     setup_quickshell
     setup_pam_lock
     setup_matugen
+    setup_theme
     enable_services
     setup_user_dirs
 
