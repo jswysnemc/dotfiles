@@ -91,7 +91,7 @@ AUR_PACKAGES=(
 )
 
 OPTIONAL_GROUPS=(
-    "apps:Applications:firefox dolphin btop pavucontrol blueman"
+    "apps:Applications:firefox firefox-i18n-zh-cn dolphin btop pavucontrol blueman"
     "media:Media Tools:ffmpegthumbnailer poppler imagemagick ffmpeg mpv playerctl cava wf-recorder"
     "shell:Shell Enhancements:atuin thefuck"
     "lsp:Neovim LSP:tree-sitter-cli clang stylua ruff pyright lua-language-server"
@@ -995,6 +995,27 @@ Inherits=${CURSOR_THEME}
 CURSORCONF
     print_ok "Default cursor configured"
 
+    # --- Dolphin terminal ---
+    print_info "Configuring Dolphin..."
+    mkdir -p "$HOME/.config"
+    if [[ -f "$HOME/.config/dolphinrc" ]]; then
+        if grep -q "^\[General\]" "$HOME/.config/dolphinrc"; then
+            if grep -q "^TerminalApplication=" "$HOME/.config/dolphinrc"; then
+                sed -i 's/^TerminalApplication=.*/TerminalApplication=kitty/' "$HOME/.config/dolphinrc"
+            else
+                sed -i '/^\[General\]/a TerminalApplication=kitty' "$HOME/.config/dolphinrc"
+            fi
+        else
+            echo -e "[General]\nTerminalApplication=kitty" >> "$HOME/.config/dolphinrc"
+        fi
+    else
+        cat > "$HOME/.config/dolphinrc" << 'DOLPHINCONF'
+[General]
+TerminalApplication=kitty
+DOLPHINCONF
+    fi
+    print_ok "Dolphin terminal set to kitty"
+
     mark_done "setup_theme"
     log "Theme configured"
 }
@@ -1047,6 +1068,15 @@ setup_user_dirs() {
     if [[ -d "$DOTFILES_DIR/wallpaper/Pictures/wallpapers" ]]; then
         cp -r "$DOTFILES_DIR/wallpaper/Pictures/wallpapers/"* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
         print_ok "Wallpapers copied"
+    fi
+
+    # Fix Dolphin application menu (KDE menu file for niri)
+    mkdir -p "$HOME/.config/menus"
+    if curl -sL "https://raw.githubusercontent.com/KDE/plasma-workspace/master/menu/desktop/plasma-applications.menu" \
+        -o "$HOME/.config/menus/applications.menu" 2>/dev/null; then
+        print_ok "Dolphin application menu fixed"
+    else
+        print_warn "Failed to download plasma-applications.menu"
     fi
 
     print_ok "Directories created"
