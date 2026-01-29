@@ -16,14 +16,16 @@ ShellRoot {
 
     // ==================== Configuration ====================
     // Grace period duration (seconds) - can be set via environment variable
+    // Set to 0 to skip grace phase entirely
     property int graceDuration: {
         var envTimeout = Quickshell.env("LOCK_GRACE_TIMEOUT")
         var t = parseInt(envTimeout)
-        return (!isNaN(t) && t > 0) ? t : 5
+        return (!isNaN(t) && t >= 0) ? t : 5
     }
 
     // Current phase: "grace" or "locked"
-    property string phase: "grace"
+    // If graceDuration is 0, start directly in locked phase
+    property string phase: graceDuration > 0 ? "grace" : "locked"
     property int graceRemaining: graceDuration
     property bool inputEnabled: false
     property point lastMousePos: Qt.point(-1, -1)
@@ -67,6 +69,7 @@ ShellRoot {
     property string lunarYear: ""
     property string festival: ""
     property string wallpaperPath: ""
+    property string screenshotPath: ""  // Screenshot for grace phase
 
     // ==================== Timers ====================
 
@@ -143,9 +146,38 @@ ShellRoot {
         }
     }
 
+    // Take screenshot for grace phase blur
+    Process {
+        id: screenshotProcess
+        command: ["grim", "/tmp/lockscreen-screenshot.png"]
+        onRunningChanged: {
+            if (!running && screenshotPath === "") {
+                // Add timestamp to force image reload
+                screenshotPath = "file:///tmp/lockscreen-screenshot.png?" + Date.now()
+            }
+        }
+    }
+
+    // Screenshot image loader (outside surface so it loads before lock)
+    Image {
+        id: screenshotLoader
+        source: screenshotPath
+        asynchronous: false
+        visible: false
+        onStatusChanged: {
+            if (status === Image.Ready && !sessionLock.locked) {
+                sessionLock.locked = true
+            }
+        }
+    }
+
+    // Screenshot ready state
+    property bool screenshotReady: screenshotLoader.status === Image.Ready
+
     Component.onCompleted: {
         lunarProcess.running = true
         wallpaperProcess.running = true
+        screenshotProcess.running = true
     }
 
     // ==================== PAM Authentication ====================
@@ -341,7 +373,8 @@ ShellRoot {
     // ==================== Session Lock ====================
     WlSessionLock {
         id: sessionLock
-        locked: true
+        // If no grace period, lock immediately; otherwise wait for screenshot
+        locked: graceDuration === 0
 
         onLockedChanged: {
             console.log("Session lock changed:", locked)
@@ -355,7 +388,18 @@ ShellRoot {
                 id: lockSurface
                 color: "#000000"
 
-                // Wallpaper background
+                // Blurred screenshot - only visible during grace phase
+                MultiEffect {
+                    anchors.fill: parent
+                    source: screenshotLoader
+                    autoPaddingEnabled: false
+                    blurEnabled: true
+                    blur: 0.6
+                    blurMax: 64
+                    visible: phase === "grace"
+                }
+
+                // Wallpaper background (only visible in locked phase)
                 Image {
                     id: wallpaperImage
                     anchors.fill: parent
@@ -363,6 +407,7 @@ ShellRoot {
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     cache: true
+                    visible: phase === "locked"
 
                     // Fallback gradient if no wallpaper
                     Rectangle {
@@ -379,7 +424,7 @@ ShellRoot {
                 // Dark overlay - lighter during grace, darker when locked
                 Rectangle {
                     anchors.fill: parent
-                    color: Qt.rgba(0, 0, 0, phase === "grace" ? 0.3 : 0.5)
+                    color: Qt.rgba(0, 0, 0, phase === "grace" ? 0.2 : 0.5)
                     Behavior on color { ColorAnimation { duration: 300 } }
                 }
 

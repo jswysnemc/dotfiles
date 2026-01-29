@@ -27,10 +27,12 @@ SUSPEND_TIMEOUT=300   # 多久后休眠 (10分钟)
 
 # 锁屏命令 - 使用环境变量传递 grace period 时长
 LOCK_CMD="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=${GRACE_DURATION} qs-lock"
+# 立即锁屏命令 - 无 grace period（用于 loginctl lock-session）
+LOCK_CMD_IMMEDIATE="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=0 qs-lock"
 
 exec swayidle \
     timeout $IDLE_TIMEOUT    "$LOCK_CMD" \
     timeout $DPMS_TIMEOUT    'niri msg action power-off-monitors' \
         resume               'niri msg action power-on-monitors' \
     timeout $SUSPEND_TIMEOUT 'systemctl suspend' \
-    lock                     "$LOCK_CMD"
+    lock                     "$LOCK_CMD_IMMEDIATE"
