@@ -212,7 +212,7 @@ confirm() {
     fi
 
     echo -ne "   ${YELLOW}[?]${NC} $prompt"
-    read -r response
+    read -r response < /dev/tty
     response="${response:-$default}"
     [[ "$response" =~ ^[Yy]$ ]]
 }
@@ -685,6 +685,58 @@ ZSHENV
     log "Zsh configured"
 }
 
+setup_bash_path() {
+    section "Phase 6b" "Bash PATH Configuration"
+
+    if is_done "setup_bash_path"; then
+        print_skip "Bash PATH (already done)"
+        return
+    fi
+
+    # Add ~/.local/bin to bash PATH
+    local bash_profile="$HOME/.bash_profile"
+    local bashrc="$HOME/.bashrc"
+    local path_line='export PATH="$HOME/.local/bin:$PATH"'
+
+    # Add to .bash_profile if exists or create
+    if [[ -f "$bash_profile" ]]; then
+        if ! grep -q '\.local/bin' "$bash_profile"; then
+            echo "" >> "$bash_profile"
+            echo "# Add local bin to PATH" >> "$bash_profile"
+            echo "$path_line" >> "$bash_profile"
+            print_ok "Updated .bash_profile"
+        else
+            print_info ".bash_profile already has PATH"
+        fi
+    else
+        cat > "$bash_profile" << 'BASHPROFILE'
+# ~/.bash_profile - Bash login shell configuration
+
+# Add local bin to PATH
+export PATH="$HOME/.local/bin:$PATH"
+
+# Source .bashrc if it exists
+[[ -f ~/.bashrc ]] && source ~/.bashrc
+BASHPROFILE
+        print_ok "Created .bash_profile"
+    fi
+
+    # Also add to .bashrc for interactive non-login shells
+    if [[ -f "$bashrc" ]]; then
+        if ! grep -q '\.local/bin' "$bashrc"; then
+            echo "" >> "$bashrc"
+            echo "# Add local bin to PATH" >> "$bashrc"
+            echo "$path_line" >> "$bashrc"
+            print_ok "Updated .bashrc"
+        else
+            print_info ".bashrc already has PATH"
+        fi
+    fi
+
+    mark_done "setup_bash_path"
+    log "Bash PATH configured"
+}
+
 setup_quickshell() {
     section "Phase 7" "Quickshell Configuration"
 
@@ -722,6 +774,39 @@ setup_quickshell() {
 
     mark_done "setup_quickshell"
     log "Quickshell configured"
+}
+
+setup_pam_lock() {
+    section "Phase 7b" "PAM Lockscreen Configuration"
+
+    if is_done "setup_pam_lock"; then
+        print_skip "PAM qs-lock (already done)"
+        return
+    fi
+
+    local pam_file="/etc/pam.d/qs-lock"
+
+    if [[ -f "$pam_file" ]]; then
+        print_ok "PAM qs-lock already exists"
+    else
+        print_info "Creating PAM configuration for qs-lock..."
+        sudo tee "$pam_file" > /dev/null << 'PAM'
+#%PAM-1.0
+# Password-only authentication for lockscreen
+auth       include    system-auth
+account    include    system-auth
+session    include    system-auth
+PAM
+        if [[ -f "$pam_file" ]]; then
+            print_ok "Created $pam_file"
+        else
+            print_fail "Failed to create $pam_file"
+            print_info "Create manually: sudo nano $pam_file"
+        fi
+    fi
+
+    mark_done "setup_pam_lock"
+    log "PAM lockscreen configured"
 }
 
 setup_matugen() {
@@ -934,7 +1019,9 @@ main() {
     install_packages
     apply_dotfiles
     setup_zsh
+    setup_bash_path
     setup_quickshell
+    setup_pam_lock
     setup_matugen
     enable_services
     setup_user_dirs
