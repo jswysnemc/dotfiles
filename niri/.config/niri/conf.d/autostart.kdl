@@ -1,6 +1,9 @@
 // 启动程序配置
 // Autostart configuration
 
+spawn-sh-at-startup "systemctl --user import-environment LANG LC_ALL LC_MESSAGES"
+spawn-sh-at-startup "dbus-update-activation-environment LANG LC_ALL LC_MESSAGES"
+
 // --- 核心服务 ---
 spawn-at-startup "fcitx5"
 // spawn-at-startup "clash-verge"
