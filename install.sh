@@ -81,7 +81,8 @@ AUR_PACKAGES=(
     quickshell
     uv
     xdg-desktop-portal-kde
-    clipse-wayland-bin
+    xwayland-satellite
+    clipse
     clipnotify
     catppuccin-gtk-theme-latte
     catppuccin-gtk-theme-mocha
@@ -535,8 +536,10 @@ install_packages() {
     else
         echo -e "   ${DIM}${AUR_PACKAGES[*]}${NC}"
         echo ""
+        print_info "AUR packages may prompt for provider selection"
 
-        if exe_live "Installing AUR packages" "$AUR_HELPER -S --needed --noconfirm --skipreview ${AUR_PACKAGES[*]}"; then
+        # Install AUR packages interactively (without --noconfirm)
+        if $AUR_HELPER -S --needed --skipreview ${AUR_PACKAGES[*]} < /dev/tty; then
             mark_done "aur_packages"
         else
             print_warn "Some AUR packages failed"
@@ -643,7 +646,7 @@ apply_dotfiles() {
 
     # Stow
     print_info "Applying configs with stow..."
-    local stow_dirs=(niri waybar quickshell matugen nvim zsh starship tmux yazi kitty font my-scripts electron-flags wallpaper)
+    local stow_dirs=(niri waybar quickshell matugen nvim zsh starship tmux yazi kitty font my-scripts electron-flags)
 
     for dir in "${stow_dirs[@]}"; do
         if [[ -d "$dir" ]]; then
