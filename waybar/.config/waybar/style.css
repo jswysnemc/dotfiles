@@ -85,7 +85,8 @@ tooltip label {
 #group-audio:hover,
 #group-backlight:hover,
 #custom-caffeine:hover,
-#power-profiles-daemon:hover #group-tools:hover,
+#power-profiles-daemon:hover,
+#group-tools:hover,
 #battery:hover,
 #clock:hover,
 #custom-clock:hover,
@@ -109,9 +110,8 @@ tooltip label {
 }
 
 #custom-arch:hover {
-    background-color: @highlight;
-    /* 替换：#1e1e2e -> @text-on-primary (确保背景变亮时文字反色可见) */
-    color: @text-on-primary;
+    background-color: @hover-bg;
+    color: @text-main;
 }
 
 #custom-separator-line,
@@ -223,7 +223,7 @@ tooltip label {
 #custom-app-browser:hover,
 #custom-app-term:hover {
     background-color: @hover-bg;
-    color: @highlight;
+    color: @text-main;
 }
 
 /* 快捷方式抽屉 (统一样式) */
@@ -253,7 +253,7 @@ tooltip label {
 #custom-link-claude:hover,
 #custom-link-linuxdo:hover {
     background-color: @hover-bg;
-    color: @highlight;
+    color: @text-main;
 }
 
 /* 任务栏 */
@@ -374,7 +374,8 @@ scale slider {
 
 #clock:hover,
 #custom-clock:hover {
-    background-color: @highlight;
+    background-color: @hover-bg;
+    color: @text-main;
 }
 
 /* 托盘 */
@@ -388,8 +389,8 @@ scale slider {
 }
 
 #power{
-    /* 替换：rgba(255, 0, 0, 0.492) -> alpha(@accent-red, 0.5) */
-    background-color: alpha(@accent-red, 0.5);
+    /* 深色实底背景 */
+    background-color: @tooltip-bg;
     border-radius: 12px;
     margin: 3px 0;
 }
@@ -398,7 +399,7 @@ scale slider {
     padding-right: 4px;
 }
 
-/* 电源抽屉内的按钮 */
+/* 电源抽屉内的按钮 - 彩色图标区分 */
 #custom-lock,
 #custom-sleep,
 #custom-logout,
@@ -410,6 +411,31 @@ scale slider {
     border-radius: 4px;
 }
 
+/* 锁定 - 蓝色 */
+#custom-lock {
+    color: @highlight;
+}
+
+/* 睡眠 - 紫色 */
+#custom-sleep {
+    color: @accent-purple;
+}
+
+/* 注销 - 橙色 */
+#custom-logout {
+    color: @accent-orange;
+}
+
+/* 重启 - 黄色/次要色 */
+#custom-reboot {
+    color: @secondary;
+}
+
+/* 关机 - 红色 */
+#custom-shutdown {
+    color: @accent-red;
+}
+
 /* 电源内部按钮 Hover */
 #custom-lock:hover,
 #custom-sleep:hover,
@@ -417,7 +443,6 @@ scale slider {
 #custom-reboot:hover,
 #custom-shutdown:hover {
     background-color: @hover-bg;
-    color: @accent-red;
 }
 
 #custom-screenshot {
@@ -695,28 +720,20 @@ tooltip label {
 
 /* 代理组内按钮悬停效果 */
 #custom-proxy-status:hover {
-    background-color: alpha(@text-main, 0.1);
+    background-color: @hover-bg;
     border-radius: 6px;
 }
 
 #custom-proxy-kernel:hover,
 #custom-proxy-power:hover {
-    box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.15);
+    background-color: @hover-bg;
 }
 
-#custom-proxy-rule:hover {
-    color: #1e1e2e;
-    background-color: @accent-green;
-}
-
-#custom-proxy-global:hover {
-    color: #1e1e2e;
-    background-color: @accent-red;
-}
-
+#custom-proxy-rule:hover,
+#custom-proxy-global:hover,
 #custom-proxy-direct:hover {
-    color: #1e1e2e;
-    background-color: @accent-orange;
+    background-color: @hover-bg;
+    color: @text-main;
 }
 
 /* 抽屉子元素样式 */
