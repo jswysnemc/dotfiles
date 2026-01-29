@@ -381,19 +381,18 @@
     "group/tools": {
         "orientation": "inherit",
         "modules": [
-            "idle_inhibitor",
+            "custom/caffeine",
             "power-profiles-daemon"
         ]
     },
-    // --- 抑制休眠 (Idle Inhibitor) ---
-    "idle_inhibitor": {
-        "format": "{icon}",
-        "format-icons": {
-            "activated": "󰅶", // 激活：常亮（咖啡）
-            "deactivated": "󰾪" // 未激活：省电（空杯）
-        },
-        "tooltip-format-activated": "咖啡模式：屏幕常亮",
-        "tooltip-format-deactivated": "省电模式：自动息屏"
+    // --- 咖啡模式 (Caffeine) - 使用 systemd-inhibit 实现，状态持久化 ---
+    "custom/caffeine": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/waybar/scripts/caffeine.sh waybar",
+        "on-click": "~/.config/waybar/scripts/caffeine.sh toggle",
+        "interval": 5,
+        "tooltip": true
     },
     //左键循环切换性能模式
     "power-profiles-daemon": {

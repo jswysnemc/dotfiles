@@ -52,7 +52,7 @@ tooltip label {
 #taskbar,
 #network,
 #bluetooth,
-#idle_inhibitor,
+#custom-caffeine,
 #power-profiles-daemon,
 #battery,
 #clock,
@@ -84,7 +84,7 @@ tooltip label {
 #bluetooth:hover,
 #group-audio:hover,
 #group-backlight:hover,
-#idle_inhibitor:hover,
+#custom-caffeine:hover,
 #power-profiles-daemon:hover #group-tools:hover,
 #battery:hover,
 #clock:hover,
@@ -532,12 +532,12 @@ tooltip label {
 }
 
 /* 咖啡模式激活状态 */
-#idle_inhibitor.activated {
+#custom-caffeine.activated {
     /* 替换：#f9e2af -> @accent-orange */
     color: @accent-orange;
 }
 
-#idle_inhibitor.deactivated {
+#custom-caffeine.deactivated {
     color: @text-sub;
 }
 
