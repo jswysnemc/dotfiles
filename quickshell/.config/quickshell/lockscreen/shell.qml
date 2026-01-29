@@ -171,7 +171,8 @@ ShellRoot {
                 if (pamFace.responseVisible) {
                     pamFace.respond(userName)
                 } else {
-                    // howdy 失败后会要求密码，这时候切换到密码认证
+                    // howdy 失败后会要求密码，中断 pamFace，让用户用 pamPassword
+                    pamFace.abort()
                     statusMessage = "人脸识别失败，请输入密码"
                     authInProgress = false
                 }
@@ -715,14 +716,18 @@ ShellRoot {
                             }
 
                             Text {
+                                id: avatarIcon
                                 anchors.centerIn: parent
-                                text: authInProgress ? "\uf2f1" : "\uf007"
+                                text: pamFace.active ? "\uf2f1" : "\uf007"
                                 font.family: "Symbols Nerd Font Mono"
                                 font.pixelSize: 44
                                 color: root.textColor
+                                rotation: pamFace.active ? avatarRotation.rotation : 0
 
-                                RotationAnimator on rotation {
-                                    running: authInProgress
+                                RotationAnimator {
+                                    id: avatarRotation
+                                    target: avatarIcon
+                                    running: pamFace.active
                                     from: 0; to: 360
                                     duration: 2000
                                     loops: Animation.Infinite
@@ -734,7 +739,7 @@ ShellRoot {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                enabled: !authInProgress && !pamFace.responseRequired && !pamPassword.responseRequired
+                                enabled: !pamPassword.active && !pamPassword.responseRequired
                                 onClicked: root.startAuth()
                             }
                         }
@@ -813,15 +818,19 @@ ShellRoot {
                                 }
 
                                 Text {
+                                    id: submitIcon
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: authInProgress ? "\uf110" : "\uf054"
+                                    text: pamPassword.active ? "\uf110" : "\uf054"
                                     font.family: "Symbols Nerd Font Mono"
                                     font.pixelSize: 18
                                     color: root.primaryColor
-                                    visible: passwordField.text.length > 0 || authInProgress
+                                    visible: passwordField.text.length > 0 || pamPassword.active
+                                    rotation: pamPassword.active ? submitRotation.rotation : 0
 
-                                    RotationAnimator on rotation {
-                                        running: authInProgress
+                                    RotationAnimator {
+                                        id: submitRotation
+                                        target: submitIcon
+                                        running: pamPassword.active
                                         from: 0; to: 360
                                         duration: 1000
                                         loops: Animation.Infinite
@@ -967,9 +976,18 @@ ShellRoot {
 
     // 启动人脸识别（点击头像）
     function startAuth() {
-        if (authInProgress || pamFace.active || pamPassword.active) return
+        // 只检查密码认证是否在进行，允许重新触发人脸识别
+        if (pamPassword.active) return
+
+        // 如果人脸识别正在进行，先中断
+        if (pamFace.active) {
+            pamFace.abort()
+        }
+
         errorMessage = ""
         pendingPassword = ""
+        authInProgress = true
+        statusMessage = "正在进行人脸识别..."
         pamFace.start()
     }
 
