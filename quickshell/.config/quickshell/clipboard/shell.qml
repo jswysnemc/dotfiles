@@ -36,49 +36,60 @@ ShellRoot {
     property string previewFullText: ""
 
     // ============ Clipboard Loading ============
+    property string clipboardBuffer: ""
+    
     Process {
         id: loadClipboard
         command: ["cliphist", "list"]
         stdout: SplitParser {
             splitMarker: ""
             onRead: data => {
-                var lines = data.trim().split("\n")
-                var seen = {}
-                var items = []
-                for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i]
-                    if (!line) continue
-                    var tabIdx = line.indexOf("\t")
-                    if (tabIdx > 0) {
-                        var id = line.substring(0, tabIdx)
-                        var content = line.substring(tabIdx + 1)
-                        var isImage = content.startsWith("[[ binary data")
-                        // Skip file URI entries (from file manager copy operations)
-                        if (!isImage && content.startsWith("file://")) continue
-                        var preview = isImage ? "" : content.substring(0, 200).replace(/\n/g, " ").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                        // Deduplicate by content (keep first occurrence which is most recent)
-                        var key = isImage ? ("img:" + content) : preview
-                        if (seen[key]) continue
-                        seen[key] = true
-                        items.push({
-                            id: id,
-                            isImage: isImage,
-                            imagePath: "",
-                            preview: preview
-                        })
-                    }
-                }
-                root.clipboardItems = items
-                root.filterItems()
-                root.loading = false
-                // Decode images in background
-                if (items.some(i => i.isImage)) {
-                    root.startImageDecode()
-                }
+                // 累积数据到缓冲区
+                root.clipboardBuffer += data
             }
         }
         onExited: code => {
+            // 进程结束后一次性解析所有数据
+            if (code === 0) {
+                root.parseClipboardData(root.clipboardBuffer)
+            }
+            root.clipboardBuffer = ""
             root.loading = false
+        }
+    }
+    
+    function parseClipboardData(data) {
+        var lines = data.trim().split("\n")
+        var seen = {}
+        var items = []
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i]
+            if (!line) continue
+            var tabIdx = line.indexOf("\t")
+            if (tabIdx > 0) {
+                var id = line.substring(0, tabIdx)
+                var content = line.substring(tabIdx + 1)
+                var isImage = content.startsWith("[[ binary data")
+                // Skip file URI entries (from file manager copy operations)
+                if (!isImage && content.startsWith("file://")) continue
+                var preview = isImage ? "" : content.substring(0, 200).replace(/\n/g, " ").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                // Deduplicate by content (keep first occurrence which is most recent)
+                var key = isImage ? ("img:" + content) : preview
+                if (seen[key]) continue
+                seen[key] = true
+                items.push({
+                    id: id,
+                    isImage: isImage,
+                    imagePath: "",
+                    preview: preview
+                })
+            }
+        }
+        root.clipboardItems = items
+        root.filterItems()
+        // Decode images in background
+        if (items.some(i => i.isImage)) {
+            root.startImageDecode()
         }
     }
 
@@ -153,16 +164,22 @@ ShellRoot {
 
     function filterItems() {
         if (!searchText) {
-            filteredItems = clipboardItems
+            // 使用 slice() 创建数组副本，保持原始时间顺序
+            filteredItems = clipboardItems.slice()
         } else {
             var results = []
             for (var i = 0; i < clipboardItems.length; i++) {
                 var item = clipboardItems[i]
                 if (item.isImage) continue
                 var m = fuzzyMatch(searchText, item.preview)
-                if (m.match) results.push({ item: item, score: m.score })
+                // 保存原始索引以便在分数相同时按时间排序
+                if (m.match) results.push({ item: item, score: m.score, originalIndex: i })
             }
-            results.sort((a, b) => b.score - a.score)
+            // 先按分数降序，分数相同时按原始索引升序（保持时间顺序）
+            results.sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score
+                return a.originalIndex - b.originalIndex
+            })
             filteredItems = results.map(r => r.item)
         }
         selectedIndex = 0
