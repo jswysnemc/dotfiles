@@ -2,6 +2,85 @@
 
 这是一个模块化的 [Niri](https://github.com/YaLTeR/niri) 窗口管理器配置，适用于 Wayland 环境。
 
+## 目录
+
+- [从零开始安装](#从零开始安装)
+- [目录结构](#目录结构)
+- [模块说明](#模块说明)
+- [快捷键](#快捷键)
+- [自定义脚本](#自定义脚本)
+- [依赖](#依赖)
+
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+# 核心包
+paru -S niri
+
+# 输入法
+paru -S fcitx5 fcitx5-im fcitx5-chinese-addons
+
+# 壁纸和锁屏
+paru -S swww swayidle hyprlock
+
+# 系统工具
+paru -S brightnessctl wireplumber pipewire \
+    wl-clipboard cliphist grim slurp wayfreeze \
+    hyprpolkitagent xdg-desktop-portal xdg-desktop-portal-kde
+
+# 应用程序
+paru -S kitty firefox dolphin btop
+
+# 可选：截图编辑工具
+paru -S markpix-bin  # AUR
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow niri
+```
+
+### 3. 初始化主题颜色
+
+Niri 配置依赖 matugen 生成的颜色文件，首次使用需要初始化：
+
+```bash
+# 初始化默认颜色
+~/.config/matugen/defaults/matugen-init -s
+
+# 或使用壁纸生成主题
+matugen image /path/to/wallpaper.jpg
+```
+
+### 4. 启用系统服务
+
+```bash
+sudo systemctl enable --now NetworkManager
+sudo systemctl enable --now bluetooth
+sudo systemctl enable --now pipewire
+sudo systemctl enable --now pipewire-pulse
+```
+
+### 5. 启动 Niri
+
+```bash
+# 从 TTY 启动
+niri-session
+
+# 或创建桌面入口文件供显示管理器使用
+sudo tee /usr/share/wayland-sessions/niri.desktop << EOF
+[Desktop Entry]
+Name=Niri
+Comment=A scrollable-tiling Wayland compositor
+Exec=niri-session
+Type=Application
+EOF
+```
+
 ## 目录结构
 
 ```
@@ -250,22 +329,53 @@ X11 和 Wayland 剪贴板双向同步：
 
 ## 依赖
 
-- **终端**: kitty
-- **启动器**: quickshell
-- **文件管理器**: dolphin
-- **浏览器**: firefox
-- **状态栏**: waybar
-- **通知**: quickshell notifications
-- **锁屏**: swaylock, hyprlock
-- **壁纸**: swww
-- **空闲管理**: swayidle
-- **截图**: grim, slurp, wayfreeze, markpix
-- **剪贴板**: wl-paste, cliphist, xclip, clipnotify
-- **输入法**: fcitx5
-- **权限认证**: hyprpolkitagent
-- **亮度控制**: brightnessctl
-- **音频控制**: wpctl (WirePlumber)
-- **Python**: uv (包管理器)
+### 必需
+
+| 包名 | 用途 |
+|------|------|
+| `niri` | Wayland 窗口管理器 |
+| `kitty` | 终端模拟器 |
+| `waybar` | 状态栏 |
+| `swww` | 壁纸管理 |
+| `swayidle` | 空闲管理 |
+| `hyprlock` | 锁屏工具 |
+| `fcitx5` | 输入法 |
+| `hyprpolkitagent` | 权限认证 |
+| `brightnessctl` | 亮度控制 |
+| `wireplumber` | 音频控制 |
+
+### 截图工具
+
+| 包名 | 用途 |
+|------|------|
+| `grim` | 截图 |
+| `slurp` | 区域选择 |
+| `wayfreeze` | 屏幕冻结 |
+| `markpix` | 截图编辑 (AUR) |
+
+### 剪贴板
+
+| 包名 | 用途 |
+|------|------|
+| `wl-clipboard` | Wayland 剪贴板 |
+| `cliphist` | 剪贴板历史 |
+| `xclip` | X11 剪贴板 |
+| `clipnotify` | 剪贴板监听 (可选) |
+
+### 应用程序
+
+| 包名 | 用途 |
+|------|------|
+| `firefox` | 浏览器 |
+| `dolphin` | 文件管理器 |
+| `quickshell` | 弹窗组件 |
+
+### Python 环境
+
+| 包名 | 用途 |
+|------|------|
+| `python` | Python 运行时 |
+| `uv` | Python 包管理器 |
 
 ## 参考
 

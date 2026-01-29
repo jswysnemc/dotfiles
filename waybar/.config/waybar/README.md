@@ -2,6 +2,84 @@
 
 为 [Niri](https://github.com/YaLTeR/niri) Wayland 合成器定制的 Waybar 配置，采用胶囊风格设计。
 
+## 目录
+
+- [从零开始安装](#从零开始安装)
+- [目录结构](#目录结构)
+- [模块布局](#模块布局)
+- [模块说明](#模块说明)
+- [Matugen 主题集成](#matugen-主题集成)
+- [样式特点](#样式特点)
+- [依赖](#依赖)
+
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+# 核心
+paru -S waybar
+
+# 媒体控制
+paru -S playerctl cava
+
+# 截图录屏
+paru -S grim slurp wf-recorder wayfreeze
+
+# 系统工具
+paru -S brightnessctl jq blueman pavucontrol btop
+
+# 可选：高级截图
+paru -S markpix-bin rust-stitch  # AUR
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow waybar
+```
+
+### 3. 初始化颜色文件
+
+**重要**：Waybar 样式依赖 matugen 生成的颜色文件，首次使用必须初始化：
+
+```bash
+# 方式一：初始化默认颜色
+~/.config/matugen/defaults/matugen-init -s
+
+# 方式二：使用壁纸生成主题
+matugen image /path/to/wallpaper.jpg
+```
+
+### 4. 创建颜色文件符号链接
+
+如果链接不存在，手动创建：
+
+```bash
+mkdir -p ~/.cache/matugen/waybar
+ln -sf ~/.cache/matugen/waybar/colors.css ~/.config/waybar/colors.css
+```
+
+### 5. 启动 Waybar
+
+```bash
+# 直接启动
+waybar
+
+# 或通过 Niri 自动启动 (已配置在 autostart.kdl)
+```
+
+### 6. 验证
+
+```bash
+# 检查 Waybar 是否运行
+pgrep waybar
+
+# 热重载样式
+pkill -SIGUSR2 waybar
+```
+
 ## 目录结构
 
 ```
@@ -161,39 +239,46 @@ matugen image /path/to/wallpaper.jpg
 
 ### 核心
 
-- **waybar** - 状态栏
-- **niri** - Wayland 合成器
+| 包名 | 用途 |
+|------|------|
+| `waybar` | 状态栏 |
+| `niri` | Wayland 合成器 |
 
 ### 媒体控制
 
-- **playerctl** - 媒体控制
-- **wpctl** (WirePlumber) - 音频控制
-- **cava** - 音频可视化
+| 包名 | 用途 |
+|------|------|
+| `playerctl` | 媒体控制 |
+| `wireplumber` | 音频控制 |
+| `cava` | 音频可视化 |
 
 ### 截图录屏
 
-- **grim + slurp** - 截图
-- **wf-recorder** - 屏幕录制
-- **wayfreeze** - 屏幕冻结
-- **markpix** - 截图编辑
-- **rust-stitch** - 长截图拼接
-- **wayscrollshot** - 滚动截图
+| 包名 | 用途 |
+|------|------|
+| `grim` | 截图 |
+| `slurp` | 区域选择 |
+| `wf-recorder` | 屏幕录制 |
+| `wayfreeze` | 屏幕冻结 |
+| `markpix` | 截图编辑 (AUR) |
+| `rust-stitch` | 长截图拼接 (AUR) |
 
 ### 系统工具
 
-- **nwg-drawer** - 应用启动器 (备选)
-- **blueman** - 蓝牙管理
-- **pavucontrol** - 音频控制面板
-- **btop** - 系统监控
-- **nmtui** - 网络管理
-- **brightnessctl** - 亮度控制
-- **rfkill** - 蓝牙屏蔽
+| 包名 | 用途 |
+|------|------|
+| `blueman` | 蓝牙管理 |
+| `pavucontrol` | 音频控制面板 |
+| `btop` | 系统监控 |
+| `brightnessctl` | 亮度控制 |
+| `jq` | JSON 处理 |
 
 ### 集成
 
-- **quickshell** - QML 弹窗组件
-- **matugen** - 主题生成
-- **python3** - 脚本支持
+| 包名 | 用途 |
+|------|------|
+| `quickshell` | QML 弹窗组件 |
+| `matugen` | 主题生成 |
 
 ## 交互参考
 
@@ -215,6 +300,38 @@ matugen image /path/to/wallpaper.jpg
 | 高级截图 | 右键截图按钮 |
 | 开始/停止录屏 | 点击录屏按钮 |
 | 重载 Waybar | 右键 Arch Logo |
+
+## 故障排除
+
+### Waybar 无法启动
+
+```bash
+# 检查配置语法
+waybar -l debug
+
+# 检查颜色文件是否存在
+ls -la ~/.config/waybar/colors.css
+ls -la ~/.cache/matugen/waybar/colors.css
+```
+
+### 颜色文件缺失
+
+```bash
+# 初始化默认颜色
+~/.config/matugen/defaults/matugen-init -s
+```
+
+### 模块不显示
+
+确保相关依赖已安装，检查模块配置中的命令是否可用。
+
+### Quickshell 弹窗无法打开
+
+确保 `qs-popup` 脚本已安装且在 PATH 中：
+
+```bash
+which qs-popup
+```
 
 ## 许可
 

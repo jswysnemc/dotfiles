@@ -2,6 +2,187 @@
 
 轻量级、独立的 Wayland 弹出组件集合，专为 Waybar 和 Niri 窗口管理器设计。
 
+## 目录
+
+- [从零开始安装](#从零开始安装)
+- [功能特性](#功能特性)
+- [组件列表](#组件列表)
+- [目录结构](#目录结构)
+- [配置](#配置)
+- [Waybar 集成](#waybar-集成)
+- [Niri 快捷键](#niri-快捷键)
+- [快捷键](#快捷键)
+- [故障排除](#故障排除)
+
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+# Quickshell (从 AUR)
+paru -S quickshell-git
+
+# Nerd Fonts (图标支持)
+paru -S ttf-nerd-fonts-symbols-mono
+
+# Python 包管理器
+paru -S uv
+
+# 可选依赖 (按需安装)
+paru -S networkmanager bluez pipewire brightnessctl \
+    cliphist wl-clipboard swww playerctl cava
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow quickshell
+```
+
+### 3. 安装 Python 依赖
+
+```bash
+cd ~/.config/quickshell
+uv sync
+```
+
+### 4. 创建 qs-popup 启动脚本
+
+创建 `~/.local/bin/qs-popup` 脚本用于启动/切换弹窗组件：
+
+```bash
+mkdir -p ~/.local/bin
+
+cat > ~/.local/bin/qs-popup << 'EOFSCRIPT'
+#!/bin/bash
+# QuickShell popup launcher for Waybar integration
+
+QS_CONFIG_DIR="$HOME/.config/quickshell"
+QS_POS_CONF="$QS_CONFIG_DIR/position.conf"
+
+COMPONENT="$1"
+if [ $# -gt 0 ]; then
+    shift
+fi
+
+show_help() {
+    echo "Usage: qs-popup <component> [options]"
+    echo ""
+    echo "Components:"
+    echo "  wifi           - WiFi network manager"
+    echo "  bluetooth      - Bluetooth device manager"
+    echo "  notifications  - Notification center"
+    echo "  weather        - Weather widget"
+    echo "  calendar       - Calendar widget"
+    echo "  media          - Media player controls"
+    echo "  volume         - Volume and brightness controls"
+    echo "  launcher       - Application launcher"
+    echo "  clipboard      - Clipboard manager"
+    echo "  wallpaper      - Wallpaper selector"
+    echo "  close-confirm  - Close window confirmation"
+    echo "  window-switcher - Window switcher"
+    echo "  power-menu     - Power menu"
+}
+
+# Read position from config file
+read_config() {
+    local name="$1"
+    QS_POS="top-right"
+    QS_MARGIN_T="8"
+    QS_MARGIN_R="8"
+    QS_MARGIN_B="0"
+    QS_MARGIN_L="0"
+
+    if [[ -f "$QS_POS_CONF" ]]; then
+        local line
+        line=$(grep "^${name}=" "$QS_POS_CONF" 2>/dev/null | head -1)
+        if [[ -n "$line" ]]; then
+            local value="${line#*=}"
+            IFS=',' read -ra parts <<< "$value"
+            [[ -n "${parts[0]}" ]] && QS_POS="${parts[0]}"
+            [[ -n "${parts[1]}" ]] && QS_MARGIN_T="${parts[1]}"
+            [[ -n "${parts[2]}" ]] && QS_MARGIN_R="${parts[2]}"
+        fi
+    fi
+}
+
+toggle_popup() {
+    local name="$1"
+    local shell_path="$QS_CONFIG_DIR/$name/shell.qml"
+
+    if pgrep -f "quickshell.*$name/shell.qml" > /dev/null; then
+        pkill -f "quickshell.*$name/shell.qml"
+    else
+        if [[ -f "$shell_path" ]]; then
+            read_config "$name"
+            QS_POS="$QS_POS" \
+            QS_MARGIN_T="$QS_MARGIN_T" \
+            QS_MARGIN_R="$QS_MARGIN_R" \
+            QS_MARGIN_B="$QS_MARGIN_B" \
+            QS_MARGIN_L="$QS_MARGIN_L" \
+            quickshell -p "$shell_path" &
+        else
+            notify-send "QuickShell" "Component not found: $shell_path"
+            exit 1
+        fi
+    fi
+}
+
+if [[ -z "$COMPONENT" ]]; then
+    show_help
+    exit 0
+fi
+
+case "$COMPONENT" in
+    wifi) toggle_popup "wifi" ;;
+    bluetooth) toggle_popup "bluetooth" ;;
+    notifications|notif) toggle_popup "notifications" ;;
+    weather) toggle_popup "weather" ;;
+    calendar|cal) toggle_popup "calendar" ;;
+    media|player) toggle_popup "media" ;;
+    volume|vol|brightness) toggle_popup "volume" ;;
+    launcher|launch|app) toggle_popup "launcher" ;;
+    clipboard|clip|cb) toggle_popup "clipboard" ;;
+    power-menu|power|pm) toggle_popup "power-menu" ;;
+    wallpaper-selector|wallpaper|wp) toggle_popup "wallpaper-selector" ;;
+    close-confirm|close) toggle_popup "close-confirm" ;;
+    window-switcher|windows|ws) toggle_popup "window-switcher" ;;
+    -h|--help|help) show_help ;;
+    *) echo "Unknown component: $COMPONENT"; show_help; exit 1 ;;
+esac
+EOFSCRIPT
+
+chmod +x ~/.local/bin/qs-popup
+```
+
+### 5. 确保 PATH 包含 ~/.local/bin
+
+在 `~/.zshrc` 或 `~/.bashrc` 中添加：
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### 6. 启动通知守护进程 (可选)
+
+```bash
+cd ~/.config/quickshell
+uv run python notifications/main.py &
+```
+
+或在 Niri 配置中自动启动（已配置在 `autostart.kdl`）。
+
+### 7. 验证安装
+
+```bash
+# 测试 qs-popup
+qs-popup --help
+
+# 测试启动器
+qs-popup launcher
+```
+
 ## 功能特性
 
 - 统一的主题设计 (Commons/Theme.js)
@@ -84,11 +265,12 @@
 
 ```bash
 # Arch Linux
-paru -S quickshell-git nerd-fonts
+paru -S quickshell-git ttf-nerd-fonts-symbols-mono uv
 ```
 
 - **quickshell** - QML Shell 框架
 - **Nerd Fonts** - 图标字体 (Symbols Nerd Font Mono)
+- **uv** - Python 包管理器
 
 ### Python 依赖
 
@@ -120,41 +302,7 @@ uv sync
 ```bash
 # 安装所有可选依赖 (Arch Linux)
 paru -S networkmanager bluez pipewire brightnessctl curl jq \
-        python-lunarcalendar cliphist wl-clipboard swww playerctl cava
-```
-
-## 安装
-
-### 1. 克隆配置
-
-```bash
-git clone <repo-url> ~/.config/quickshell
-```
-
-### 2. 安装 Python 依赖
-
-```bash
-cd ~/.config/quickshell
-uv sync
-```
-
-### 3. 安装启动脚本
-
-```bash
-ln -sf ~/.config/quickshell/scripts/qs-popup ~/.local/bin/qs-popup
-```
-
-确保 `~/.local/bin` 在 PATH 中：
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-### 4. 启动通知守护进程 (可选)
-
-```bash
-cd ~/.config/quickshell/notifications
-uv run python main.py &
+        cliphist wl-clipboard swww playerctl cava
 ```
 
 ## 配置
@@ -409,6 +557,15 @@ pkill quickshell
 
 # 重新启动组件
 qs-popup launcher
+```
+
+### qs-popup 命令找不到
+
+确保 `~/.local/bin` 在 PATH 中：
+
+```bash
+echo $PATH | grep -q ".local/bin" || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ## 技术栈

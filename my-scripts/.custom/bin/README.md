@@ -2,6 +2,76 @@
 
 该目录包含多种实用脚本，主要用于翻译、OCR、WiFi 管理、AI 交互等任务。这些脚本大多基于 Bash 或 Python，依赖外部 API（如 Gemini、腾讯云）或本地工具。
 
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+# 核心工具
+paru -S bash python jq curl wget
+
+# 图形工具 (用于 OCR)
+paru -S grim slurp
+
+# 可选：本地 OCR
+paru -S pot-translation-bin  # AUR
+
+# 可选：Markdown 渲染
+paru -S bat glow
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow my-scripts
+```
+
+### 3. 配置环境变量
+
+创建 `~/.ssh/keys/keys.env` 文件（或其他安全位置）：
+
+```bash
+mkdir -p ~/.ssh/keys
+
+cat > ~/.ssh/keys/keys.env << 'EOF'
+# Gemini API 配置
+export G_API_URL="https://your-gemini-api-endpoint/v1/chat/completions"
+export G_API_KEY="your-api-key"
+export G_TEXT_MODEL="gemini-1.5-flash-latest"
+export G_VISION_MODEL="gemini-1.5-pro-latest"
+export G_TRANS_MODEL="gemini-1.5-flash-latest"
+
+# 腾讯云 API 配置
+export T_SECRET_ID="your-secret-id"
+export T_SECRET_KEY="your-secret-key"
+
+# WiFi 登录配置
+export WIFI_USERNAME="your-username"
+export WIFI_PASSWORD="your-password"
+EOF
+
+chmod 600 ~/.ssh/keys/keys.env
+```
+
+### 4. 确保脚本目录在 PATH 中
+
+Zsh 配置已自动添加 `~/.custom/bin` 到 PATH。如果使用其他 shell：
+
+```bash
+echo 'export PATH="$HOME/.custom/bin:$PATH"' >> ~/.bashrc
+```
+
+### 5. 验证安装
+
+```bash
+# 检查脚本是否可执行
+ls -la ~/.custom/bin/
+
+# 测试翻译 (需要配置 API)
+echo "Hello" | gtrans :zh
+```
+
 ## Arch Linux 依赖
 
 ### 核心依赖

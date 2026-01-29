@@ -2,6 +2,54 @@
 
 Kitty 是一个快速、功能丰富的 GPU 加速终端模拟器。此配置提供了现代化的终端体验，包括主题、滚动回退查看、快捷键等。
 
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+# Kitty
+paru -S kitty
+
+# 字体
+paru -S ttf-jetbrains-mono-nerd
+
+# Neovim 滚动回退 (可选)
+paru -S neovim python-pynvim
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow kitty
+```
+
+### 3. 设置默认主题
+
+```bash
+# 链接到默认主题
+ln -sf ~/.config/kitty/kitty-themes/00-Default.conf ~/.config/kitty/current-theme.conf
+```
+
+### 4. 安装 Neovim 插件 (可选)
+
+如果使用 Neovim 滚动回退功能：
+
+```bash
+# 在 Neovim 中安装 kitty-scrollback.nvim
+:Lazy install
+```
+
+### 5. 验证安装
+
+```bash
+# 启动 Kitty
+kitty
+
+# 检查版本
+kitty --version
+```
+
 ## 目录结构
 
 ```

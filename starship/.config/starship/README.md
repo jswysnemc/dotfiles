@@ -2,6 +2,54 @@
 
 Starship 是一个用 Rust 编写的极简、快速、可定制的 shell 提示符，适用于任何 shell。
 
+## 从零开始安装
+
+### 1. 安装 Starship
+
+```bash
+paru -S starship
+```
+
+### 2. 安装字体
+
+```bash
+paru -S ttf-nerd-fonts-symbols-mono ttf-jetbrains-mono-nerd noto-fonts-cjk
+```
+
+### 3. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow starship
+```
+
+### 4. 在 Shell 中启用
+
+**Zsh** (在 `~/.zshrc` 中，已包含在 zsh 配置中)：
+```bash
+eval "$(starship init zsh)"
+```
+
+**Bash** (在 `~/.bashrc` 中)：
+```bash
+eval "$(starship init bash)"
+```
+
+**Fish** (在 `~/.config/fish/config.fish` 中)：
+```fish
+starship init fish | source
+```
+
+### 5. 验证安装
+
+```bash
+# 检查版本
+starship --version
+
+# 检查配置
+starship explain
+```
+
 ## 目录结构
 
 ```

@@ -2,6 +2,42 @@
 
 Yazi 是一个用 Rust 编写的现代化终端文件管理器，支持快速导航、预览和插件扩展。
 
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+# 核心
+paru -S yazi fd ripgrep fzf
+
+# 预览支持
+paru -S ffmpegthumbnailer poppler jq imagemagick ffmpeg mpv
+
+# 可选
+paru -S exiftool zoxide
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow yazi
+```
+
+### 3. 安装插件
+
+插件已包含在配置中，无需额外安装。
+
+### 4. 验证安装
+
+```bash
+# 启动 Yazi
+yazi
+
+# 检查版本
+yazi --version
+```
+
 ## 目录结构
 
 ```

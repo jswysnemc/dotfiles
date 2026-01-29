@@ -2,6 +2,43 @@
 
 Tmux 是一个终端复用器，允许在单个终端窗口中创建、访问和控制多个终端会话。
 
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+paru -S tmux git
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow tmux
+```
+
+### 3. 安装 TPM 插件管理器
+
+首次启动 Tmux 后安装插件：
+
+```bash
+# 启动 Tmux
+tmux
+
+# 安装插件 (在 Tmux 中按)
+# prefix + I
+```
+
+### 4. 验证安装
+
+```bash
+# 检查 Tmux 版本
+tmux -V
+
+# 列出已安装插件
+ls ~/.tmux/plugins/
+```
+
 ## 目录结构
 
 ```

@@ -2,6 +2,47 @@
 
 这是用户级的 fontconfig 配置，用于控制 Linux 系统中的字体渲染和替换规则。
 
+## 从零开始安装
+
+### 1. 安装字体
+
+```bash
+# 中文字体
+paru -S noto-fonts-cjk
+
+# Nerd Font
+paru -S ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols-mono
+
+# 可选字体
+paru -S inter-font noto-fonts noto-fonts-emoji
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow font
+```
+
+### 3. 更新字体缓存
+
+```bash
+fc-cache -fv
+```
+
+### 4. 验证安装
+
+```bash
+# 检查中文字体
+fc-match -s "sans:lang=zh"
+
+# 检查 Nerd Font
+fc-list | grep -i "JetBrainsMono Nerd"
+
+# 测试字体替换
+fc-match "Microsoft YaHei"
+```
+
 ## 目录结构
 
 ```

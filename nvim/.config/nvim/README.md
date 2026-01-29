@@ -2,6 +2,50 @@
 
 基于 Lua 的现代化 Neovim 配置，集成了大量优秀的插件和工具，旨在提供一个高效、美观且功能丰富的开发环境。
 
+## 从零开始安装
+
+### 1. 安装依赖
+
+```bash
+# Neovim
+paru -S neovim
+
+# 必需工具
+paru -S git nodejs npm ripgrep fd fzf bat
+
+# 语言支持
+paru -S tree-sitter clang stylua ruff pyright lua-language-server
+```
+
+### 2. 应用配置
+
+```bash
+cd ~/.dotfiles
+stow nvim
+```
+
+### 3. 安装插件
+
+首次启动 Neovim 时，Lazy.nvim 会自动安装所有插件：
+
+```bash
+nvim
+```
+
+### 4. 安装语言服务器
+
+```bash
+# 在 Neovim 中运行
+:Mason
+```
+
+### 5. 验证安装
+
+```bash
+# 检查健康状态
+:checkhealth
+```
+
 ## 目录结构
 
 ```
