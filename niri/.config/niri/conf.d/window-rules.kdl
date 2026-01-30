@@ -22,7 +22,7 @@ layout {
 // --- 全局窗口规则 ---
 window-rule {
     clip-to-geometry true
-    opacity 0.9
+    opacity 1.0
     draw-border-with-background false
 }
 

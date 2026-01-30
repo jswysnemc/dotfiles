@@ -4,15 +4,16 @@
 # 风格变体：content, express, fidelity, fruit_salad, monochrome, neutral, rainbow, spot, tonal_spot
 scheme_variant = "tonal_spot"
 
-[templates.waybar]
-input_path = "~/.config/matugen/templates/waybar-colors.css"
-output_path = "~/.cache/matugen/waybar/colors.css"
+[templates.waybar-light]
+input_path = "~/.config/matugen/templates/waybar-colors-light.css"
+output_path = "~/.cache/matugen/waybar/colors-light.css"
 
-# Hook: 生成文件后，发送信号给 Waybar 让其热重载 CSS
-# SIGUSR2 是 Waybar 专门用来重载样式的信号
-[templates.waybar.hook]
-command = "pkill"
-args = ["-SIGUSR2", "waybar"]
+[templates.waybar-dark]
+input_path = "~/.config/matugen/templates/waybar-colors-dark.css"
+output_path = "~/.cache/matugen/waybar/colors-dark.css"
+
+# 注意: waybar 的 colors.css 由 theme-gen 根据模式选择 light/dark 链接
+# theme-gen 会自动重载 waybar
 
 [templates.swaync]
 input_path = "~/.config/matugen/templates/swaync-colors.css"
@@ -50,6 +51,21 @@ output_path = "~/.cache/matugen/ags/colors.scss"
 command = "ags"
 args = ["quit"]
 
-[templates.quickshell]
-input_path = "~/.config/matugen/templates/quickshell-colors.js"
-output_path = "~/.cache/matugen/quickshell/colors.js"
+[templates.quickshell-light]
+input_path = "~/.config/matugen/templates/quickshell-theme-light.js"
+output_path = "~/.cache/matugen/quickshell/Theme-light.js"
+
+[templates.quickshell-dark]
+input_path = "~/.config/matugen/templates/quickshell-theme-dark.js"
+output_path = "~/.cache/matugen/quickshell/Theme-dark.js"
+
+# Note: theme-gen 根据配置选择 light/dark 并创建 Theme.js 链接
+
+[templates.kitty]
+input_path = "~/.config/matugen/templates/kitty-colors.conf"
+output_path = "~/.cache/matugen/kitty/colors.conf"
+
+# Hook: reload kitty configuration
+[templates.kitty.hook]
+command = "pkill"
+args = ["-SIGUSR1", "kitty"]

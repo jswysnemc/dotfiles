@@ -2,7 +2,7 @@
 # matugen-init - 初始化 matugen 颜色文件
 # 用于首次应用配置时，在没有运行 matugen 的情况下提供默认颜色文件
 
-set -euo pipefail
+set -uo pipefail
 
 # 颜色输出
 RED='\033[0;31m'
@@ -17,18 +17,22 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/matugen"
 
 # 输出目标映射 (与 matugen config.toml 保持一致)
 declare -A OUTPUT_MAP=(
-    ["waybar-colors.css"]="waybar/colors.css"
+    ["waybar-colors-light.css"]="waybar/colors-light.css"
+    ["waybar-colors-dark.css"]="waybar/colors-dark.css"
     ["swaync-colors.css"]="swaync/colors.css"
     ["nwg-drawer-colors.css"]="nwg-drawer/colors.css"
     ["wofi-colors.css"]="wofi/colors.css"
     ["eww-colors.scss"]="eww/colors.scss"
     ["ags-colors.scss"]="ags/colors.scss"
-    ["quickshell-colors.js"]="quickshell/colors.js"
+    ["quickshell-theme-light.js"]="quickshell/Theme-light.js"
+    ["quickshell-theme-dark.js"]="quickshell/Theme-dark.js"
+    ["kitty-colors.conf"]="kitty/colors.conf"
 )
 
 # 符号链接目标 (某些应用需要在配置目录创建符号链接)
 declare -A SYMLINK_MAP=(
     ["waybar/colors.css"]="${XDG_CONFIG_HOME:-$HOME/.config}/waybar/colors.css"
+    ["quickshell/Theme.js"]="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/Commons/Theme.js"
 )
 
 print_header() {

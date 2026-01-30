@@ -1,0 +1,22 @@
+/* ==============================================================================
+ * Matugen 颜色定义 - Light Theme (Default)
+ * ============================================================================== */
+
+/* --- 核心背景 --- */
+@define-color base-bg alpha(#f3edf7, 0.6);
+@define-color tooltip-bg alpha(#fef7ff, 0.9);
+@define-color hover-bg alpha(#1d1b20, 0.15);
+@define-color white-20 alpha(#1d1b20, 0.2);
+
+/* --- 核心文字 --- */
+@define-color text-main #1d1b20;
+@define-color text-sub #49454f;
+@define-color text-on-primary #ffffff;
+
+/* --- 语义色映射 --- */
+@define-color highlight #6750a4;
+@define-color secondary #625b71;
+@define-color accent-red #b3261e;
+@define-color accent-green #625b71;
+@define-color accent-orange #7d5260;
+@define-color accent-purple #6750a4;

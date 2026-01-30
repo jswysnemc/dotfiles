@@ -1,0 +1,33 @@
+/* ==============================================================================
+ * Matugen 颜色定义 - Light Theme (用于深色壁纸时的对比)
+ * ============================================================================== */
+
+/* --- 核心背景 --- */
+/* 基础背景：使用 Surface Container (比纯黑稍亮)，60% 透明度 */
+@define-color base-bg alpha({{colors.surface_container.light.hex}}, 0.6);
+
+/* Tooltip背景：稍微不透明一点 (90%) */
+@define-color tooltip-bg alpha({{colors.surface.light.hex}}, 0.9);
+
+/* 悬停背景：使用文字颜色(On Surface)的 15% 透明度，实现自动变亮 */
+@define-color hover-bg alpha({{colors.on_surface.light.hex}}, 0.15);
+
+/* 通用白色半透明 (用于原来的 rgba(255,255,255,0.2)) */
+@define-color white-20 alpha({{colors.on_surface.light.hex}}, 0.2);
+
+
+/* --- 核心文字 --- */
+@define-color text-main {{colors.on_surface.light.hex}};
+@define-color text-sub {{colors.on_surface_variant.light.hex}};
+
+/* 反色文字 (用于显示在主色背景上的文字) */
+@define-color text-on-primary {{colors.on_primary.light.hex}};
+
+
+/* --- 语义色映射 --- */
+@define-color highlight {{colors.primary.light.hex}};       /* 主色 */
+@define-color secondary {{colors.secondary.light.hex}};     /* 次要色 */
+@define-color accent-red {{colors.error.light.hex}};        /* 错误/红色 */
+@define-color accent-green {{colors.secondary.light.hex}};  /* 绿色/正常 (映射到 Secondary) */
+@define-color accent-orange {{colors.tertiary.light.hex}};  /* 橙色/警告 (映射到 Tertiary) */
+@define-color accent-purple {{colors.primary.light.hex}};   /* 紫色/特殊 (映射到 Primary) */

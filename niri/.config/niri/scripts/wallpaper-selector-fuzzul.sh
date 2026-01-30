@@ -8,11 +8,7 @@ WALLPAPER_DIRS=(
 )
 CACHE_DIR="$HOME/.cache/rofi-wallpaper-thumbs"
 LINK_PATH="$HOME/.cache/current_wallpaper"
-
-# Fuzzel 配置文件路径 (如果不需要特定配置，可留空或注释)
-# FUZZEL_CONF="$HOME/.config/fuzzel/fuzzel.ini"
 FUZZEL_CONF=""
-
 EXTS="jpg|jpeg|png|gif|webp|mp4|mkv"
 # ===========================================
 
@@ -31,11 +27,9 @@ generate_thumbs_background() {
     if [[ ${#missing_files[@]} -eq 0 ]]; then return; fi
 
     for file in "${missing_files[@]}"; do
-        # 1. 替换 / 为 _ (极速)
         local flat_path="${file//\//_}"
         flat_path="${flat_path#_}"
 
-        # 2. 路径长度检查
         if [[ ${#flat_path} -gt 240 ]]; then
             local hash=$(echo -n "$file" | md5sum | cut -d" " -f1)
             local thumb="$CACHE_DIR/${hash}.jpg"
@@ -43,7 +37,6 @@ generate_thumbs_background() {
             local thumb="$CACHE_DIR/${flat_path}.jpg"
         fi
 
-        # 生成逻辑
         if [[ ! -s "$thumb" ]]; then
             if file --mime-type -b "$file" | grep -q "video"; then
                 ffmpeg -y -i "$file" -ss 00:00:00 -vframes 1 -vf "scale=300:-1" -q:v 2 "$thumb" > /dev/null 2>&1
@@ -58,7 +51,6 @@ generate_thumbs_background() {
 # 主逻辑
 # ---------------------------------------------------------
 
-# 临时文件
 MENU_INPUT_CACHE=$(mktemp)
 
 # 1. 快速查找所有文件
@@ -68,12 +60,9 @@ all_files=$(find "${WALLPAPER_DIRS[@]}" -type f 2>/dev/null | grep -E "\.(${EXTS
 while IFS= read -r file; do
     if [[ -z "$file" ]]; then continue; fi
 
-    # 加入索引数组
     WALLPAPER_LIST+=("$file")
-
     filename="${file##*/}"
 
-    # 计算缩略图路径
     flat_path="${file//\//_}"
     flat_path="${flat_path#_}"
 
@@ -84,7 +73,6 @@ while IFS= read -r file; do
         thumb="$CACHE_DIR/${flat_path}.jpg"
     fi
 
-    # Fuzzel 兼容 Rofi 的图标语法: Text\0icon\x1fPath
     if [[ -f "$thumb" ]]; then
         echo -en "${filename}\0icon\x1f${thumb}\n" >> "$MENU_INPUT_CACHE"
     else
@@ -100,21 +88,17 @@ if [[ ${#MISSING_THUMBS[@]} -gt 0 ]]; then
 fi
 
 # 4. 启动 Fuzzel
-# 构造参数
-FUZZEL_ARGS=(--dmenu --index -p "🖼️ Wallpapers: ")
+FUZZEL_ARGS=(--dmenu --index -p "Wallpapers: ")
 if [[ -n "$FUZZEL_CONF" ]]; then
     FUZZEL_ARGS+=(--config "$FUZZEL_CONF")
 fi
 
-# 注意：Fuzzel 默认支持从 stdin 读取 \0icon\x1f 格式
 SELECTED_INDEX=$(cat "$MENU_INPUT_CACHE" | fuzzel "${FUZZEL_ARGS[@]}")
 
-# 清理
 rm -f "$MENU_INPUT_CACHE"
 
 # 5. 处理选择结果
 if [[ -n "$SELECTED_INDEX" ]]; then
-    # 确保返回的是数字索引
     if ! [[ "$SELECTED_INDEX" =~ ^[0-9]+$ ]]; then exit 1; fi
 
     SELECTED="${WALLPAPER_LIST[$SELECTED_INDEX]}"
@@ -133,12 +117,14 @@ if [[ -n "$SELECTED_INDEX" ]]; then
 
     swww img "$SELECTED" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
 
-    # 如果你使用了 matugen，取消下面的注释
-    if command -v matugen &> /dev/null; then
+    # 使用 theme-gen 生成主题
+    if command -v theme-gen &> /dev/null; then
+        theme-gen
+    else
         matugen image ~/.cache/current_wallpaper
     fi
 
-    # 获取图标用于通知
+    # 通知
     flat_path="${SELECTED//\//_}"
     flat_path="${flat_path#_}"
     if [[ ${#flat_path} -gt 240 ]]; then
