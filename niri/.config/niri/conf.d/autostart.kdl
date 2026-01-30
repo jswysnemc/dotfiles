@@ -1,6 +1,9 @@
 // 启动程序配置
 // Autostart configuration
 
+// --- 显示配置 (从本地状态恢复) ---
+// spawn-sh-at-startup "sleep 0.5 && ~/.config/niri/scripts/niri-monitor-switch.sh apply"
+
 spawn-sh-at-startup "systemctl --user import-environment LANG LC_ALL LC_MESSAGES"
 spawn-sh-at-startup "dbus-update-activation-environment LANG LC_ALL LC_MESSAGES"
 

@@ -225,6 +225,7 @@ ShellRoot {
     // Initialize
     Component.onCompleted: {
         brightnessGet.running = true
+        refreshDisplays()
     }
 
     Timer {
@@ -250,7 +251,64 @@ ShellRoot {
     }
 
     // Tab state
-    property int currentTab: 0  // 0: volumes, 1: devices
+    property int currentTab: 0  // 0: volumes, 1: apps, 2: devices, 3: display
+
+    // ============ Display State ============
+    property var displayOutputs: []
+    property bool displayLoading: false
+    readonly property string monitorScript: Quickshell.env("HOME") + "/.config/niri/scripts/niri-monitor-switch.sh"
+
+    Process {
+        id: displayGet
+        command: [root.monitorScript, "list-json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let outputs = JSON.parse(text)
+                    root.displayOutputs = outputs.map(o => ({
+                        name: o.name,
+                        make: o.make || "",
+                        model: o.model || "",
+                        width: o.current?.width || 0,
+                        height: o.current?.height || 0,
+                        refresh: o.current?.refresh || 0,
+                        scale: o.scale || 1.0,
+                        vrr: o.vrr_enabled || false,
+                        vrr_supported: o.vrr_supported || false,
+                        modes: o.modes || []
+                    }))
+                } catch (e) {
+                    console.log("Failed to parse display outputs:", e)
+                }
+                root.displayLoading = false
+            }
+        }
+    }
+
+    function refreshDisplays() {
+        displayLoading = true
+        displayGet.running = true
+    }
+
+    function setDisplayMode(output, mode) {
+        displaySetProc.command = [root.monitorScript, "set", output, mode, "--save"]
+        displaySetProc.running = true
+    }
+
+    function saveDisplayConfig() {
+        displaySaveProc.running = true
+    }
+
+    Process {
+        id: displaySetProc
+        command: ["echo"]
+        onExited: root.refreshDisplays()
+    }
+
+    Process {
+        id: displaySaveProc
+        command: [root.monitorScript, "save"]
+    }
 
     // ============ UI ============
     Variants {
@@ -335,14 +393,14 @@ ShellRoot {
                         spacing: Theme.spacingM
 
                         Text {
-                            text: "\uf028"
+                            text: "\uf013"
                             font.family: "Symbols Nerd Font Mono"
                             font.pixelSize: Theme.iconSizeM
                             color: Theme.primary
                         }
 
                         Text {
-                            text: "音量与亮度"
+                            text: "快捷设置"
                             font.pixelSize: Theme.fontSizeL
                             font.bold: true
                             color: Theme.textPrimary
@@ -389,7 +447,7 @@ ShellRoot {
                             spacing: 2
 
                             Repeater {
-                                model: ["音量", "应用", "设备"]
+                                model: ["音量", "应用", "设备", "显示"]
 
                                 Rectangle {
                                     required property int index
@@ -1170,6 +1228,272 @@ ShellRoot {
                                     font.pixelSize: Theme.fontSizeS
                                     color: Theme.textMuted
                                 }
+                            }
+                        }
+
+                        // ============ Display Tab ============
+                        ColumnLayout {
+                            spacing: Theme.spacingM
+
+                            // Header with refresh button
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
+
+                                Text {
+                                    text: "\uf108"
+                                    font.family: "Symbols Nerd Font Mono"
+                                    font.pixelSize: Theme.iconSizeS
+                                    color: Theme.tertiary
+                                }
+
+                                Text {
+                                    text: "显示器"
+                                    font.pixelSize: Theme.fontSizeM
+                                    font.bold: true
+                                    color: Theme.textPrimary
+                                }
+
+                                Item { Layout.fillWidth: true }
+
+                                Rectangle {
+                                    width: 28; height: 28; radius: Theme.radiusM
+                                    color: refreshMa.containsMouse ? Theme.surfaceVariant : "transparent"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\uf021"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: Theme.iconSizeS
+                                        color: Theme.textMuted
+                                        rotation: root.displayLoading ? 360 : 0
+
+                                        Behavior on rotation {
+                                            RotationAnimation {
+                                                duration: 500
+                                                loops: Animation.Infinite
+                                            }
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: refreshMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.refreshDisplays()
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 28; height: 28; radius: Theme.radiusM
+                                    color: saveMa.containsMouse ? Theme.surfaceVariant : "transparent"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\uf0c7"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: Theme.iconSizeS
+                                        color: Theme.textMuted
+                                    }
+
+                                    MouseArea {
+                                        id: saveMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.saveDisplayConfig()
+                                    }
+
+                                    ToolTip {
+                                        visible: saveMa.containsMouse
+                                        text: "保存配置"
+                                        delay: 500
+                                    }
+                                }
+                            }
+
+                            // Display list
+                            Repeater {
+                                model: root.displayOutputs
+
+                                Rectangle {
+                                    id: displayBox
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    height: displayCol.implicitHeight + Theme.spacingM * 2
+                                    radius: Theme.radiusM
+                                    color: Theme.surface
+                                    border.color: Theme.outline
+                                    border.width: 1
+
+                                    ColumnLayout {
+                                        id: displayCol
+                                        anchors.fill: parent
+                                        anchors.margins: Theme.spacingM
+                                        spacing: Theme.spacingS
+
+                                        // Display info
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: Theme.spacingS
+
+                                            Rectangle {
+                                                width: 32; height: 32; radius: Theme.radiusS
+                                                color: Theme.surfaceVariant
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "\uf108"
+                                                    font.family: "Symbols Nerd Font Mono"
+                                                    font.pixelSize: Theme.iconSizeM
+                                                    color: Theme.tertiary
+                                                }
+                                            }
+
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+
+                                                Text {
+                                                    text: displayBox.modelData.name
+                                                    font.pixelSize: Theme.fontSizeM
+                                                    font.bold: true
+                                                    color: Theme.textPrimary
+                                                }
+
+                                                Text {
+                                                    text: displayBox.modelData.make + " " + displayBox.modelData.model
+                                                    font.pixelSize: Theme.fontSizeXS
+                                                    color: Theme.textMuted
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+
+                                            Text {
+                                                text: displayBox.modelData.width + "x" + displayBox.modelData.height + "@" + displayBox.modelData.refresh + "Hz"
+                                                font.pixelSize: Theme.fontSizeS
+                                                font.family: "JetBrainsMono Nerd Font"
+                                                color: Theme.primary
+                                            }
+                                        }
+
+                                        // Mode selector
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: Theme.spacingS
+
+                                            Text {
+                                                text: "分辨率:"
+                                                font.pixelSize: Theme.fontSizeS
+                                                color: Theme.textMuted
+                                            }
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                height: 28
+                                                radius: Theme.radiusS
+                                                color: Theme.surfaceVariant
+
+                                                ComboBox {
+                                                    id: modeCombo
+                                                    anchors.fill: parent
+                                                    anchors.margins: 2
+
+                                                    model: {
+                                                        let modes = displayBox.modelData.modes || []
+                                                        let items = []
+                                                        let seen = {}
+                                                        for (let i = 0; i < modes.length; i++) {
+                                                            let m = modes[i]
+                                                            let key = m.width + "x" + m.height + "@" + m.refresh
+                                                            if (!seen[key]) {
+                                                                seen[key] = true
+                                                                items.push({
+                                                                    text: m.width + "x" + m.height + " @ " + m.refresh + "Hz",
+                                                                    mode: m.width + "x" + m.height + "@" + m.refresh + ".000",
+                                                                    width: m.width,
+                                                                    height: m.height,
+                                                                    refresh: m.refresh
+                                                                })
+                                                            }
+                                                        }
+                                                        return items
+                                                    }
+
+                                                    textRole: "text"
+                                                    currentIndex: {
+                                                        let modes = model || []
+                                                        for (let i = 0; i < modes.length; i++) {
+                                                            let m = modes[i]
+                                                            if (m.width === displayBox.modelData.width &&
+                                                                m.height === displayBox.modelData.height &&
+                                                                m.refresh === displayBox.modelData.refresh) {
+                                                                return i
+                                                            }
+                                                        }
+                                                        return 0
+                                                    }
+
+                                                    onActivated: (idx) => {
+                                                        let m = model[idx]
+                                                        if (m) {
+                                                            root.setDisplayMode(displayBox.modelData.name, m.mode)
+                                                        }
+                                                    }
+
+                                                    background: Rectangle {
+                                                        color: "transparent"
+                                                    }
+
+                                                    contentItem: Text {
+                                                        text: modeCombo.displayText
+                                                        font.pixelSize: Theme.fontSizeS
+                                                        color: Theme.textPrimary
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        leftPadding: Theme.spacingS
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Scale and VRR
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: Theme.spacingM
+
+                                            Text {
+                                                text: "缩放: " + displayBox.modelData.scale.toFixed(1)
+                                                font.pixelSize: Theme.fontSizeXS
+                                                color: Theme.textMuted
+                                            }
+
+                                            Rectangle {
+                                                width: 1; height: 12
+                                                color: Theme.outline
+                                            }
+
+                                            Text {
+                                                text: "VRR: " + (displayBox.modelData.vrr ? "开" : "关")
+                                                font.pixelSize: Theme.fontSizeXS
+                                                color: displayBox.modelData.vrr ? Theme.success : Theme.textMuted
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Empty state
+                            Text {
+                                visible: root.displayOutputs.length === 0
+                                text: root.displayLoading ? "加载中..." : "未检测到显示器"
+                                font.pixelSize: Theme.fontSizeS
+                                color: Theme.textMuted
+                                horizontalAlignment: Text.AlignHCenter
+                                Layout.fillWidth: true
+                                Layout.topMargin: Theme.spacingL
                             }
                         }
                     }
