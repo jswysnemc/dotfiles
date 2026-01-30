@@ -19,3 +19,6 @@ $RECYCLE.BIN/
 # Linux-specific
 .nfs*
 .directory
+
+.claude
+.marscode
