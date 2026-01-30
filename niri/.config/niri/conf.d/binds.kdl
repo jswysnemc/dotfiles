@@ -3,7 +3,7 @@
 
 binds {
     // === 帮助 ===
-    Mod+Shift+Slash { show-hotkey-overlay; }
+    Mod+Shift+Slash hotkey-overlay-title="显示快捷键帮助" { show-hotkey-overlay; }
 
     // === 程序启动 ===
     Mod+T hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
@@ -22,7 +22,7 @@ binds {
     Mod+Ctrl+S hotkey-overlay-title="刷新率配置" { spawn-sh "~/.config/niri/scripts/niri-monitor-switch.sh"; }
 
     // === 屏幕阅读器 ===
-    Super+Alt+S allow-when-locked=true hotkey-overlay-title=null { spawn-sh "pkill orca || exec orca"; }
+    Super+Alt+S allow-when-locked=true hotkey-overlay-title="屏幕阅读器" { spawn-sh "pkill orca || exec orca"; }
 
     // === 音量控制 ===
     XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+"; }
@@ -35,10 +35,10 @@ binds {
     XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "10%-"; }
 
     // === 概览视图 ===
-    Mod+O repeat=false { toggle-overview; }
+    Mod+O repeat=false hotkey-overlay-title="概览视图" { toggle-overview; }
 
     // === 窗口操作 ===
-    Mod+C repeat=false { close-window; }
+    Mod+C repeat=false hotkey-overlay-title="关闭窗口" { close-window; }
 
     // === 焦点移动 ===
     Mod+Left  { focus-column-left; }
@@ -139,43 +139,43 @@ binds {
     Mod+Ctrl+9 { move-column-to-workspace 9; }
 
     // === 列操作 ===
-    Mod+BracketLeft  { consume-or-expel-window-left; }
-    Mod+BracketRight { consume-or-expel-window-right; }
-    Mod+Comma  { consume-window-into-column; }
-    Mod+Period { expel-window-from-column; }
+    Mod+BracketLeft  hotkey-overlay-title="吞入/吐出窗口（左）" { consume-or-expel-window-left; }
+    Mod+BracketRight hotkey-overlay-title="吞入/吐出窗口（右）" { consume-or-expel-window-right; }
+    Mod+Comma  hotkey-overlay-title="吞入窗口到列" { consume-window-into-column; }
+    Mod+Period hotkey-overlay-title="从列中吐出窗口" { expel-window-from-column; }
 
     // === 窗口尺寸 ===
-    Mod+R { switch-preset-column-width; }
-    Mod+Shift+R { switch-preset-window-height; }
-    Mod+Ctrl+R { reset-window-height; }
-    Mod+F { maximize-column; }
-    Mod+Shift+F { fullscreen-window; }
-    Mod+Ctrl+F { expand-column-to-available-width; }
-    Mod+A { center-column; }
-    Mod+Ctrl+C { center-visible-columns; }
+    Mod+R hotkey-overlay-title="切换预设宽度" { switch-preset-column-width; }
+    Mod+Shift+R hotkey-overlay-title="切换预设高度" { switch-preset-window-height; }
+    Mod+Ctrl+R hotkey-overlay-title="重置窗口高度" { reset-window-height; }
+    Mod+F hotkey-overlay-title="最大化列" { maximize-column; }
+    Mod+Shift+F hotkey-overlay-title="全屏窗口" { fullscreen-window; }
+    Mod+Ctrl+F hotkey-overlay-title="扩展到可用宽度" { expand-column-to-available-width; }
+    Mod+A hotkey-overlay-title="居中列" { center-column; }
+    Mod+Ctrl+C hotkey-overlay-title="居中可见列" { center-visible-columns; }
 
-    Mod+Minus { set-column-width "-10%"; }
-    Mod+Equal { set-column-width "+10%"; }
-    Mod+Shift+Minus { set-window-height "-10%"; }
-    Mod+Shift+Equal { set-window-height "+10%"; }
+    Mod+Minus hotkey-overlay-title="列宽度 -10%" { set-column-width "-10%"; }
+    Mod+Equal hotkey-overlay-title="列宽度 +10%" { set-column-width "+10%"; }
+    Mod+Shift+Minus hotkey-overlay-title="窗口高度 -10%" { set-window-height "-10%"; }
+    Mod+Shift+Equal hotkey-overlay-title="窗口高度 +10%" { set-window-height "+10%"; }
 
     // === 浮动/平铺切换 ===
-    Mod+V       { toggle-window-floating; }
-    Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+    Mod+V       hotkey-overlay-title="浮动/平铺切换" { toggle-window-floating; }
+    Mod+Shift+V hotkey-overlay-title="焦点在浮动/平铺间切换" { switch-focus-between-floating-and-tiling; }
 
     // === 标签模式 ===
-    Mod+W { toggle-column-tabbed-display; }
+    Mod+W hotkey-overlay-title="切换标签显示" { toggle-column-tabbed-display; }
 
     // === 截图 ===
     Print { screenshot; }
-    Ctrl+Print { screenshot-screen; }
-    Alt+Print { screenshot-window; }
+    Ctrl+Print hotkey-overlay-title="截取当前屏幕" { screenshot-screen; }
+    Alt+Print hotkey-overlay-title="截取当前窗口" { screenshot-window; }
 
     // === 系统操作 ===
     XF86PowerOff allow-when-locked=true hotkey-overlay-title="电源菜单" { spawn-sh "qs-popup power-menu"; }
-    Mod+MouseMiddle { spawn-sh "qs-popup close-confirm"; }
-    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
-    Mod+Shift+E { quit; }
-    Ctrl+Alt+Delete { quit; }
-    Mod+Shift+P { power-off-monitors; }
+    Mod+MouseMiddle hotkey-overlay-title="关闭确认" { spawn-sh "qs-popup close-confirm"; }
+    Mod+Escape allow-inhibiting=false hotkey-overlay-title="切换快捷键抑制" { toggle-keyboard-shortcuts-inhibit; }
+    Mod+Shift+E hotkey-overlay-title="退出 niri" { quit; }
+    Ctrl+Alt+Delete hotkey-overlay-title="退出 niri" { quit; }
+    Mod+Shift+P hotkey-overlay-title="关闭显示器" { power-off-monitors; }
 }
