@@ -702,82 +702,77 @@ tooltip label {
     color: @text-sub;
 }
 
-/* 内核切换按钮 - 紫色/蓝色区分 */
+/* 内核切换按钮 - 统一浅色背景 */
 #custom-proxy-kernel {
     padding: 0 8px;
     margin: 0 2px;
     border-radius: 8px;
+    background-color: @white-20;
+    color: @text-main;
 }
 
 #custom-proxy-kernel.mihomo {
-    color: @text-on-primary;
-    background-color: @accent-purple;
+    color: @accent-purple;
 }
 
 #custom-proxy-kernel.singbox {
-    color: @text-on-primary;
-    background-color: @highlight;
+    color: @highlight;
 }
 
 #custom-proxy-kernel.stopped {
     color: @text-sub;
-    background-color: transparent;
 }
 
-/* 电源按钮 - 绿色运行/红色停止 */
+/* 电源按钮 - 统一浅色背景，仅图标颜色区分 */
 #custom-proxy-power {
     padding: 0 8px;
     margin: 0 2px;
     border-radius: 8px;
+    background-color: @white-20;
 }
 
 #custom-proxy-power.stopped {
-    color: @base-bg;
-    background-color: @accent-red;
+    color: @accent-red;
 }
 
 #custom-proxy-power.running {
-    color: @base-bg;
-    background-color: @accent-green;
+    color: @accent-green;
 }
 
-/* 模式切换按钮 - 带背景色区分 */
+/* 模式切换按钮 - 统一浅色背景 */
 #custom-proxy-rule,
 #custom-proxy-global,
 #custom-proxy-direct {
     padding: 0 8px;
     margin: 0 2px;
     border-radius: 8px;
-    color: @text-main;
+    color: @text-sub;
     background-color: @white-20;
 }
 
 #custom-proxy-rule.active {
-    color: @base-bg;
-    background-color: @accent-green;
+    color: @accent-green;
+    background-color: alpha(@accent-green, 0.2);
 }
 
 #custom-proxy-global.active {
-    color: @base-bg;
-    background-color: @accent-red;
+    color: @accent-red;
+    background-color: alpha(@accent-red, 0.2);
 }
 
 #custom-proxy-direct.active {
-    color: @base-bg;
-    background-color: @accent-orange;
+    color: @accent-orange;
+    background-color: alpha(@accent-orange, 0.2);
 }
 
-/* 代理组内按钮悬停效果 */
+/* 代理组内按钮悬停效果 - 统一处理 */
 #custom-proxy-status:hover {
     background-color: @hover-bg;
     border-radius: 6px;
 }
 
 #custom-proxy-kernel:hover,
-#custom-proxy-power:hover {
-    background-color: @hover-bg;
-}
-
+#custom-proxy-power:hover,
 #custom-proxy-rule:hover,
 #custom-proxy-global:hover,
 #custom-proxy-direct:hover {
