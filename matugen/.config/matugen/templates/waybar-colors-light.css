@@ -9,8 +9,8 @@
 /* Tooltip背景：稍微不透明一点 (90%) */
 @define-color tooltip-bg alpha({{colors.surface.light.hex}}, 0.9);
 
-/* 悬停背景：使用文字颜色(On Surface)的 15% 透明度，实现自动变亮 */
-@define-color hover-bg alpha({{colors.on_surface.light.hex}}, 0.15);
+/* 悬停背景：使用主色(Primary)的 12% 透明度，带来色调倾向而非变灰 */
+@define-color hover-bg alpha({{colors.primary.light.hex}}, 0.12);
 
 /* 通用白色半透明 (用于原来的 rgba(255,255,255,0.2)) */
 @define-color white-20 alpha({{colors.on_surface.light.hex}}, 0.2);
@@ -25,9 +25,9 @@
 
 
 /* --- 语义色映射 --- */
-@define-color highlight {{colors.primary.light.hex}};       /* 主色 */
-@define-color secondary {{colors.secondary.light.hex}};     /* 次要色 */
-@define-color accent-red {{colors.error.light.hex}};        /* 错误/红色 */
-@define-color accent-green {{colors.secondary.light.hex}};  /* 绿色/正常 (映射到 Secondary) */
-@define-color accent-orange {{colors.tertiary.light.hex}};  /* 橙色/警告 (映射到 Tertiary) */
-@define-color accent-purple {{colors.primary.light.hex}};   /* 紫色/特殊 (映射到 Primary) */
+@define-color highlight {{colors.primary.light.hex}};       /* 主色 (跟随壁纸) */
+@define-color secondary {{colors.secondary.light.hex}};     /* 次要色 (跟随壁纸) */
+@define-color accent-red {{colors.error.light.hex}};        /* 错误/红色 (Matugen 自带) */
+@define-color accent-green #00695c;                         /* 绿色/正常 (改为 Teal 青色，更高级) */
+@define-color accent-orange #ef6c00;                        /* 橙色/警告 (固定语义色，Material Orange 800) */
+@define-color accent-purple {{colors.tertiary.light.hex}};  /* 紫色/特殊 (映射到 Tertiary，作为第三装饰色) */

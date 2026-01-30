@@ -3,17 +3,17 @@
  * ============================================================================== */
 
 /* --- 核心背景 --- */
-/* 基础背景：使用 Surface Container，85% 透明度确保对比度 */
-@define-color base-bg alpha({{colors.surface_container.dark.hex}}, 0.85);
+/* 基础背景：使用更深的 Surface 颜色，0.8 透明度，营造深邃通透感 */
+@define-color base-bg alpha({{colors.surface.dark.hex}}, 0.8);
 
-/* Tooltip背景：稍微不透明一点 (90%) */
-@define-color tooltip-bg alpha({{colors.surface.dark.hex}}, 0.9);
+/* Tooltip背景：使用 Surface Container (稍亮) 区分层级，不透明 */
+@define-color tooltip-bg alpha({{colors.surface_container.dark.hex}}, 0.95);
 
-/* 悬停背景：使用文字颜色(On Surface)的 15% 透明度，实现自动变亮 */
-@define-color hover-bg alpha({{colors.on_surface.dark.hex}}, 0.15);
+/* 悬停背景：使用主色(Primary)的 20% 透明度，光泽感 */
+@define-color hover-bg alpha({{colors.primary.dark.hex}}, 0.2);
 
-/* 通用白色半透明 (用于原来的 rgba(255,255,255,0.2)) */
-@define-color white-20 alpha({{colors.on_surface.dark.hex}}, 0.2);
+/* 通用白色半透明：降低到 12% (原 20%)，避免在深色背景上显脏 */
+@define-color white-20 alpha({{colors.on_surface.dark.hex}}, 0.12);
 
 
 /* --- 核心文字 --- */
@@ -25,9 +25,9 @@
 
 
 /* --- 语义色映射 --- */
-@define-color highlight {{colors.primary.dark.hex}};       /* 主色 */
-@define-color secondary {{colors.secondary.dark.hex}};     /* 次要色 */
-@define-color accent-red {{colors.error.dark.hex}};        /* 错误/红色 */
-@define-color accent-green {{colors.secondary.dark.hex}};  /* 绿色/正常 (映射到 Secondary) */
-@define-color accent-orange {{colors.tertiary.dark.hex}};  /* 橙色/警告 (映射到 Tertiary) */
-@define-color accent-purple {{colors.primary.dark.hex}};   /* 紫色/特殊 (映射到 Primary) */
+@define-color highlight {{colors.primary.dark.hex}};       /* 主色 (跟随壁纸) */
+@define-color secondary {{colors.secondary.dark.hex}};     /* 次要色 (跟随壁纸) */
+@define-color accent-red {{colors.error.dark.hex}};        /* 错误/红色 (Matugen 自带) */
+@define-color accent-green #80cbc4;                        /* 绿色/正常 (改为 Teal 青色，更高级) */
+@define-color accent-orange #ffcc80;                       /* 橙色/警告 (固定语义色，Material Orange 200) */
+@define-color accent-purple {{colors.tertiary.dark.hex}};  /* 紫色/特殊 (映射到 Tertiary，作为第三装饰色) */

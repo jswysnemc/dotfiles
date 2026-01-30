@@ -274,10 +274,10 @@
     // --- 网络模块 (Network) ---
     "network": {
         "interval": 1,
-        // 使用 Pango 语法分别给下载(淡黄)和上传(淡绿)上色，箭头用 Nerd Font
+        // 使用 Pango 语法分别给下载(深绿)和上传(天蓝)上色，选用高对比度颜色适配 Light/Dark 双主题
         // 使用 monospace 字体确保数字等宽
-        "format-wifi": "{icon} <span font_family='monospace' color='#fab387'>↓{bandwidthDownBytes:>7}</span> <span font_family='monospace' color='#a6e3a1'>↑{bandwidthUpBytes:>7}</span>",
-        "format-ethernet": "󰈀 <span font_family='monospace' color='#fab387'>↓{bandwidthDownBytes:>7}</span> <span font_family='monospace' color='#a6e3a1'>↑{bandwidthUpBytes:>7}</span>",
+        "format-wifi": "{icon} <span font_family='monospace' color='#40a02b'>↓{bandwidthDownBytes:>7}</span> <span font_family='monospace' color='#1793d1'>↑{bandwidthUpBytes:>7}</span>",
+        "format-ethernet": "󰈀 <span font_family='monospace' color='#40a02b'>↓{bandwidthDownBytes:>7}</span> <span font_family='monospace' color='#1793d1'>↑{bandwidthUpBytes:>7}</span>",
         "format-disconnected": "󰤮",
         "tooltip-format-wifi": "󰤨 {essid}\n信号: {signalStrength}%\nIP: {ipaddr}\n网关: {gwaddr}",
         "tooltip-format-ethernet": "󰈀 有线连接\nIP: {ipaddr}\n网关: {gwaddr}",

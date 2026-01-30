@@ -74,6 +74,7 @@ tooltip label {
 }
 
 /* --- 通用 Hover 效果 --- */
+#custom-notification:hover,
 #custom-screenshot:hover,
 #custom-wfrec:hover,
 #custom-arch:hover,
@@ -99,9 +100,10 @@ tooltip label {
 #custom-media:hover,
 #group-power:hover {
     background-color: @hover-bg;
-    /* 替换：#ffffff -> @text-main (或者 @highlight) */
+    /* 悬停时文字颜色保持，或可尝试 color: @highlight; */
     color: @text-main;
-    box-shadow: 0 0 2px 0 rgba(0, 0, 0, 0.5);
+    /* 柔化阴影：降低不透明度至 0.15，增加模糊半径 */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 /* ==============================================================================
@@ -286,6 +288,16 @@ tooltip label {
     background: @white-20;
 }
 
+/* 窗口标题 - 胶囊背景 */
+#niri-window,
+#window {
+    background-color: @base-bg;
+    color: @text-main;
+    padding: 0 12px;
+    margin: 3px 2px;
+    border-radius: 12px;
+}
+
 /* ==============================================================================
  * 5. 右侧模块
  * ============================================================================== */
@@ -302,7 +314,14 @@ tooltip label {
 
 /* 通知 */
 #custom-notification {
+    background-color: @base-bg;
+    color: @text-main;
     padding: 0 8px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 12px;
 }
 
 #custom-notification.notification {
@@ -691,13 +710,13 @@ tooltip label {
 }
 
 #custom-proxy-kernel.mihomo {
-    color: #1e1e2e;
+    color: @text-on-primary;
     background-color: @accent-purple;
 }
 
 #custom-proxy-kernel.singbox {
-    color: #1e1e2e;
-    background-color: #89b4fa;
+    color: @text-on-primary;
+    background-color: @highlight;
 }
 
 #custom-proxy-kernel.stopped {
@@ -713,12 +732,12 @@ tooltip label {
 }
 
 #custom-proxy-power.stopped {
-    color: #1e1e2e;
+    color: @base-bg;
     background-color: @accent-red;
 }
 
 #custom-proxy-power.running {
-    color: #1e1e2e;
+    color: @base-bg;
     background-color: @accent-green;
 }
 
@@ -730,21 +749,21 @@ tooltip label {
     margin: 0 2px;
     border-radius: 8px;
     color: @text-main;
-    background-color: #45475a;
+    background-color: @white-20;
 }
 
 #custom-proxy-rule.active {
-    color: #1e1e2e;
+    color: @base-bg;
     background-color: @accent-green;
 }
 
 #custom-proxy-global.active {
-    color: #1e1e2e;
+    color: @base-bg;
     background-color: @accent-red;
 }
 
 #custom-proxy-direct.active {
-    color: #1e1e2e;
+    color: @base-bg;
     background-color: @accent-orange;
 }
 
