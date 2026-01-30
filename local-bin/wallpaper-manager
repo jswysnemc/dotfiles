@@ -1,0 +1,223 @@
+#!/bin/bash
+# wallpaper-manager - 壁纸管理后端脚本
+# 供 QuickShell 前端调用
+
+WALLPAPER_DIRS=(
+    "$HOME/Pictures/Wallpapers"
+    "$HOME/Downloads/Wallpapers"
+    "$HOME/Pictures/wallpapers"
+)
+CACHE_DIR="$HOME/.cache/wallpaper-thumbs"
+LINK_PATH="$HOME/.cache/current_wallpaper"
+EXTS="jpg|jpeg|png|gif|webp"
+
+mkdir -p "$CACHE_DIR"
+
+# ============ 壁纸列表 ============
+
+# 列出所有壁纸 (JSON 格式)
+list_wallpapers() {
+    local format="${1:-json}"
+
+    echo "["
+    local first=true
+
+    for dir in "${WALLPAPER_DIRS[@]}"; do
+        [[ -d "$dir" ]] || continue
+
+        while IFS= read -r -d '' file; do
+            local name
+            name=$(basename "$file")
+            local thumb
+            thumb=$(get_thumb_path "$file")
+
+            if [[ "$first" == "true" ]]; then
+                first=false
+            else
+                echo ","
+            fi
+
+            # 输出 JSON 对象
+            printf '{"path":"%s","name":"%s","thumb":"%s"}' \
+                "$file" "$name" "$thumb"
+        done < <(find "$dir" -maxdepth 2 -type f -regextype posix-extended -regex ".*\\.($EXTS)$" -print0 2>/dev/null | sort -z)
+    done
+
+    echo "]"
+}
+
+# 简单列表 (每行一个路径)
+list_wallpapers_simple() {
+    for dir in "${WALLPAPER_DIRS[@]}"; do
+        [[ -d "$dir" ]] || continue
+        find "$dir" -maxdepth 2 -type f -regextype posix-extended -regex ".*\.($EXTS)$" 2>/dev/null
+    done | sort
+}
+
+# ============ 缩略图 ============
+
+get_thumb_path() {
+    local file="$1"
+    local flat="${file//\//_}"
+    flat="${flat#_}"
+
+    if [[ ${#flat} -gt 240 ]]; then
+        local hash
+        hash=$(echo -n "$file" | md5sum | cut -d" " -f1)
+        echo "$CACHE_DIR/${hash}.jpg"
+    else
+        echo "$CACHE_DIR/${flat}.jpg"
+    fi
+}
+
+# 生成单个缩略图
+generate_thumb() {
+    local file="$1"
+    local thumb
+    thumb=$(get_thumb_path "$file")
+
+    if [[ ! -s "$thumb" ]] && [[ -f "$file" ]]; then
+        magick "$file" -thumbnail 200x200^ -gravity center -extent 200x200 "$thumb" 2>/dev/null
+        echo "$thumb"
+    else
+        echo "$thumb"
+    fi
+}
+
+# 批量生成缩略图 (后台)
+generate_all_thumbs() {
+    list_wallpapers_simple | while read -r file; do
+        generate_thumb "$file" >/dev/null
+    done
+    echo "done"
+}
+
+# ============ 设置壁纸 ============
+
+set_wallpaper() {
+    local file="$1"
+
+    if [[ ! -f "$file" ]]; then
+        echo "error: file not found: $file"
+        return 1
+    fi
+
+    local ext="${file##*.}"
+
+    # 创建链接
+    rm -f "$LINK_PATH" "$LINK_PATH".*
+    ln -sf "$file" "${LINK_PATH}.${ext}"
+    ln -sf "$file" "$LINK_PATH"
+
+    # 启动 swww daemon
+    if ! pgrep -x "swww-daemon" > /dev/null; then
+        swww-daemon &
+        sleep 0.5
+    fi
+
+    # 设置壁纸
+    swww img "$file" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
+
+    # 生成主题
+    theme-gen "$file"
+
+    echo "ok"
+}
+
+# 获取当前壁纸
+get_current() {
+    if [[ -L "$LINK_PATH" ]]; then
+        readlink -f "$LINK_PATH"
+    else
+        echo ""
+    fi
+}
+
+# ============ 主题配置 ============
+
+get_theme_status() {
+    theme-gen --status
+}
+
+set_qs_mode() {
+    theme-gen --qs "$1"
+}
+
+set_waybar_mode() {
+    theme-gen --waybar "$1"
+}
+
+# ============ CLI ============
+
+case "${1:-}" in
+    list|ls)
+        list_wallpapers
+        ;;
+    list-simple)
+        list_wallpapers_simple
+        ;;
+    thumb)
+        if [[ -n "$2" ]]; then
+            generate_thumb "$2"
+        else
+            echo "Usage: $0 thumb <file>"
+        fi
+        ;;
+    thumbs-all)
+        generate_all_thumbs &
+        echo "generating thumbnails in background"
+        ;;
+    set)
+        if [[ -n "$2" ]]; then
+            set_wallpaper "$2"
+        else
+            echo "Usage: $0 set <file>"
+        fi
+        ;;
+    current)
+        get_current
+        ;;
+    status)
+        get_theme_status
+        ;;
+    qs)
+        if [[ -n "$2" ]]; then
+            set_qs_mode "$2"
+        else
+            theme-gen --qs
+        fi
+        ;;
+    waybar)
+        if [[ -n "$2" ]]; then
+            set_waybar_mode "$2"
+        else
+            theme-gen --waybar
+        fi
+        ;;
+    count)
+        list_wallpapers_simple | wc -l
+        ;;
+    help|-h|--help)
+        cat << EOF
+Usage: $(basename "$0") <command> [args]
+
+Commands:
+    list, ls        List all wallpapers (JSON format)
+    list-simple     List wallpaper paths (one per line)
+    thumb <file>    Get/generate thumbnail for file
+    thumbs-all      Generate all thumbnails (background)
+    set <file>      Set wallpaper and generate theme
+    current         Get current wallpaper path
+    status          Show theme configuration status
+    qs [mode]       Get/set QuickShell mode (dark/light/auto)
+    waybar [mode]   Get/set Waybar mode (dark/light/auto)
+    count           Count total wallpapers
+    help            Show this help
+EOF
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo "Use '$0 help' for usage"
+        exit 1
+        ;;
+esac

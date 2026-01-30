@@ -1,0 +1,368 @@
+#!/bin/bash
+# theme-gen - matugen wrapper with advanced mode configuration
+# Supports independent theme modes for QuickShell and Waybar
+# Auto mode: determines theme based on wallpaper brightness or time
+
+# 使用数据目录存储动态状态 (不污染配置目录)
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/matugen"
+MODE_FILE="$STATE_DIR/theme-mode"
+QS_MODE_FILE="$STATE_DIR/qs-mode"
+WAYBAR_MODE_FILE="$STATE_DIR/waybar-mode"
+CACHE_WALLPAPER="$HOME/.cache/current_wallpaper"
+WAYBAR_CACHE="$HOME/.cache/matugen/waybar"
+QS_CACHE="$HOME/.cache/matugen/quickshell"
+
+mkdir -p "$STATE_DIR"
+
+# ============ Mode Getters ============
+
+# Get main theme mode (for matugen generation)
+get_mode() {
+    if [[ -f "$MODE_FILE" ]]; then
+        cat "$MODE_FILE"
+    else
+        echo "dark"
+    fi
+}
+
+# Get QuickShell mode (dark/light/auto)
+get_qs_mode() {
+    if [[ -f "$QS_MODE_FILE" ]]; then
+        cat "$QS_MODE_FILE"
+    else
+        echo "auto"
+    fi
+}
+
+# Get Waybar mode (dark/light/auto)
+get_waybar_mode() {
+    if [[ -f "$WAYBAR_MODE_FILE" ]]; then
+        cat "$WAYBAR_MODE_FILE"
+    else
+        echo "auto"
+    fi
+}
+
+# ============ Mode Setters ============
+
+set_mode() {
+    local mode="$1"
+    if [[ "$mode" != "light" && "$mode" != "dark" ]]; then
+        echo "Invalid mode: $mode (use 'light' or 'dark')"
+        return 1
+    fi
+    echo "$mode" > "$MODE_FILE"
+    echo "Theme mode set to: $mode"
+}
+
+set_qs_mode() {
+    local mode="$1"
+    if [[ "$mode" != "light" && "$mode" != "dark" && "$mode" != "auto" ]]; then
+        echo "Invalid QuickShell mode: $mode (use 'light', 'dark', or 'auto')"
+        return 1
+    fi
+    echo "$mode" > "$QS_MODE_FILE"
+    echo "QuickShell mode set to: $mode"
+}
+
+set_waybar_mode() {
+    local mode="$1"
+    if [[ "$mode" != "light" && "$mode" != "dark" && "$mode" != "auto" ]]; then
+        echo "Invalid Waybar mode: $mode (use 'light', 'dark', or 'auto')"
+        return 1
+    fi
+    echo "$mode" > "$WAYBAR_MODE_FILE"
+    echo "Waybar mode set to: $mode"
+}
+
+# ============ Auto Mode Detection ============
+
+# Analyze image brightness (0-100, higher = brighter)
+get_image_brightness() {
+    local image="$1"
+    if [[ ! -f "$image" ]]; then
+        echo "50"
+        return
+    fi
+
+    # Use ImageMagick to get mean brightness
+    local brightness
+    brightness=$(magick "$image" -colorspace Gray -format "%[fx:mean*100]" info: 2>/dev/null)
+
+    if [[ -z "$brightness" ]]; then
+        echo "50"
+    else
+        printf "%.0f" "$brightness"
+    fi
+}
+
+# Determine theme based on time (6:00-18:00 = light)
+get_time_based_mode() {
+    local hour
+    hour=$(date +%H)
+    if [[ "$hour" -ge 6 && "$hour" -lt 18 ]]; then
+        echo "light"
+    else
+        echo "dark"
+    fi
+}
+
+# Determine theme based on image brightness
+get_brightness_based_mode() {
+    local image="$1"
+    local brightness
+    brightness=$(get_image_brightness "$image")
+
+    # Threshold: >55 = light wallpaper -> use dark theme for contrast
+    # <=55 = dark wallpaper -> use light theme for contrast
+    if [[ "$brightness" -gt 55 ]]; then
+        echo "light"
+    else
+        echo "dark"
+    fi
+}
+
+# Resolve auto mode to actual theme
+# For UI components, use opposite of wallpaper brightness for readability
+resolve_auto_mode() {
+    local image="$1"
+    local for_contrast="$2"
+
+    local wallpaper_mode
+    wallpaper_mode=$(get_brightness_based_mode "$image")
+
+    if [[ "$for_contrast" == "true" ]]; then
+        # For waybar/qs: use opposite of wallpaper brightness
+        if [[ "$wallpaper_mode" == "light" ]]; then
+            echo "dark"
+        else
+            echo "light"
+        fi
+    else
+        echo "$wallpaper_mode"
+    fi
+}
+
+# ============ Component Setup ============
+
+# Setup QuickShell theme
+setup_quickshell() {
+    local image="$1"
+    local qs_mode
+    qs_mode=$(get_qs_mode)
+
+    local actual_mode
+    if [[ "$qs_mode" == "auto" ]]; then
+        actual_mode=$(resolve_auto_mode "$image" "true")
+    else
+        actual_mode="$qs_mode"
+    fi
+
+    local source_file="$QS_CACHE/Theme-${actual_mode}.js"
+    local target_file="$QS_CACHE/Theme.js"
+
+    if [[ -f "$source_file" ]]; then
+        ln -sf "$source_file" "$target_file"
+        pkill -SIGUSR1 quickshell 2>/dev/null || true
+    fi
+
+    echo "QuickShell: $qs_mode -> $actual_mode"
+}
+
+# Setup Waybar theme
+setup_waybar() {
+    local image="$1"
+    local waybar_mode
+    waybar_mode=$(get_waybar_mode)
+
+    local actual_mode
+    if [[ "$waybar_mode" == "auto" ]]; then
+        actual_mode=$(resolve_auto_mode "$image" "true")
+    else
+        actual_mode="$waybar_mode"
+    fi
+
+    local source_file="$WAYBAR_CACHE/colors-${actual_mode}.css"
+    local target_file="$WAYBAR_CACHE/colors.css"
+
+    if [[ -f "$source_file" ]]; then
+        ln -sf "$source_file" "$target_file"
+        pkill -SIGUSR2 waybar 2>/dev/null || true
+    fi
+
+    echo "Waybar: $waybar_mode -> $actual_mode"
+}
+
+# ============ Main Functions ============
+
+toggle_mode() {
+    local current
+    current=$(get_mode)
+    if [[ "$current" == "dark" ]]; then
+        set_mode "light"
+    else
+        set_mode "dark"
+    fi
+}
+
+# Find wallpaper image
+find_wallpaper() {
+    if [[ -L "$CACHE_WALLPAPER" ]] && [[ -f "$CACHE_WALLPAPER" ]]; then
+        readlink -f "$CACHE_WALLPAPER"
+    elif [[ -f "$CACHE_WALLPAPER.png" ]]; then
+        readlink -f "$CACHE_WALLPAPER.png"
+    elif [[ -f "$CACHE_WALLPAPER.jpg" ]]; then
+        readlink -f "$CACHE_WALLPAPER.jpg"
+    else
+        echo ""
+    fi
+}
+
+# Generate theme
+generate() {
+    local image="$1"
+    local mode
+    mode=$(get_mode)
+
+    # Find image if not specified
+    if [[ -z "$image" ]]; then
+        image=$(find_wallpaper)
+        if [[ -z "$image" ]]; then
+            echo "No wallpaper found. Specify an image path."
+            return 1
+        fi
+    fi
+
+    echo "Generating theme (mode: $mode) from: $image"
+    matugen image "$image" -m "$mode"
+
+    # Setup component themes
+    setup_waybar "$image"
+    setup_quickshell "$image"
+}
+
+# Show current status
+show_status() {
+    echo "Theme Mode:      $(get_mode)"
+    echo "QuickShell Mode: $(get_qs_mode)"
+    echo "Waybar Mode:     $(get_waybar_mode)"
+
+    local image
+    image=$(find_wallpaper)
+    if [[ -n "$image" ]]; then
+        local brightness
+        brightness=$(get_image_brightness "$image")
+        echo "Wallpaper:       $(basename "$image")"
+        echo "Brightness:      ${brightness}%"
+    fi
+}
+
+# ============ CLI ============
+
+show_help() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS] [IMAGE]
+
+Generate matugen theme with configurable modes for each component.
+
+Options:
+    -m, --mode MODE        Set main theme mode (light/dark)
+    -t, --toggle           Toggle main theme mode
+    --qs MODE              Set QuickShell mode (light/dark/auto)
+    --waybar MODE          Set Waybar mode (light/dark/auto)
+    --status               Show current configuration
+    -h, --help             Show this help
+
+Auto Mode:
+    When a component is set to 'auto', it analyzes the wallpaper brightness
+    and uses the opposite theme for better contrast/readability.
+    (bright wallpaper -> dark UI, dark wallpaper -> light UI)
+
+Examples:
+    $(basename "$0")                     # Generate with current settings
+    $(basename "$0") ~/wallpaper.png     # Generate from specific image
+    $(basename "$0") --mode light        # Set main mode to light
+    $(basename "$0") --toggle            # Toggle main mode
+    $(basename "$0") --qs dark           # Set QuickShell to always dark
+    $(basename "$0") --waybar auto       # Set Waybar to auto mode
+    $(basename "$0") --status            # Show current config
+
+Current Configuration:
+    Theme Mode:      $(get_mode)
+    QuickShell Mode: $(get_qs_mode)
+    Waybar Mode:     $(get_waybar_mode)
+EOF
+}
+
+# Main
+case "${1:-}" in
+    --mode|-m)
+        if [[ -n "$2" ]]; then
+            set_mode "$2"
+            generate
+        else
+            echo "Current mode: $(get_mode)"
+        fi
+        ;;
+    --toggle|-t)
+        toggle_mode
+        generate
+        ;;
+    --qs)
+        if [[ -n "$2" ]]; then
+            set_qs_mode "$2"
+            # Only update symlink, don't regenerate or reload
+            local image
+            image=$(find_wallpaper)
+            if [[ -n "$image" ]]; then
+                local qs_mode="$2"
+                local actual_mode
+                if [[ "$qs_mode" == "auto" ]]; then
+                    actual_mode=$(resolve_auto_mode "$image" "true")
+                else
+                    actual_mode="$qs_mode"
+                fi
+                local source_file="$QS_CACHE/Theme-${actual_mode}.js"
+                local target_file="$QS_CACHE/Theme.js"
+                if [[ -f "$source_file" ]]; then
+                    ln -sf "$source_file" "$target_file"
+                fi
+            fi
+        else
+            echo "Current QuickShell mode: $(get_qs_mode)"
+        fi
+        ;;
+    --waybar)
+        if [[ -n "$2" ]]; then
+            set_waybar_mode "$2"
+            # Only update symlink, don't regenerate or reload
+            local image
+            image=$(find_wallpaper)
+            if [[ -n "$image" ]]; then
+                local waybar_mode="$2"
+                local actual_mode
+                if [[ "$waybar_mode" == "auto" ]]; then
+                    actual_mode=$(resolve_auto_mode "$image" "true")
+                else
+                    actual_mode="$waybar_mode"
+                fi
+                local source_file="$WAYBAR_CACHE/colors-${actual_mode}.css"
+                local target_file="$WAYBAR_CACHE/colors.css"
+                if [[ -f "$source_file" ]]; then
+                    ln -sf "$source_file" "$target_file"
+                fi
+            fi
+        else
+            echo "Current Waybar mode: $(get_waybar_mode)"
+        fi
+        ;;
+    --status|-s)
+        show_status
+        ;;
+    --help|-h)
+        show_help
+        ;;
+    *)
+        generate "$1"
+        ;;
+esac
