@@ -43,6 +43,7 @@
         "battery", // 电池
         "custom/clock", // 时钟(带农历)
         "group/proxies", // 代理控制组
+        "custom/clipboard", // 剪贴板
         "tray", // 托盘
         "group/power" // 电源菜单
     ],
@@ -511,6 +512,12 @@
     "tray": {
         "icon-size": 13,
         "spacing": 8
+    },
+    // --- 剪贴板 (Clipboard) ---
+    "custom/clipboard": {
+        "format": "󰅍",
+        "tooltip-format": "剪贴板管理器",
+        "on-click": "qs-popup clipboard --pos top-right"
     },
     // --- 通知模块 (quickshell notification daemon) ---
     "custom/notification": {

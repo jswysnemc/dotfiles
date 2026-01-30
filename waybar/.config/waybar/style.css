@@ -337,6 +337,22 @@ tooltip label {
     color: @text-sub;
 }
 
+/* 剪贴板 */
+#custom-clipboard {
+    background-color: @base-bg;
+    color: @text-main;
+    padding: 0 8px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 12px;
+}
+
+#custom-clipboard:hover {
+    background-color: @hover-bg;
+}
+
 /* 蓝牙 */
 #bluetooth {
     color: @highlight;
@@ -682,7 +698,6 @@ tooltip label {
     padding: 0 10px;
     font-weight: bold;
     color: @text-main;
-    border-right: 1px solid alpha(@text-sub, 0.3);
 }
 
 #custom-proxy-status.rule {
