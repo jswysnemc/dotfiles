@@ -3,8 +3,8 @@
  * ============================================================================== */
 
 /* --- 核心背景 --- */
-/* 基础背景：使用 Surface Container (比纯黑稍亮)，60% 透明度 */
-@define-color base-bg alpha({{colors.surface_container.light.hex}}, 0.6);
+/* 基础背景：使用 Surface Container，85% 透明度确保对比度 */
+@define-color base-bg alpha({{colors.surface_container.light.hex}}, 0.85);
 
 /* Tooltip背景：稍微不透明一点 (90%) */
 @define-color tooltip-bg alpha({{colors.surface.light.hex}}, 0.9);

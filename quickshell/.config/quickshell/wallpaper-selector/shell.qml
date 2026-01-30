@@ -422,10 +422,19 @@ ShellRoot {
                         ColumnLayout {
                             spacing: Theme.spacingL
 
-                            // QuickShell Theme
-                            Rectangle {
+                            // 通用主题选择组件
+                            component ThemeRow: Rectangle {
+                                id: themeRow
+                                property string title: ""
+                                property string subtitle: ""
+                                property string icon: ""
+                                property color iconColor: Theme.primary
+                                property color activeColor: Theme.primary
+                                property string currentMode: ""
+                                signal modeSelected(string mode)
+
                                 Layout.fillWidth: true
-                                height: 80
+                                height: 72
                                 radius: Theme.radiusL
                                 color: Theme.surface
                                 border.color: Theme.outline
@@ -433,43 +442,50 @@ ShellRoot {
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: Theme.spacingL
-                                    spacing: Theme.spacingL
+                                    anchors.leftMargin: Theme.spacingL
+                                    anchors.rightMargin: Theme.spacingL
+                                    spacing: Theme.spacingM
 
+                                    // 左侧图标
                                     Rectangle {
-                                        width: 48; height: 48; radius: Theme.radiusM
+                                        Layout.preferredWidth: 44
+                                        Layout.preferredHeight: 44
+                                        radius: Theme.radiusM
                                         color: Theme.surfaceVariant
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: "\uf0e7"
+                                            text: themeRow.icon
                                             font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: 22
-                                            color: Theme.primary
+                                            font.pixelSize: 20
+                                            color: themeRow.iconColor
                                         }
                                     }
 
+                                    // 中间文字
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 2
 
                                         Text {
-                                            text: "QuickShell 主题"
+                                            text: themeRow.title
                                             font.pixelSize: Theme.fontSizeM
                                             font.bold: true
                                             color: Theme.textPrimary
                                         }
 
                                         Text {
-                                            text: "控制 QuickShell 组件的颜色模式"
+                                            text: themeRow.subtitle
                                             font.pixelSize: Theme.fontSizeS
                                             color: Theme.textMuted
                                         }
                                     }
 
-                                    // Radio buttons
-                                    RowLayout {
-                                        spacing: 4
+                                    // 右侧按钮组 - 固定宽度
+                                    Row {
+                                        Layout.preferredWidth: 200
+                                        Layout.alignment: Qt.AlignVCenter
+                                        spacing: 6
 
                                         Repeater {
                                             model: [{mode: "dark", icon: "\uf186", label: "深色"},
@@ -478,36 +494,39 @@ ShellRoot {
 
                                             Rectangle {
                                                 required property var modelData
-                                                width: 60; height: 36
+                                                required property int index
+                                                width: 62; height: 32
                                                 radius: Theme.radiusS
-                                                color: root.qsMode === modelData.mode ? Theme.primary : (qsRadioMa.containsMouse ? Theme.surfaceVariant : "transparent")
-                                                border.color: root.qsMode === modelData.mode ? Theme.primary : Theme.outline
+                                                color: themeRow.currentMode === modelData.mode ? themeRow.activeColor : (btnMa.containsMouse ? Theme.surfaceVariant : "transparent")
+                                                border.color: themeRow.currentMode === modelData.mode ? themeRow.activeColor : Theme.outline
                                                 border.width: 1
 
-                                                RowLayout {
+                                                Row {
                                                     anchors.centerIn: parent
                                                     spacing: 4
 
                                                     Text {
                                                         text: modelData.icon
                                                         font.family: "Symbols Nerd Font Mono"
-                                                        font.pixelSize: 12
-                                                        color: root.qsMode === modelData.mode ? "white" : Theme.textSecondary
+                                                        font.pixelSize: 11
+                                                        color: themeRow.currentMode === modelData.mode ? "white" : Theme.textSecondary
+                                                        anchors.verticalCenter: parent.verticalCenter
                                                     }
 
                                                     Text {
                                                         text: modelData.label
                                                         font.pixelSize: 11
-                                                        color: root.qsMode === modelData.mode ? "white" : Theme.textSecondary
+                                                        color: themeRow.currentMode === modelData.mode ? "white" : Theme.textSecondary
+                                                        anchors.verticalCenter: parent.verticalCenter
                                                     }
                                                 }
 
                                                 MouseArea {
-                                                    id: qsRadioMa
+                                                    id: btnMa
                                                     anchors.fill: parent
                                                     hoverEnabled: true
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setQsModeValue(modelData.mode)
+                                                    onClicked: themeRow.modeSelected(modelData.mode)
                                                 }
                                             }
                                         }
@@ -515,97 +534,26 @@ ShellRoot {
                                 }
                             }
 
+                            // QuickShell Theme
+                            ThemeRow {
+                                title: "QuickShell 主题"
+                                subtitle: "控制 QuickShell 组件的颜色模式"
+                                icon: "\uf0e7"
+                                iconColor: Theme.primary
+                                activeColor: Theme.primary
+                                currentMode: root.qsMode
+                                onModeSelected: mode => root.setQsModeValue(mode)
+                            }
+
                             // Waybar Theme
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 80
-                                radius: Theme.radiusL
-                                color: Theme.surface
-                                border.color: Theme.outline
-                                border.width: 1
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.spacingL
-                                    spacing: Theme.spacingL
-
-                                    Rectangle {
-                                        width: 48; height: 48; radius: Theme.radiusM
-                                        color: Theme.surfaceVariant
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "\uf0c9"
-                                            font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: 22
-                                            color: Theme.secondary
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 2
-
-                                        Text {
-                                            text: "Waybar 主题"
-                                            font.pixelSize: Theme.fontSizeM
-                                            font.bold: true
-                                            color: Theme.textPrimary
-                                        }
-
-                                        Text {
-                                            text: "控制状态栏的颜色模式"
-                                            font.pixelSize: Theme.fontSizeS
-                                            color: Theme.textMuted
-                                        }
-                                    }
-
-                                    // Radio buttons
-                                    RowLayout {
-                                        spacing: 4
-
-                                        Repeater {
-                                            model: [{mode: "dark", icon: "\uf186", label: "深色"},
-                                                    {mode: "light", icon: "\uf185", label: "浅色"},
-                                                    {mode: "auto", icon: "\uf021", label: "自动"}]
-
-                                            Rectangle {
-                                                required property var modelData
-                                                width: 60; height: 36
-                                                radius: Theme.radiusS
-                                                color: root.waybarMode === modelData.mode ? Theme.secondary : (wbRadioMa.containsMouse ? Theme.surfaceVariant : "transparent")
-                                                border.color: root.waybarMode === modelData.mode ? Theme.secondary : Theme.outline
-                                                border.width: 1
-
-                                                RowLayout {
-                                                    anchors.centerIn: parent
-                                                    spacing: 4
-
-                                                    Text {
-                                                        text: modelData.icon
-                                                        font.family: "Symbols Nerd Font Mono"
-                                                        font.pixelSize: 12
-                                                        color: root.waybarMode === modelData.mode ? "white" : Theme.textSecondary
-                                                    }
-
-                                                    Text {
-                                                        text: modelData.label
-                                                        font.pixelSize: 11
-                                                        color: root.waybarMode === modelData.mode ? "white" : Theme.textSecondary
-                                                    }
-                                                }
-
-                                                MouseArea {
-                                                    id: wbRadioMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setWaybarModeValue(modelData.mode)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                            ThemeRow {
+                                title: "Waybar 主题"
+                                subtitle: "控制状态栏的颜色模式"
+                                icon: "\uf0c9"
+                                iconColor: Theme.secondary
+                                activeColor: Theme.secondary
+                                currentMode: root.waybarMode
+                                onModeSelected: mode => root.setWaybarModeValue(mode)
                             }
 
                             // Info box

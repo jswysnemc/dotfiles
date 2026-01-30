@@ -48,8 +48,10 @@ tooltip label {
 #niri-workspaces,
 #workspaces,
 #group-quick-start,
+#shortcuts,
 #group-ai-drawer,
 #taskbar,
+#niri-window,
 #network,
 #bluetooth,
 #custom-caffeine,
@@ -77,8 +79,10 @@ tooltip label {
 #custom-arch:hover,
 #workspaces button:hover,
 #group-quick-start:hover,
+#shortcuts:hover,
 #group-ai-drawer:hover,
 #taskbar button:hover,
+#niri-window:hover,
 #group-hardware:hover,
 #network:hover,
 #bluetooth:hover,
@@ -211,25 +215,37 @@ tooltip label {
 
 /* ============================================================================== */
 
-/* 快捷启动 (组内图标) */
+/* 快捷启动 (组内图标) - 独立胶囊背景 */
 #custom-app-file,
 #custom-app-browser,
 #custom-app-term {
-    padding: 0 6px;
-    border-radius: 6px;
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+    background-color: @highlight;
+    color: @text-on-primary;
+    transition: all 0.2s ease;
 }
 
 #custom-app-file:hover,
 #custom-app-browser:hover,
 #custom-app-term:hover {
-    background-color: @hover-bg;
-    color: @text-main;
+    background-color: alpha(@highlight, 0.7);
+    color: @text-on-primary;
 }
 
 /* 快捷方式抽屉 (统一样式) */
 #custom-shortcuts-toggle {
     padding: 0 8px;
     border-radius: 6px;
+}
+
+/* 抽屉子元素样式 */
+.shortcut-item {
+    background-color: @base-bg;
+    border-radius: 8px;
+    margin: 3px 1px;
+    padding: 0 2px;
 }
 
 /* 所有 link- 开头的快捷方式 */
@@ -239,10 +255,12 @@ tooltip label {
 #custom-link-deepseek,
 #custom-link-claude,
 #custom-link-linuxdo {
-    padding: 0 2px;
+    padding: 0 8px;
     margin: 0 2px;
-    border-radius: 6px;
+    border-radius: 8px;
     min-width: 30px;
+    background-color: @highlight;
+    color: @text-on-primary;
     transition: all 0.2s ease;
 }
 
@@ -252,8 +270,8 @@ tooltip label {
 #custom-link-deepseek:hover,
 #custom-link-claude:hover,
 #custom-link-linuxdo:hover {
-    background-color: @hover-bg;
-    color: @text-main;
+    background-color: alpha(@highlight, 0.7);
+    color: @text-on-primary;
 }
 
 /* 任务栏 */
@@ -446,17 +464,29 @@ scale slider {
 }
 
 #custom-screenshot {
-    border-radius: 4px;
-    padding-right: 4px;
-    padding-left: 4px;
+    border-radius: 8px;
+    padding: 0 8px;
+    margin: 0 2px;
+    background-color: @secondary;
+    color: @text-on-primary;
+    transition: all 0.2s ease;
+}
+
+#custom-screenshot:hover {
+    background-color: alpha(@secondary, 0.7);
 }
 
 #custom-wfrec {
     border-radius: 8px;
-    padding-right: 8px;
-    padding-left: 8px;
-    margin-left: 2px;
-    margin-right: 2px;
+    padding: 0 8px;
+    margin: 0 2px;
+    background-color: @secondary;
+    color: @text-on-primary;
+    transition: all 0.2s ease;
+}
+
+#custom-wfrec:hover {
+    background-color: alpha(@secondary, 0.7);
 }
 
 #custom-wfrec.recording {

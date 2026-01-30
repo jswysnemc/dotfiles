@@ -4,7 +4,6 @@
 
 # Use PID to create unique config file
 CAVA_CONFIG="/tmp/waybar_cava_config_$$"
-CAVA_PID=""
 
 # Clean up old orphan cava processes on startup
 cleanup_orphans() {
@@ -44,8 +43,6 @@ EOF
 cleanup() {
     # Kill cava processes using our specific config
     pkill -f "cava -p $CAVA_CONFIG" 2>/dev/null
-    # Also kill by PID if we have it
-    [[ -n "$CAVA_PID" ]] && kill "$CAVA_PID" 2>/dev/null
     rm -f "$CAVA_CONFIG"
     exit 0
 }
@@ -91,17 +88,10 @@ setup_config
 # Main loop
 while true; do
     if is_playing; then
-        # Start cava and get its PID
-        cava -p "$CAVA_CONFIG" 2>/dev/null &
-        CAVA_PID=$!
-
-        # Read from cava's stdout
+        # Start cava with process substitution and read from fd 3
         while IFS=';' read -ra vals <&3; do
             if ! is_playing; then
                 safe_echo '{"text": "", "class": "stopped"}'
-                kill "$CAVA_PID" 2>/dev/null
-                wait "$CAVA_PID" 2>/dev/null
-                CAVA_PID=""
                 break
             fi
 
@@ -113,11 +103,6 @@ while true; do
 
             safe_echo "{\"text\": \"$output\", \"class\": \"playing\"}"
         done 3< <(cava -p "$CAVA_CONFIG" 2>/dev/null)
-
-        # Ensure cava is killed
-        [[ -n "$CAVA_PID" ]] && kill "$CAVA_PID" 2>/dev/null
-        pkill -f "cava -p $CAVA_CONFIG" 2>/dev/null
-        CAVA_PID=""
     else
         safe_echo '{"text": "", "class": "stopped"}'
         sleep 0.5
