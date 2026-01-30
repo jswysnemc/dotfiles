@@ -45,10 +45,13 @@
 仓库提供自动化安装脚本，可一键完成所有配置：
 
 ```bash
-# 方式一：从 GitHub 直接运行（全新系统）
+# 短链接（推荐，方便记忆）
+curl -fsSL https://v.gd/snemc_setup | bash
+
+# 或者使用完整链接
 curl -fsSL https://raw.githubusercontent.com/jswysnemc/dotfiles/main/install.sh | bash
 
-# 方式二：克隆后运行
+# 或者克隆后运行
 git clone https://github.com/jswysnemc/dotfiles ~/.dotfiles
 cd ~/.dotfiles
 ./install.sh
@@ -66,11 +69,22 @@ cd ~/.dotfiles
 | Phase 4b | 安装 AUR 包（quickshell、xwayland-satellite 等） |
 | Phase 4c | 可选包（交互式选择） |
 | Phase 5 | 使用 stow 应用配置文件 |
-| Phase 6 | Zsh/Bash 配置 |
+| Phase 6 | Zsh/Bash/Locale 配置 |
 | Phase 7 | Quickshell 配置与 PAM 锁屏 |
 | Phase 8 | Matugen 主题生成 + GTK/Qt 主题配置 |
 | Phase 9 | 启用系统服务（NetworkManager、蓝牙） |
 | Phase 10 | 创建用户目录、复制壁纸 |
+
+#### 安装后启动
+
+脚本不配置显示管理器（SDDM/GDM），安装完成后需要手动启动桌面：
+
+```bash
+# 1. 重启系统
+# 2. 在 TTY 登录界面输入用户名和密码
+# 3. 启动 niri 桌面
+niri-session
+```
 
 #### 安装选项
 
@@ -290,12 +304,15 @@ source ~/.zshrc
 sudo systemctl enable --now NetworkManager
 sudo systemctl enable --now bluetooth
 
-# 从 TTY 启动 Niri
-niri-session
+# 重启系统
+sudo reboot
 
-# 或者配置显示管理器启动 Niri
-# 在 /usr/share/wayland-sessions/ 创建 niri.desktop
+# 重启后在 TTY 登录界面输入用户名和密码
+# 然后启动 niri 桌面
+niri-session
 ```
+
+> 注意：本配置不使用显示管理器（SDDM/GDM），每次开机需要在 TTY 手动输入 `niri-session` 启动桌面。
 
 ## Arch Linux 依赖
 

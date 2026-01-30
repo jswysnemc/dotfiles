@@ -658,6 +658,17 @@ apply_dotfiles() {
         fi
     done
 
+    # Initialize matugen default colors (required for symlinks like waybar/colors.css)
+    local init_script="$HOME/.config/matugen/defaults/matugen-init"
+    if [[ -x "$init_script" ]]; then
+        print_info "Initializing matugen default colors..."
+        if "$init_script" -s >> "$LOG_FILE" 2>&1; then
+            print_ok "Matugen colors initialized"
+        else
+            print_warn "Matugen init failed (will retry in setup_matugen)"
+        fi
+    fi
+
     mark_done "apply_dotfiles"
     print_ok "Configs applied"
     log "Dotfiles applied"
@@ -692,6 +703,59 @@ ZSHENV
 
     mark_done "setup_zsh"
     log "Zsh configured"
+}
+
+setup_locale() {
+    section "Phase 6a" "Locale Configuration"
+
+    if is_done "setup_locale"; then
+        print_skip "Locale setup (already done)"
+        return
+    fi
+
+    local need_gen=false
+
+    # Check if en_US.UTF-8 locale exists
+    if ! locale -a 2>/dev/null | grep -qi "en_US.utf8"; then
+        print_info "Enabling en_US.UTF-8..."
+        if grep -q "^#en_US.UTF-8" /etc/locale.gen; then
+            sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+        elif ! grep -q "^en_US.UTF-8" /etc/locale.gen; then
+            echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen > /dev/null
+        fi
+        need_gen=true
+    else
+        print_ok "en_US.UTF-8 locale available"
+    fi
+
+    # Check if zh_CN.UTF-8 locale exists
+    if ! locale -a 2>/dev/null | grep -qi "zh_CN.utf8"; then
+        print_info "Enabling zh_CN.UTF-8..."
+        if grep -q "^#zh_CN.UTF-8" /etc/locale.gen; then
+            sudo sed -i 's/^#zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen
+        elif ! grep -q "^zh_CN.UTF-8" /etc/locale.gen; then
+            echo "zh_CN.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen > /dev/null
+        fi
+        need_gen=true
+    else
+        print_ok "zh_CN.UTF-8 locale available"
+    fi
+
+    # Generate locales if needed
+    if $need_gen; then
+        print_info "Generating locales..."
+        if sudo locale-gen >> "$LOG_FILE" 2>&1; then
+            print_ok "Locales generated"
+        else
+            print_warn "locale-gen failed"
+        fi
+    fi
+
+    # Keep /etc/locale.conf as English (Chinese is set via niri environment)
+    print_info "System locale: en_US.UTF-8 (Chinese set via niri environment)"
+
+    mark_done "setup_locale"
+    log "Locale configured"
 }
 
 setup_bash_path() {
@@ -826,25 +890,60 @@ setup_matugen() {
         return
     fi
 
-    local wallpaper="$DOTFILES_DIR/wallpaper/Pictures/wallpapers/paper-ganyu.png"
+    if ! command_exists matugen; then
+        print_warn "matugen not installed, skipping theme generation"
+        mark_done "setup_matugen"
+        return
+    fi
 
-    if [[ -f "$wallpaper" ]] && command_exists matugen; then
+    local cache_wallpaper="$HOME/.cache/current_wallpaper"
+    local wallpaper_dir="$HOME/Pictures/Wallpapers"
+    local default_wallpaper="$DOTFILES_DIR/wallpaper/Pictures/wallpapers/paper-ganyu.png"
+    local selected_wallpaper=""
+
+    # Priority: 1. existing cache link  2. wallpaper from dir  3. default
+    if [[ -L "$cache_wallpaper" ]] && [[ -f "$cache_wallpaper" ]]; then
+        selected_wallpaper="$cache_wallpaper"
+        print_info "Using existing wallpaper: $(readlink -f "$cache_wallpaper")"
+    elif [[ -d "$wallpaper_dir" ]]; then
+        # Find first available wallpaper
+        local found_wp
+        found_wp=$(find "$wallpaper_dir" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" \) 2>/dev/null | head -1)
+        if [[ -n "$found_wp" ]]; then
+            selected_wallpaper="$found_wp"
+            # Create cache symlink for consistency with wallpaper-selector
+            mkdir -p "$(dirname "$cache_wallpaper")"
+            ln -sf "$found_wp" "$cache_wallpaper"
+            print_info "Using wallpaper: $(basename "$found_wp")"
+        fi
+    fi
+
+    # Fallback to default
+    if [[ -z "$selected_wallpaper" ]] && [[ -f "$default_wallpaper" ]]; then
+        selected_wallpaper="$default_wallpaper"
+        mkdir -p "$(dirname "$cache_wallpaper")"
+        ln -sf "$default_wallpaper" "$cache_wallpaper"
+        print_info "Using default wallpaper: paper-ganyu.png"
+    fi
+
+    if [[ -n "$selected_wallpaper" ]]; then
         print_info "Generating theme from wallpaper..."
-        if exe "matugen image '$wallpaper'"; then
-            print_ok "Theme generated from paper-ganyu.png"
+        if exe "matugen image '$selected_wallpaper'"; then
+            print_ok "Theme generated successfully"
         else
-            print_warn "Matugen failed, try: matugen image $wallpaper"
+            print_warn "Matugen failed, try: matugen image $selected_wallpaper"
         fi
     else
+        # No wallpaper found, use matugen-init for default colors
         local init_script="$HOME/.config/matugen/defaults/matugen-init"
         if [[ -x "$init_script" ]]; then
             if exe "'$init_script' -s"; then
-                print_ok "Matugen initialized"
+                print_ok "Matugen initialized with default colors"
             else
                 print_warn "Matugen init failed"
             fi
         else
-            print_warn "No wallpaper or matugen-init found"
+            print_warn "No wallpaper found"
             print_info "Run: matugen image /path/to/wallpaper.jpg"
         fi
     fi
@@ -1095,11 +1194,13 @@ show_completion() {
 
     echo -e "   ${BOLD}Next Steps:${NC}"
     echo ""
-    echo -e "   ${CYAN}1.${NC} Re-login or reboot"
-    echo -e "   ${CYAN}2.${NC} Start desktop:  ${YELLOW}niri-session${NC}"
-    echo -e "   ${CYAN}3.${NC} Set wallpaper:  ${YELLOW}matugen image /path/to/wallpaper.jpg${NC}"
-    echo -e "   ${CYAN}4.${NC} Input method:   ${YELLOW}fcitx5-configtool${NC}"
+    echo -e "   ${CYAN}1.${NC} Reboot the system"
+    echo -e "   ${CYAN}2.${NC} Login at TTY (no display manager configured)"
+    echo -e "   ${CYAN}3.${NC} Start desktop:  ${YELLOW}niri-session${NC}"
+    echo -e "   ${CYAN}4.${NC} Set wallpaper:  ${YELLOW}matugen image /path/to/wallpaper.jpg${NC}"
+    echo -e "   ${CYAN}5.${NC} Input method:   ${YELLOW}fcitx5-configtool${NC}"
     echo ""
+    echo -e "   ${DIM}Note: No SDDM/GDM configured. Login via TTY then run 'niri-session'${NC}"
     echo -e "   ${DIM}Log: $LOG_FILE${NC}"
     echo ""
 
@@ -1204,6 +1305,7 @@ main() {
     install_packages
     apply_dotfiles
     setup_zsh
+    setup_locale
     setup_bash_path
     setup_quickshell
     setup_pam_lock
