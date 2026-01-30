@@ -244,10 +244,10 @@ tooltip label {
 
 /* 抽屉子元素样式 */
 .shortcut-item {
-    background-color: @base-bg;
+    background-color: transparent;
     border-radius: 8px;
-    margin: 3px 1px;
-    padding: 0 2px;
+    margin: 3px 0;
+    padding: 0;
 }
 
 /* 所有 link- 开头的快捷方式 */
@@ -540,7 +540,7 @@ scale slider {
 }
 
 #custom-wfrec.idle {
-    color: @text-main;
+    color: @text-on-primary;
 }
 
 @keyframes blink-recording {
