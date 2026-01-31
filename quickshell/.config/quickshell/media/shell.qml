@@ -111,6 +111,19 @@ ShellRoot {
     property real length: hasPlayer && activePlayer.length !== undefined ? activePlayer.length : 0
     property real volume: hasPlayer && activePlayer.volume !== undefined ? activePlayer.volume : 1.0
 
+    // Get playerctl-compatible name from dbusName
+    // dbusName format: "org.mpris.MediaPlayer2.musicfox" or "org.mpris.MediaPlayer2.chromium.instance123456"
+    // playerctl needs: "musicfox" or "chromium.instance123456"
+    property string playerctlName: {
+        if (!activePlayer || !activePlayer.dbusName) return ""
+        var name = activePlayer.dbusName
+        var prefix = "org.mpris.MediaPlayer2."
+        if (name.startsWith(prefix)) {
+            return name.substring(prefix.length)
+        }
+        return name
+    }
+
     // Lyrics state
     property var lyricsLines: []
     property bool lyricsLoaded: false
@@ -240,10 +253,15 @@ ShellRoot {
         nextLyric = ""
         lyricsError = ""
 
-        let args = [uvPath, "run", "--directory", rootDir, scriptPath, "fetch", trackTitle]
-        if (trackArtist) args.push(trackArtist)
-        if (trackAlbum) args.push(trackAlbum)
-        if (length > 0) args.push(length.toString())
+        // Always pass all arguments with fixed positions
+        // Python expects: fetch title artist album duration player
+        let args = [uvPath, "run", "--directory", rootDir, scriptPath, "fetch",
+            trackTitle,
+            trackArtist || "",
+            trackAlbum || "",
+            length > 0 ? length.toString() : "0",
+            playerctlName || ""
+        ]
 
         lyricsFetcher.command = args
         lyricsFetcher.running = true
