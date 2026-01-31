@@ -59,9 +59,6 @@ zstyle ':fzf-tab:complete:cd:*' popup-pad 30 0
 zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color=always $realpath'
 zstyle ':fzf-tab:complete:z:*' fzf-preview 'ls --color=always $realpath'
 
-# 快捷键
-zstyle ':fzf-tab:*' fzf-bindings '`:accept'
-zstyle ':fzf-tab:*' switch-group '<' '>'
 
 
 # ------------------- 自动建议配置 -------------------
@@ -71,7 +68,7 @@ ZSH_AUTOSUGGEST_HISTORY_IGNORE='?(#c50,)'
 
 
 # ------------------- fzf-tab 快捷键与图标 -------------------
-zstyle ':fzf-tab:*' fzf-bindings '`:accept'
+# zstyle ':fzf-tab:*' fzf-bindings '`:accept'
 # 替换默认的 < > 为更漂亮的 Nerd Font 箭头
 zstyle ':fzf-tab:*' switch-group '' ''
 # ------------------- fzf 界面配置 (Nerd Font 版) -------------------
