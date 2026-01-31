@@ -89,6 +89,7 @@ AUR_PACKAGES=(
     catppuccin-cursors-latte
     kvantum-theme-matchama
     fcitx5-skin-fluentlight-git
+    markpix-bin
 )
 
 OPTIONAL_GROUPS=(
@@ -874,6 +875,55 @@ setup_quickshell() {
     log "Quickshell configured"
 }
 
+install_wayscrollshot() {
+    section "Phase 7a" "Wayscrollshot Installation"
+
+    if is_done "install_wayscrollshot"; then
+        print_skip "Wayscrollshot (already done)"
+        return
+    fi
+
+    local bin_path="$HOME/.local/bin/wayscrollshot"
+
+    if [[ -x "$bin_path" ]]; then
+        print_ok "Wayscrollshot already installed"
+        mark_done "install_wayscrollshot"
+        return
+    fi
+
+    print_info "Downloading wayscrollshot..."
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    local tar_url="https://github.com/jswysnemc/wayscrollshot/releases/download/v0.1.0/wayscrollshot-linux-x86_64.tar.gz"
+
+    if curl -sL "$tar_url" -o "$tmp_dir/wayscrollshot.tar.gz"; then
+        if tar -xzf "$tmp_dir/wayscrollshot.tar.gz" -C "$tmp_dir"; then
+            # Find the binary in extracted files
+            local extracted_bin
+            extracted_bin=$(find "$tmp_dir" -name "wayscrollshot" -type f 2>/dev/null | head -1)
+
+            if [[ -n "$extracted_bin" && -f "$extracted_bin" ]]; then
+                mkdir -p "$HOME/.local/bin"
+                cp "$extracted_bin" "$bin_path"
+                chmod +x "$bin_path"
+                print_ok "Wayscrollshot installed to ~/.local/bin/wayscrollshot"
+                mark_done "install_wayscrollshot"
+            else
+                print_fail "Binary not found in archive"
+            fi
+        else
+            print_fail "Failed to extract archive"
+        fi
+    else
+        print_fail "Failed to download wayscrollshot"
+        print_info "Manual install: curl -sL $tar_url | tar -xz -C ~/.local/bin"
+    fi
+
+    rm -rf "$tmp_dir"
+    log "Wayscrollshot installation attempted"
+}
+
 setup_pam_lock() {
     section "Phase 7b" "PAM Lockscreen Configuration"
 
@@ -1374,6 +1424,7 @@ main() {
     setup_locale
     setup_bash_path
     setup_quickshell
+    install_wayscrollshot
     setup_pam_lock
     setup_user_dirs
     setup_matugen
