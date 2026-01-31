@@ -136,6 +136,11 @@ window-rule {
     match title="图片和视频"
     match title="视频播放器"
     match title="yad"
+      // 1. 匹配 app-id 为 "QQ"
+    // 2. 匹配标题以 "群公告" 开头 (使用 ^ 符号表示正则的开头匹配)
+    match app-id="QQ" title="^群公告"
+    // 强制开启浮动模式
+    // niri 默认会将新打开的浮动窗口居中显示
     open-floating true
 }
 
