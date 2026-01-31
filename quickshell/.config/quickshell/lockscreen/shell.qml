@@ -628,7 +628,7 @@ ShellRoot {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 50
-                        text: "移动鼠标或按任意键取消 | 右键或 Super+L 立即锁定"
+                        text: "移动鼠标或按任意键取消 | 右键立即锁定"
                         font.pixelSize: 11
                         font.weight: Font.Light
                         color: Qt.rgba(1, 1, 1, 0.2)
