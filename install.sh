@@ -923,7 +923,7 @@ setup_matugen() {
 
     local cache_wallpaper="$HOME/.cache/current_wallpaper"
     local wallpaper_dir="$HOME/Pictures/Wallpapers"
-    local default_wallpaper="$DOTFILES_DIR/wallpaper/Pictures/wallpapers/paper-ganyu.png"
+    local default_wallpaper="$DOTFILES_DIR/wallpaper/Pictures/Wallpapers/ys-ganyu.jpg"
     local selected_wallpaper=""
 
     # Priority: 1. existing cache link  2. wallpaper from dir  3. default
@@ -948,7 +948,7 @@ setup_matugen() {
         selected_wallpaper="$default_wallpaper"
         mkdir -p "$(dirname "$cache_wallpaper")"
         ln -sf "$default_wallpaper" "$cache_wallpaper"
-        print_info "Using default wallpaper: paper-ganyu.png"
+        print_info "Using default wallpaper: ys-ganyu.jpg"
     fi
 
     if [[ -n "$selected_wallpaper" ]]; then
@@ -1230,8 +1230,8 @@ setup_user_dirs() {
         mkdir -p "$dir"
     done
 
-    if [[ -d "$DOTFILES_DIR/wallpaper/Pictures/wallpapers" ]]; then
-        cp -r "$DOTFILES_DIR/wallpaper/Pictures/wallpapers/"* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
+    if [[ -d "$DOTFILES_DIR/wallpaper/Pictures/Wallpapers" ]]; then
+        cp -r "$DOTFILES_DIR/wallpaper/Pictures/Wallpapers/"* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
         print_ok "Wallpapers copied"
     fi
 
@@ -1375,10 +1375,10 @@ main() {
     setup_bash_path
     setup_quickshell
     setup_pam_lock
+    setup_user_dirs
     setup_matugen
     setup_theme
     enable_services
-    setup_user_dirs
 
     show_completion
 }

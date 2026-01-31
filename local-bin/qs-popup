@@ -19,7 +19,7 @@ show_help() {
     echo "  weather        - Weather widget"
     echo "  calendar       - Calendar widget"
     echo "  media          - Media player controls"
-    echo "  volume         - Volume and brightness controls"
+    echo "  quick-settings - Volume, brightness, display settings"
     echo "  screen-recorder - Screen recording control panel"
     echo "  launcher       - Application launcher"
     echo "  clipboard      - Clipboard manager"
@@ -182,8 +182,8 @@ case "$COMPONENT" in
     media|player)
         toggle_popup "media"
         ;;
-    volume|vol|brightness)
-        toggle_popup "volume"
+    quick-settings|qs|volume|vol|brightness|display)
+        toggle_popup "quick-settings"
         ;;
     screen-recorder|recorder|record|rec)
         toggle_popup "screen-recorder"
