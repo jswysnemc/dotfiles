@@ -201,10 +201,12 @@
         "interval": 1,
         "signal": 9,
         "tooltip": true,
-        // 左键：录制中则停止，否则根据配置直接开始区域录制
-        "on-click": "bash -c 'if ~/.config/waybar/scripts/wf-recorder.sh is-active; then ~/.config/waybar/scripts/wf-recorder.sh stop; else RECORD_MODE=region MENU_BACKEND=none ~/.config/waybar/scripts/wf-recorder.sh start; fi'",
-        "on-click-middle": "~/.config/waybar/scripts/wf-recorder.sh toggle", // 中键：打开 fuzzel 菜单
-        "on-click-right": "qs-popup screen-recorder" // 右键：打开 QML 面板
+        // 左键：开始/停止录制
+        "on-click": "bash -c 'if ~/.config/waybar/scripts/wf-recorder.sh is-active; then ~/.config/waybar/scripts/wf-recorder.sh stop; else ~/.config/waybar/scripts/wf-recorder.sh start; fi'",
+        // 中键：暂停/恢复
+        "on-click-middle": "~/.config/waybar/scripts/wf-recorder.sh pause-toggle",
+        // 右键：打开 QML 面板
+        "on-click-right": "qs-popup screen-recorder"
     },
     "wlr/taskbar": {
         "format": "{icon}",

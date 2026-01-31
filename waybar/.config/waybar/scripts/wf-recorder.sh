@@ -12,9 +12,16 @@ PIDFILE="$STATE_DIR/pid"
 STARTFILE="$STATE_DIR/start"
 SAVEPATH_FILE="$STATE_DIR/save_path"
 MODEFILE="$STATE_DIR/mode"             # full/region -> tooltip
-GIF_MARKER="$STATE_DIR/is_gif"         # [NEW] 标记当前录制是否为 GIF 模式
+GIF_MARKER="$STATE_DIR/is_gif"         # 标记当前录制是否为 GIF 模式
 TICKPIDFILE="$STATE_DIR/tickpid"
 WAYBAR_PIDS_CACHE="$STATE_DIR/waybar.pids"
+
+# --- 暂停/恢复状态文件 ---
+PAUSEFILE="$STATE_DIR/paused"          # 暂停状态标记
+SEGMENTSFILE="$STATE_DIR/segments"     # 片段列表文件
+GEOMFILE="$STATE_DIR/geometry"         # 保存区域几何信息 (用于恢复)
+OUTPUTFILE="$STATE_DIR/output"         # 保存输出设备 (用于恢复)
+PAUSE_TOTAL_FILE="$STATE_DIR/pause_total"  # 累计暂停时长
 
 
 # --- 持久性配置 (缓存/设置, 存放在 .cache/ 下, 遵循 XDG_CACHE_HOME) ---
@@ -146,6 +153,13 @@ msg() {
         mode_region)      printf "区域" ;;
         prompt_enter_number) printf "输入编号：" ;;
         menu_exit)        printf "退出" ;;
+        notif_paused)     printf "录制已暂停" ;;
+        notif_resumed)    printf "录制已恢复" ;;
+        notif_merging)    printf "正在合并片段，请稍候..." ;;
+        notif_merge_failed) printf "片段合并失败" ;;
+        status_paused)    printf "已暂停" ;;
+        err_not_paused)   printf "录制未处于暂停状态" ;;
+        err_already_paused) printf "录制已经暂停" ;;
         *) printf "%s" "$id" ;;
       esac
       ;;
@@ -196,6 +210,13 @@ msg() {
         mode_region)      printf "領域" ;;
         prompt_enter_number) printf "番号を入力：" ;;
         menu_exit)        printf "終了" ;;
+        notif_paused)     printf "録画を一時停止しました" ;;
+        notif_resumed)    printf "録画を再開しました" ;;
+        notif_merging)    printf "セグメントを結合中..." ;;
+        notif_merge_failed) printf "セグメント結合に失敗しました" ;;
+        status_paused)    printf "一時停止中" ;;
+        err_not_paused)   printf "録画は一時停止していません" ;;
+        err_already_paused) printf "すでに一時停止中です" ;;
         *) printf "%s" "$id" ;;
       esac
       ;;
@@ -246,6 +267,13 @@ msg() {
         mode_region)      printf "Region" ;;
         prompt_enter_number) printf "Enter number: " ;;
         menu_exit)        printf "Exit" ;;
+        notif_paused)     printf "Recording paused" ;;
+        notif_resumed)    printf "Recording resumed" ;;
+        notif_merging)    printf "Merging segments, please wait..." ;;
+        notif_merge_failed) printf "Failed to merge segments" ;;
+        status_paused)    printf "Paused" ;;
+        err_not_paused)   printf "Recording is not paused" ;;
+        err_already_paused) printf "Recording is already paused" ;;
         *) printf "%s" "$id" ;;
       esac
       ;;
@@ -256,6 +284,12 @@ is_running() {
   [[ -r "$PIDFILE" ]] || return 1
   local pid; read -r pid <"$PIDFILE" 2>/dev/null || return 1
   [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+is_paused() {
+  [[ -f "$PAUSEFILE" ]]
+}
+is_recording_or_paused() {
+  is_running || is_paused
 }
 notify() { has notify-send && notify-send "wf-recorder" "$1" || true; }
 
@@ -532,16 +566,17 @@ json_escape() { sed ':a;N;$!ba;s/\\/\\\\/g;s/"/\\"/g;s/\n/\\n/g'; }
 # ================== Start / Stop ==================
 start_rec() {
   if is_running; then echo "$(msg already_running)"; exit 0; fi
+  if is_paused; then echo "$(msg already_running)"; exit 0; fi
   has wf-recorder || { echo "$(msg err_wf_not_found)"; exit 1; }
 
   MODE_DECIDED=""
   IS_GIF_MODE="false"
-  
+
   # 检查是否由外部（如 QML）预设了 GIF 模式
   if [[ -f "$GIF_MARKER" ]]; then
       IS_GIF_MODE="true"
   fi
-  
+
   if ! decide_mode; then
     echo "$(msg cancel_no_mode)"; emit_waybar_signal; exit 130
   fi
@@ -570,6 +605,8 @@ start_rec() {
     output="$(decide_output)" || { echo "$(msg cancel_no_output)"; emit_waybar_signal; exit 130; }
     [[ -n "$output" ]] && args+=( -o "$output" )
     marker="FS${output:+-$output}"
+    # 保存 output 用于恢复
+    echo "$output" >"$OUTPUTFILE"
   else
     if [[ -n "$REC_AREA" ]]; then
       GEOM="$REC_AREA"
@@ -580,6 +617,8 @@ start_rec() {
     fi
     GEOM="$(echo -n "$GEOM" | tr -s '[:space:]' ' ')"
     args+=( -g "$GEOM" )
+    # 保存 geometry 用于恢复
+    echo "$GEOM" >"$GEOMFILE"
     if [[ "${GEOM_IN_NAME,,}" == "on" ]]; then gtok="$(geom_token "$GEOM")"; marker="REGION${gtok:+-$gtok}"; else marker="REGION"; fi
   fi
 
@@ -606,6 +645,12 @@ start_rec() {
   # Pixel format
   if [[ "$CODEC" == *"_vaapi" ]]; then args+=( -F "scale_vaapi=format=nv12:out_range=full:out_color_primaries=bt709" )
   else args+=( -F "format=yuv420p" ); fi
+
+  # 清理之前的片段列表和暂停状态
+  rm -f "$SEGMENTSFILE" "$PAUSEFILE" "$PAUSE_TOTAL_FILE"
+  echo "0" >"$PAUSE_TOTAL_FILE"
+  # 将第一个片段添加到列表
+  echo "$SAVE_PATH" >>"$SEGMENTSFILE"
 
   # === 不保存日志：仅在 DEBUG=on 时将 wf-recorder 输出到终端 ===
   if [[ "${DEBUG,,}" == "on" ]]; then
@@ -640,43 +685,200 @@ start_rec() {
   start_tick
 }
 
-stop_rec() {
-  if ! is_running; then echo "$(msg not_running)"; emit_waybar_signal; exit 0; fi
+# ================== Pause / Resume ==================
+pause_rec() {
+  if ! is_running; then
+    if is_paused; then
+      echo "$(msg err_already_paused)"; exit 0
+    fi
+    echo "$(msg not_running)"; exit 1
+  fi
+
   local pid; read -r pid <"$PIDFILE"
 
+  # 停止当前 wf-recorder 进程
   kill -INT "$pid" 2>/dev/null || true
   for _ in {1..40}; do sleep 0.1; is_running || break; done
   is_running && kill -TERM "$pid" 2>/dev/null || true
   sleep 0.2
   is_running && kill -KILL "$pid" 2>/dev/null || true
 
-  # 停止后清理运行时状态文件
-  rm -f "$PIDFILE" "$MODEFILE"
+  rm -f "$PIDFILE"
   stop_tick
 
-  local save_path=""; [[ -r "$SAVEPATH_FILE" ]] && read -r save_path <"$SAVEPATH_FILE"
-  
-  # --- [NEW] GIF Conversion Logic ---
+  # 记录暂停开始时间
+  date +%s >"$PAUSEFILE"
+
+  local s; s="$(msg notif_paused)"; echo "$s"; notify "$s"
+  emit_waybar_signal
+}
+
+resume_rec() {
+  if ! is_paused; then
+    if is_running; then
+      echo "$(msg already_running)"; exit 0
+    fi
+    echo "$(msg err_not_paused)"; exit 1
+  fi
+
+  has wf-recorder || { echo "$(msg err_wf_not_found)"; exit 1; }
+
+  # 计算暂停时长并累加
+  local pause_start pause_end pause_dur pause_total
+  read -r pause_start <"$PAUSEFILE" 2>/dev/null || pause_start=0
+  pause_end="$(date +%s)"
+  pause_dur=$((pause_end - pause_start))
+  read -r pause_total <"$PAUSE_TOTAL_FILE" 2>/dev/null || pause_total=0
+  pause_total=$((pause_total + pause_dur))
+  echo "$pause_total" >"$PAUSE_TOTAL_FILE"
+  rm -f "$PAUSEFILE"
+
+  # 读取保存的录制参数
+  local mode="" geom="" output=""
+  [[ -r "$MODEFILE" ]] && read -r mode <"$MODEFILE"
+  [[ -r "$GEOMFILE" ]] && read -r geom <"$GEOMFILE"
+  [[ -r "$OUTPUTFILE" ]] && read -r output <"$OUTPUTFILE"
+
+  # 构建新片段的文件名
+  local ROOT_DIR TARGET_DIR
+  ROOT_DIR="$(get_save_dir)"
+  if [[ "$mode" == "full" ]]; then TARGET_DIR="$ROOT_DIR/${SAVE_SUBDIR_FS}"; else TARGET_DIR="$ROOT_DIR"; fi
+  mkdir -p "$TARGET_DIR"
+
+  local segment_num ext ts SAVE_PATH
+  segment_num=$(wc -l <"$SEGMENTSFILE" 2>/dev/null || echo 0)
+  segment_num=$((segment_num + 1))
+  ext="$(choose_ext)"
+  ts="$(date +'%Y-%m-%d-%H%M%S')"
+
+  # 使用原始文件名作为基础，加上片段编号
+  local first_segment base_name
+  first_segment=$(head -n1 "$SEGMENTSFILE")
+  base_name=$(basename "$first_segment" ".$ext")
+  SAVE_PATH="$TARGET_DIR/${base_name}_seg${segment_num}.$ext"
+
+  # 构建 wf-recorder 参数
+  local -a args
+  args=( --file "$SAVE_PATH" -c "$CODEC" )
+
+  if [[ "$mode" == "full" ]]; then
+    [[ -n "$output" ]] && args+=( -o "$output" )
+  else
+    [[ -n "$geom" ]] && args+=( -g "$geom" )
+  fi
+
+  # Render device
+  local dev; dev="$(pick_render_device)"; [[ -n "$dev" ]] && args+=( -d "$dev" )
+
+  # Audio
+  case "$AUDIO" in off|OFF|0|false) ;; on|ON|1|true|"") args+=( --audio ) ;; *) args+=( --audio="$AUDIO" ) ;; esac
+
+  # Framerate
+  if [[ -n "$FRAMERATE" ]]; then
+    if [[ "$FRAMERATE" =~ ^[0-9]+$ && "$FRAMERATE" -gt 0 ]]; then args+=( --framerate "$FRAMERATE" ); fi
+  fi
+
+  # Pixel format
+  if [[ "$CODEC" == *"_vaapi" ]]; then args+=( -F "scale_vaapi=format=nv12:out_range=full:out_color_primaries=bt709" )
+  else args+=( -F "format=yuv420p" ); fi
+
+  # 添加到片段列表
+  echo "$SAVE_PATH" >>"$SEGMENTSFILE"
+
+  # 启动 wf-recorder
+  setsid nohup wf-recorder "${args[@]}" >/dev/null 2>&1 &
+  local pid=$!
+  echo "$pid" >"$PIDFILE"
+  echo "$SAVE_PATH" >"$SAVEPATH_FILE"
+
+  local s; s="$(msg notif_resumed)"; echo "$s"; notify "$s"
+  emit_waybar_signal
+  start_tick
+}
+
+stop_rec() {
+  # 支持从暂停状态停止
+  if ! is_running && ! is_paused; then
+    echo "$(msg not_running)"; emit_waybar_signal; exit 0
+  fi
+
+  # 如果正在录制，先停止
+  if is_running; then
+    local pid; read -r pid <"$PIDFILE"
+    kill -INT "$pid" 2>/dev/null || true
+    for _ in {1..40}; do sleep 0.1; is_running || break; done
+    is_running && kill -TERM "$pid" 2>/dev/null || true
+    sleep 0.2
+    is_running && kill -KILL "$pid" 2>/dev/null || true
+  fi
+
+  # 停止后清理运行时状态文件
+  rm -f "$PIDFILE" "$PAUSEFILE"
+  stop_tick
+
+  local save_path=""
+  local segment_count=0
+  [[ -r "$SEGMENTSFILE" ]] && segment_count=$(wc -l <"$SEGMENTSFILE")
+
+  # --- 多片段合并逻辑 ---
+  if [[ "$segment_count" -gt 1 && -r "$SEGMENTSFILE" ]]; then
+    has ffmpeg || { echo "$(msg err_need_ffmpeg)"; emit_waybar_signal; exit 1; }
+    notify "$(msg notif_merging)"
+
+    local first_segment ext merged_path concat_list
+    first_segment=$(head -n1 "$SEGMENTSFILE")
+    ext="${first_segment##*.}"
+    merged_path="${first_segment%.*}_merged.$ext"
+    concat_list="$STATE_DIR/concat_list.txt"
+
+    # 生成 ffmpeg concat 列表
+    : >"$concat_list"
+    while IFS= read -r seg; do
+      if [[ -f "$seg" ]]; then
+        # 需要转义单引号
+        printf "file '%s'\n" "$seg" >>"$concat_list"
+      fi
+    done <"$SEGMENTSFILE"
+
+    # 使用 ffmpeg concat demuxer 合并
+    if ffmpeg -y -v error -f concat -safe 0 -i "$concat_list" -c copy "$merged_path" 2>/dev/null; then
+      # 删除所有片段文件
+      while IFS= read -r seg; do
+        [[ -f "$seg" ]] && rm -f "$seg"
+      done <"$SEGMENTSFILE"
+      save_path="$merged_path"
+      echo "$save_path" >"$SAVEPATH_FILE"
+    else
+      notify "$(msg notif_merge_failed)"
+      # 合并失败，使用最后一个片段
+      save_path=$(tail -n1 "$SEGMENTSFILE")
+    fi
+    rm -f "$concat_list"
+  else
+    # 单片段，直接使用
+    [[ -r "$SAVEPATH_FILE" ]] && read -r save_path <"$SAVEPATH_FILE"
+  fi
+
+  # 清理片段列表和其他状态文件
+  rm -f "$SEGMENTSFILE" "$GEOMFILE" "$OUTPUTFILE" "$MODEFILE" "$PAUSE_TOTAL_FILE"
+
+  # --- GIF Conversion Logic ---
   if [[ -f "$GIF_MARKER" ]]; then
     rm -f "$GIF_MARKER"
     if [[ -n "$save_path" && -f "$save_path" ]]; then
         notify "$(msg notif_processing_gif)"
-        
-        # [FIXED] 确保 GIF 目录存在: .../wf-recorder/gif/
+
         local gif_dir="$(get_save_dir)/gif"
         mkdir -p "$gif_dir"
-        
+
         local filename=$(basename "$save_path")
         local gif_out="$gif_dir/${filename%.*}.gif"
-        
-        # 使用您提供的滤镜字符串
+
         local filters="fps=$GIF_FPS,scale=$GIF_WIDTH:-1:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=$GIF_STATS_MODE[p];[s1][p]paletteuse=dither=$GIF_DITHER_MODE"
-        
-        # 运行转换，如果成功则删除原文件
+
         if ffmpeg -y -v error -i "$save_path" -vf "$filters" "$gif_out"; then
              rm "$save_path"
              save_path="$gif_out"
-             # 更新保存路径以便后续通知使用
              echo "$save_path" > "$SAVEPATH_FILE"
         else
              notify "$(msg notif_gif_failed)"
@@ -686,18 +888,13 @@ stop_rec() {
   # -----------------------------------
 
   if [[ -n "$save_path" && -f "$save_path" ]]; then
-    # 生成不带后缀的 latest（例如：.../latest）
     ln -sf "$(basename "$save_path")" "$(dirname "$save_path")/latest" || true
 
-    # --- [NEW] Auto Copy to Clipboard (as File Object) ---
     local cp_note=""
     if command -v wl-copy >/dev/null; then
-        # [CRITICAL FIX] 使用 text/uri-list MIME 类型，并添加 file:// 前缀
-        # 这会让剪贴板将其视为一个“文件”，允许在文件管理器或聊天软件中直接粘贴
         echo "file://${save_path}" | wl-copy --type text/uri-list
         cp_note=" $(msg notif_copied)"
     fi
-    # ------------------------------------
 
     local s; s="$(msg notif_saved "$save_path")${cp_note}"; echo "$s"; notify "$s"
   else
@@ -720,22 +917,22 @@ tooltip_idle_text() {
     zh) cat <<'EOF'
 屏幕录制（wf-recorder）
 左键：开始录制
-中键：选择模式
-右键：打开设置面板
+中键：暂停/恢复
+右键：录制面板
 EOF
       ;;
     ja) cat <<'EOF'
 画面録画（wf-recorder）
 左クリック：録画開始
-中クリック：モード選択
-右クリック：設定パネル
+中クリック：一時停止/再開
+右クリック：録画パネル
 EOF
       ;;
     *)  cat <<'EOF'
 Screen recording (wf-recorder)
-Left click: start recording
-Middle click: select mode
-Right click: settings panel
+Left click: start/stop
+Middle click: pause/resume
+Right click: recording panel
 EOF
       ;;
   esac
@@ -745,23 +942,60 @@ tooltip_recording_text() { # $1 elapsed, $2 filepath, $3 mode: full|region
   local mode_label
   case "$m" in full|fullscreen) mode_label="$(msg mode_full)";; region|area) mode_label="$(msg mode_region)";; *) mode_label="";; esac
   case "$(lang_code)" in
-    zh) [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "录制中（%s）\n已用时：%s\n文件：%s\n左键：停止录制\n" "$mode_label" "$t" "$p" || printf "录制中\n已用时：%s\n文件：%s\n左键：停止录制\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "录制中（%s）\n已用时：%s\n左键：停止录制\n" "$mode_label" "$t" || printf "录制中\n已用时：%s\n左键：停止录制\n" "$t"; } ;;
-    ja) [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "録画中（%s）\n経過時間：%s\nファイル：%s\n左クリック：停止\n" "$mode_label" "$t" "$p" || printf "録画中\n経過時間：%s\nファイル：%s\n左クリック：停止\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "録画中（%s）\n経過時間：%s\n左クリック：停止\n" "$mode_label" "$t" || printf "録画中\n経過時間：%s\n左クリック：停止\n" "$t"; } ;;
-    *)  [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "Recording (%s)\nElapsed: %s\nFile: %s\nLeft click: stop\n" "$mode_label" "$t" "$p" || printf "Recording\nElapsed: %s\nFile: %s\nLeft click: stop\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "Recording (%s)\nElapsed: %s\nLeft click: stop\n" "$mode_label" "$t" || printf "Recording\nElapsed: %s\nLeft click: stop\n" "$t"; } ;;
+    zh) [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "录制中（%s）\n已用时：%s\n文件：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$mode_label" "$t" "$p" || printf "录制中\n已用时：%s\n文件：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "录制中（%s）\n已用时：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$mode_label" "$t" || printf "录制中\n已用时：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$t"; } ;;
+    ja) [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "録画中（%s）\n経過時間：%s\nファイル：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$mode_label" "$t" "$p" || printf "録画中\n経過時間：%s\nファイル：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "録画中（%s）\n経過時間：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$mode_label" "$t" || printf "録画中\n経過時間：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$t"; } ;;
+    *)  [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "Recording (%s)\nElapsed: %s\nFile: %s\nLeft click: stop\nMiddle click: pause\nRight click: panel\n" "$mode_label" "$t" "$p" || printf "Recording\nElapsed: %s\nFile: %s\nLeft click: stop\nMiddle click: pause\nRight click: panel\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "Recording (%s)\nElapsed: %s\nLeft click: stop\nMiddle click: pause\nRight click: panel\n" "$mode_label" "$t" || printf "Recording\nElapsed: %s\nLeft click: stop\nMiddle click: pause\nRight click: panel\n" "$t"; } ;;
+  esac
+}
+tooltip_paused_text() { # $1 elapsed, $2 filepath
+  local t="$1" p="${2:-}"
+  case "$(lang_code)" in
+    zh) [[ -n "$p" ]] && printf "录制已暂停\n已用时：%s\n文件：%s\n左键：停止并保存\n中键：恢复录制\n右键：录制面板\n" "$t" "$p" || printf "录制已暂停\n已用时：%s\n左键：停止并保存\n中键：恢复录制\n右键：录制面板\n" "$t" ;;
+    ja) [[ -n "$p" ]] && printf "録画一時停止中\n経過時間：%s\nファイル：%s\n左クリック：停止\n中クリック：再開\n右クリック：録画パネル\n" "$t" "$p" || printf "録画一時停止中\n経過時間：%s\n左クリック：停止\n中クリック：再開\n右クリック：録画パネル\n" "$t" ;;
+    *)  [[ -n "$p" ]] && printf "Recording paused\nElapsed: %s\nFile: %s\nLeft click: stop\nMiddle click: resume\nRight click: panel\n" "$t" "$p" || printf "Recording paused\nElapsed: %s\nLeft click: stop\nMiddle click: resume\nRight click: panel\n" "$t" ;;
   esac
 }
 pretty_status_json() {
   local text tooltip class alt
-  if is_running; then
-    local start=0; [[ -r "$STARTFILE" ]] && read -r start <"$STARTFILE" || true
+  local ICON_PAUSED="${ICON_PAUSED:-󰏤 }"
+
+  # 计算已用时间 (扣除暂停时间)
+  calc_elapsed() {
+    local start=0 pause_total=0 now dur
+    [[ -r "$STARTFILE" ]] && read -r start <"$STARTFILE" || true
     [[ "$start" =~ ^[0-9]+$ ]] || start=0
-    local now dur; now="$(date +%s)"; dur=$((now - start)); (( dur < 0 )) && dur=0
+    [[ -r "$PAUSE_TOTAL_FILE" ]] && read -r pause_total <"$PAUSE_TOTAL_FILE" || true
+    [[ "$pause_total" =~ ^[0-9]+$ ]] || pause_total=0
+    now="$(date +%s)"
+    dur=$((now - start - pause_total))
+    (( dur < 0 )) && dur=0
+    echo "$dur"
+  }
+
+  if is_running; then
+    local dur; dur=$(calc_elapsed)
     local t; t="$(pretty_dur "$dur")"
     local save_path=""; [[ -r "$SAVEPATH_FILE" ]] && read -r save_path <"$SAVEPATH_FILE" || true
     local mode=""; [[ -r "$MODEFILE" ]] && read -r mode <"$MODEFILE" || true
     text="$ICON_REC$t"
     tooltip="$(tooltip_recording_text "$t" "$save_path" "$mode")"
     class="recording"; alt="rec"
+  elif is_paused; then
+    # 暂停状态：显示暂停时的累计时间
+    local start=0 pause_start=0 pause_total=0 dur
+    [[ -r "$STARTFILE" ]] && read -r start <"$STARTFILE" || true
+    [[ "$start" =~ ^[0-9]+$ ]] || start=0
+    [[ -r "$PAUSEFILE" ]] && read -r pause_start <"$PAUSEFILE" || true
+    [[ "$pause_start" =~ ^[0-9]+$ ]] || pause_start=$(date +%s)
+    [[ -r "$PAUSE_TOTAL_FILE" ]] && read -r pause_total <"$PAUSE_TOTAL_FILE" || true
+    [[ "$pause_total" =~ ^[0-9]+$ ]] || pause_total=0
+    dur=$((pause_start - start - pause_total))
+    (( dur < 0 )) && dur=0
+    local t; t="$(pretty_dur "$dur")"
+    local save_path=""; [[ -r "$SAVEPATH_FILE" ]] && read -r save_path <"$SAVEPATH_FILE" || true
+    text="$ICON_PAUSED$t"
+    tooltip="$(tooltip_paused_text "$t" "$save_path")"
+    class="paused"; alt="paused"
   else
     text="$ICON_IDLE"; tooltip="$(tooltip_idle_text)"; class="idle"; alt="idle"
   fi
@@ -772,14 +1006,29 @@ pretty_status_json() {
 }
 status_rec() {
   local json="${1:-}"
+  local ICON_PAUSED="${ICON_PAUSED:-󰏤 }"
   if [[ "$json" == "--json" ]]; then
     pretty_status_json
   else
     if is_running; then
-      local start=0; [[ -r "$STARTFILE" ]] && read -r start <"$STARTFILE" || true
+      local start=0 pause_total=0
+      [[ -r "$STARTFILE" ]] && read -r start <"$STARTFILE" || true
       [[ "$start" =~ ^[0-9]+$ ]] || start=0
-      local now dur; now="$(date +%s)"; dur=$((now - start)); (( dur < 0 )) && dur=0
+      [[ -r "$PAUSE_TOTAL_FILE" ]] && read -r pause_total <"$PAUSE_TOTAL_FILE" || true
+      [[ "$pause_total" =~ ^[0-9]+$ ]] || pause_total=0
+      local now dur; now="$(date +%s)"; dur=$((now - start - pause_total)); (( dur < 0 )) && dur=0
       printf "%s%s\n" "$ICON_REC" "$(pretty_dur "$dur")"
+    elif is_paused; then
+      local start=0 pause_start=0 pause_total=0 dur
+      [[ -r "$STARTFILE" ]] && read -r start <"$STARTFILE" || true
+      [[ "$start" =~ ^[0-9]+$ ]] || start=0
+      [[ -r "$PAUSEFILE" ]] && read -r pause_start <"$PAUSEFILE" || true
+      [[ "$pause_start" =~ ^[0-9]+$ ]] || pause_start=$(date +%s)
+      [[ -r "$PAUSE_TOTAL_FILE" ]] && read -r pause_total <"$PAUSE_TOTAL_FILE" || true
+      [[ "$pause_total" =~ ^[0-9]+$ ]] || pause_total=0
+      dur=$((pause_start - start - pause_total))
+      (( dur < 0 )) && dur=0
+      printf "%s%s\n" "$ICON_PAUSED" "$(pretty_dur "$dur")"
     else
       echo "$ICON_IDLE"
     fi
@@ -790,11 +1039,16 @@ status_rec() {
 case "${1:-toggle}" in
   start)          start_rec ;;
   stop)           stop_rec ;;
+  pause)          pause_rec ;;
+  resume)         resume_rec ;;
+  pause-toggle)   if is_paused; then resume_rec; elif is_running; then pause_rec; fi ;;
   status)         status_rec ;;
   status-json)    status_rec --json ;;
   waybar)         status_rec --json ;;
-  is-active)      if is_running; then exit 0; else exit 1; fi ;;
-  toggle)         is_running && stop_rec || start_rec ;;
+  is-active)      if is_running || is_paused; then exit 0; else exit 1; fi ;;
+  is-running)     if is_running; then exit 0; else exit 1; fi ;;
+  is-paused)      if is_paused; then exit 0; else exit 1; fi ;;
+  toggle)         if is_running; then pause_rec; elif is_paused; then resume_rec; else start_rec; fi ;;
   settings)       show_settings_menu ;;
-  *)              echo "Usage: $0 {start|stop|toggle|status|status-json|waybar|is-active|settings}"; exit 2 ;;
+  *)              echo "Usage: $0 {start|stop|pause|resume|pause-toggle|toggle|status|status-json|waybar|is-active|is-running|is-paused|settings}"; exit 2 ;;
 esac
