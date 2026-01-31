@@ -1,1 +1,0 @@
-/home/snemc/.cache/matugen/quickshell/Theme.js

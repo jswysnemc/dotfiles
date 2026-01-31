@@ -29,6 +29,13 @@ declare -A OUTPUT_MAP=(
     ["kitty-colors.conf"]="kitty/colors.conf"
 )
 
+# cache 目录内部链接 (选择 light/dark 主题)
+# 格式: cache相对路径=目标文件名
+declare -A CACHE_INTERNAL_LINKS=(
+    ["waybar/colors.css"]="colors-light.css"
+    ["quickshell/Theme.js"]="Theme-light.js"
+)
+
 # 符号链接目标 (某些应用需要在配置目录创建符号链接)
 declare -A SYMLINK_MAP=(
     ["waybar/colors.css"]="${XDG_CONFIG_HOME:-$HOME/.config}/waybar/colors.css"
@@ -190,6 +197,39 @@ init_colors() {
         else
             print_error "复制失败: $dest"
             ((failed++))
+        fi
+    done
+
+    # 创建 cache 目录内部链接 (选择默认主题)
+    echo
+    print_info "创建 cache 内部链接..."
+    for cache_path in "${!CACHE_INTERNAL_LINKS[@]}"; do
+        target_name="${CACHE_INTERNAL_LINKS[$cache_path]}"
+        link_path="$CACHE_DIR/$cache_path"
+        link_dir=$(dirname "$link_path")
+        target_path="$link_dir/$target_name"
+
+        # 检查目标文件
+        if [[ ! -f "$target_path" ]]; then
+            print_warning "目标文件不存在: $target_path"
+            continue
+        fi
+
+        # 删除已存在的链接
+        if [[ -L "$link_path" ]] || [[ -f "$link_path" ]]; then
+            if [[ "$force" == "true" ]]; then
+                rm -f "$link_path"
+            elif [[ -L "$link_path" ]]; then
+                print_info "跳过 cache 链接 (已存在): $cache_path"
+                continue
+            fi
+        fi
+
+        # 创建相对符号链接
+        if ln -sf "$target_name" "$link_path"; then
+            print_success "cache 链接: $cache_path -> $target_name"
+        else
+            print_error "创建 cache 链接失败: $cache_path"
         fi
     done
 

@@ -613,6 +613,30 @@ apply_dotfiles() {
 
     cd "$DOTFILES_DIR"
 
+    # Clean up broken symlinks in dotfiles repo
+    # These symlinks point to absolute paths that don't exist on fresh systems
+    print_info "Cleaning up stale symlinks in dotfiles repo..."
+    local stale_symlinks=(
+        "waybar/.config/waybar/colors.css"
+        "quickshell/.config/quickshell/Commons/Theme.js"
+        "quickshell/.config/quickshell/colors.js"
+    )
+    for link in "${stale_symlinks[@]}"; do
+        local link_path="$DOTFILES_DIR/$link"
+        if [[ -L "$link_path" ]] && [[ ! -e "$link_path" ]]; then
+            rm -f "$link_path"
+            print_ok "Removed stale symlink: $link"
+        elif [[ -L "$link_path" ]]; then
+            # Symlink exists but points somewhere - check if target is outside dotfiles
+            local target
+            target=$(readlink "$link_path")
+            if [[ "$target" == /* ]] && [[ ! "$target" == "$DOTFILES_DIR"* ]]; then
+                rm -f "$link_path"
+                print_ok "Removed external symlink: $link"
+            fi
+        fi
+    done
+
     # Backup existing configs
     print_info "Backing up existing configs..."
     local backup_dir="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
