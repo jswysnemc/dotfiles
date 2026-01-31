@@ -1,29 +1,22 @@
 #!/bin/bash
-# Waybar media visualizer - real audio visualization using cava
-# Uses unique config per process to avoid conflicts
+# Waybar media visualizer - optimized cava integration
+# Uses pactl subscribe for event-driven detection (zero CPU when idle)
 
-# Use PID to create unique config file
+# Configuration
+CHARS="▁▂▃▄▅▆▇█"
+BARS=12
 CAVA_CONFIG="/tmp/waybar_cava_config_$$"
 
-# Clean up old orphan cava processes on startup
-cleanup_orphans() {
-    # Kill any cava processes with old waybar configs (parent no longer exists)
-    for cfg in /tmp/waybar_cava_config_*; do
-        [[ -f "$cfg" ]] || continue
-        local pid="${cfg##*_}"
-        # Check if the parent script is still running
-        if ! kill -0 "$pid" 2>/dev/null; then
-            pkill -f "cava -p $cfg" 2>/dev/null
-            rm -f "$cfg"
-        fi
-    done
-}
+# Derived values
+CHAR_MAX=$((${#CHARS} - 1))
+IDLE_CHAR="${CHARS:0:1}"
+IDLE_OUTPUT=$(printf "%0.s$IDLE_CHAR" $(seq 1 $BARS))
 
-# Create cava config for raw output
+# Generate cava config
 setup_config() {
-    cat > "$CAVA_CONFIG" << EOF
+    cat > "$CAVA_CONFIG" <<EOF
 [general]
-bars = 12
+bars = $BARS
 framerate = 60
 sensitivity = 120
 noise_reduction = 0.5
@@ -36,75 +29,63 @@ source = auto
 method = raw
 raw_target = /dev/stdout
 data_format = ascii
-ascii_max_range = 7
+ascii_max_range = $CHAR_MAX
 EOF
 }
 
 cleanup() {
-    # Kill cava processes using our specific config
-    pkill -f "cava -p $CAVA_CONFIG" 2>/dev/null
+    trap - EXIT INT TERM HUP QUIT PIPE
+    pkill -P $$ 2>/dev/null
+    echo '{"text": "", "class": "stopped"}'
     rm -f "$CAVA_CONFIG"
     exit 0
 }
 
-# Handle all termination signals
 trap cleanup EXIT INT TERM HUP QUIT PIPE
 
-is_playing() {
-    for p in $(playerctl -l 2>/dev/null); do
-        local s=$(playerctl -p "$p" status 2>/dev/null)
-        if [[ "$s" == "Playing" ]]; then
-            return 0
-        fi
-    done
-    return 1
+# Check for active (non-paused) audio streams via PulseAudio
+is_audio_active() {
+    pactl list sink-inputs 2>/dev/null | grep -q "Corked: no"
 }
 
-get_bar() {
-    local val=$1
-    case $val in
-        0) echo "▁" ;;
-        1) echo "▂" ;;
-        2) echo "▃" ;;
-        3) echo "▄" ;;
-        4) echo "▅" ;;
-        5) echo "▆" ;;
-        6) echo "▇" ;;
-        7) echo "█" ;;
-        *) echo "▁" ;;
-    esac
-}
-
-# Safe echo that handles broken pipe
+# Safe output for waybar JSON
 safe_echo() {
     echo "$1" 2>/dev/null || cleanup
 }
 
-# Clean up orphans from previous runs
-cleanup_orphans
+# Build sed substitution for numeric to bar character mapping
+build_sed_dict() {
+    local dict="s/;//g;"
+    for ((i = 0; i <= CHAR_MAX; i++)); do
+        dict="${dict}s/$i/${CHARS:$i:1}/g;"
+    done
+    echo "$dict"
+}
 
 setup_config
+SED_DICT=$(build_sed_dict)
 
-# Main loop
+# Initial state
+safe_echo '{"text": "", "class": "stopped"}'
+
 while true; do
-    if is_playing; then
-        # Start cava with process substitution and read from fd 3
-        while IFS=';' read -ra vals <&3; do
-            if ! is_playing; then
-                safe_echo '{"text": "", "class": "stopped"}'
-                break
-            fi
-
-            output=""
-            for i in 0 1 2 3 4 5 6 7 8 9 10 11; do
-                v=${vals[$i]:-0}
-                output+=$(get_bar $v)
-            done
-
-            safe_echo "{\"text\": \"$output\", \"class\": \"playing\"}"
-        done 3< <(cava -p "$CAVA_CONFIG" 2>/dev/null)
+    if is_audio_active; then
+        # Start cava if not already running
+        if ! pgrep -P $$ -x cava >/dev/null; then
+            cava -p "$CAVA_CONFIG" 2>/dev/null | sed -u "$SED_DICT" | while IFS= read -r line; do
+                safe_echo "{\"text\": \"$line\", \"class\": \"playing\"}"
+            done &
+        fi
+        # Reduce check frequency while playing
+        sleep 1
     else
-        safe_echo '{"text": "", "class": "stopped"}'
-        sleep 0.5
+        # Stop cava if running
+        if pgrep -P $$ -x cava >/dev/null; then
+            pkill -P $$ -x cava 2>/dev/null
+            wait 2>/dev/null
+            safe_echo '{"text": "", "class": "stopped"}'
+        fi
+        # Wait for audio events passively (no CPU usage)
+        timeout 5s pactl subscribe 2>/dev/null | grep --line-buffered "sink-input" | head -n 1 >/dev/null
     fi
 done
