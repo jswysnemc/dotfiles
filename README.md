@@ -46,10 +46,10 @@
 
 ```bash
 # 短链接（推荐，方便记忆）
-curl -fsSL https://v.gd/snemc_setup | bash
+bash <(curl -fsSL https://v.gd/snemc_setup)
 
 # 或者使用完整链接
-curl -fsSL https://raw.githubusercontent.com/jswysnemc/dotfiles/main/install.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/jswysnemc/dotfiles/main/install.sh)
 
 # 或者克隆后运行
 git clone https://github.com/jswysnemc/dotfiles ~/.dotfiles
