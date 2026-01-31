@@ -71,7 +71,7 @@ def save_cache(data, lat, lon):
 def fetch_weather(lat, lon):
     """从 Open-Meteo API 获取天气"""
     try:
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7"
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=7"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -134,32 +134,36 @@ def get_day_name(date_str, idx):
 
 def format_waybar(data, config):
     """格式化为 waybar JSON 输出"""
-    if not data or "current_weather" not in data:
+    if not data or "current" not in data:
         return json.dumps({
             "text": " --",
             "tooltip": "无法获取天气数据",
             "class": "error"
         }, ensure_ascii=False)
 
-    current = data["current_weather"]
+    current = data["current"]
     daily = data.get("daily", {})
     use_celsius = config.get("useCelsius", True)
     location = config.get("locationName", "Unknown")
 
-    code = current.get("weathercode", 0)
-    temp = current.get("temperature", 0)
-    wind = current.get("windspeed", 0)
+    code = current.get("weather_code", 0)
+    temp = current.get("temperature_2m", 0)
+    wind = current.get("wind_speed_10m", 0)
+    humidity = current.get("relative_humidity_2m", 0)
+    feels_like = current.get("apparent_temperature", temp)
 
     icon = get_weather_icon(code)
     desc = get_weather_desc(code)
     temp_str = format_temp(temp, use_celsius)
+    feels_str = format_temp(feels_like, use_celsius)
     unit = "C" if use_celsius else "F"
 
     # 构建 tooltip
     tooltip_lines = [
         f"{icon} {desc}  {location}",
         f"",
-        f"{temp_str}°{unit}  风速 {round(wind)} km/h"
+        f"{temp_str}°{unit}  体感 {feels_str}°{unit}",
+        f"湿度 {humidity}%  风速 {round(wind)} km/h"
     ]
 
     # 今日最高/最低
@@ -168,16 +172,24 @@ def format_waybar(data, config):
         min_t = format_temp(daily["temperature_2m_min"][0], use_celsius)
         tooltip_lines.append(f"最高 {max_t}° / 最低 {min_t}°")
 
+    # 日出日落
+    if daily.get("sunrise") and daily.get("sunset"):
+        sunrise = daily["sunrise"][0].split("T")[1] if "T" in daily["sunrise"][0] else daily["sunrise"][0]
+        sunset = daily["sunset"][0].split("T")[1] if "T" in daily["sunset"][0] else daily["sunset"][0]
+        tooltip_lines.append(f"日出 {sunrise}  日落 {sunset}")
+
     # 未来预报
     if daily.get("time"):
         tooltip_lines.append("")
         tooltip_lines.append("7 天预报")
         for i in range(min(7, len(daily["time"]))):
             day_name = get_day_name(daily["time"][i], i)
-            day_icon = get_weather_icon(daily["weathercode"][i])
+            day_icon = get_weather_icon(daily["weather_code"][i])
             day_max = format_temp(daily["temperature_2m_max"][i], use_celsius)
             day_min = format_temp(daily["temperature_2m_min"][i], use_celsius)
-            tooltip_lines.append(f"{day_name}  {day_icon}  {day_min}° ~ {day_max}°")
+            precip = daily.get("precipitation_probability_max", [0] * 7)[i]
+            precip_str = f" {precip}%" if precip > 0 else ""
+            tooltip_lines.append(f"{day_name}  {day_icon}  {day_min}° ~ {day_max}°{precip_str}")
 
     return json.dumps({
         "text": f"{icon} {temp_str}°",

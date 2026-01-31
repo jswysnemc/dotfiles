@@ -76,7 +76,7 @@ ShellRoot {
 
     Process {
         id: weatherProc
-        command: ["curl", "-s", "https://api.open-meteo.com/v1/forecast?latitude=" + root.latitude + "&longitude=" + root.longitude + "&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7"]
+        command: ["curl", "-s", "https://api.open-meteo.com/v1/forecast?latitude=" + root.latitude + "&longitude=" + root.longitude + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=7"]
         stdout: StdioCollector {
             onStreamFinished: {
                 root.loading = false
@@ -373,7 +373,7 @@ ShellRoot {
                             Layout.fillWidth: true
                             spacing: Theme.spacingL
 
-                            Text { text: root.weatherData ? root.getWeatherIcon(root.weatherData.current_weather.weathercode) : ""; font.family: "Weather Icons"; font.pixelSize: 64; color: Theme.primary }
+                            Text { text: root.weatherData ? root.getWeatherIcon(root.weatherData.current.weather_code) : ""; font.family: "Weather Icons"; font.pixelSize: 64; color: Theme.primary }
 
                             ColumnLayout {
                                 Layout.fillWidth: true; spacing: Theme.spacingXS
@@ -406,8 +406,8 @@ ShellRoot {
                                         }
                                     }
                                 }
-                                Text { text: root.weatherData ? root.formatTemp(root.weatherData.current_weather.temperature) : ""; font.pixelSize: Theme.fontSizeHuge; font.weight: Font.Bold; color: Theme.textPrimary }
-                                Text { text: root.weatherData ? root.getWeatherDesc(root.weatherData.current_weather.weathercode) : ""; font.pixelSize: Theme.fontSizeM; color: Theme.textMuted }
+                                Text { text: root.weatherData ? root.formatTemp(root.weatherData.current.temperature_2m) : ""; font.pixelSize: Theme.fontSizeHuge; font.weight: Font.Bold; color: Theme.textPrimary }
+                                Text { text: root.weatherData ? root.getWeatherDesc(root.weatherData.current.weather_code) : ""; font.pixelSize: Theme.fontSizeM; color: Theme.textMuted }
                             }
 
                             Rectangle {
@@ -441,25 +441,39 @@ ShellRoot {
                         }
 
                         RowLayout {
-                            Layout.fillWidth: true; spacing: Theme.spacingL
+                            Layout.fillWidth: true; spacing: Theme.spacingM
 
-                            RowLayout {
-                                spacing: Theme.spacingS
-                                ColumnLayout {
-                                    spacing: 2
-                                    Text { text: "风速"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
-                                    Text { text: root.weatherData ? Math.round(root.weatherData.current_weather.windspeed) + " km/h" : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
-                                }
+                            ColumnLayout {
+                                spacing: 2
+                                Text { text: "体感"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
+                                Text { text: root.weatherData ? root.formatTemp(root.weatherData.current.apparent_temperature) : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
+                            }
+                            ColumnLayout {
+                                spacing: 2
+                                Text { text: "湿度"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
+                                Text { text: root.weatherData ? root.weatherData.current.relative_humidity_2m + "%" : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
+                            }
+                            ColumnLayout {
+                                spacing: 2
+                                Text { text: "风速"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
+                                Text { text: root.weatherData ? Math.round(root.weatherData.current.wind_speed_10m) + " km/h" : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
                             }
                             Item { Layout.fillWidth: true }
-                            RowLayout {
-                                spacing: Theme.spacingS
-                                ColumnLayout {
-                                    spacing: 2
-                                    Text { text: "最高 / 最低"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
-                                    Text { text: root.weatherData && root.weatherData.daily ? root.formatTemp(root.weatherData.daily.temperature_2m_max[0]) + " / " + root.formatTemp(root.weatherData.daily.temperature_2m_min[0]) : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
-                                }
+                            ColumnLayout {
+                                spacing: 2
+                                Text { text: "最高 / 最低"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
+                                Text { text: root.weatherData && root.weatherData.daily ? root.formatTemp(root.weatherData.daily.temperature_2m_max[0]) + " / " + root.formatTemp(root.weatherData.daily.temperature_2m_min[0]) : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
                             }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: Theme.spacingM
+
+                            Text { text: "\uf185"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 14; color: Theme.primary }
+                            Text { text: root.weatherData && root.weatherData.daily ? root.weatherData.daily.sunrise[0].split("T")[1] : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
+                            Item { width: Theme.spacingM }
+                            Text { text: "\uf186"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 14; color: Theme.textMuted }
+                            Text { text: root.weatherData && root.weatherData.daily ? root.weatherData.daily.sunset[0].split("T")[1] : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
                         }
 
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
@@ -480,9 +494,13 @@ ShellRoot {
                                     ColumnLayout {
                                         anchors.fill: parent; anchors.margins: Theme.spacingS; spacing: Theme.spacingXS
                                         Text { text: root.getDayName(root.weatherData.daily.time[index], index); font.pixelSize: Theme.fontSizeXS; font.weight: Font.Medium; color: index === 0 ? Theme.primary : Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
-                                        Text { text: root.getWeatherIcon(root.weatherData.daily.weathercode[index]); font.family: "Weather Icons"; font.pixelSize: 20; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
+                                        Text { text: root.getWeatherIcon(root.weatherData.daily.weather_code[index]); font.family: "Weather Icons"; font.pixelSize: 20; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
                                         Text { text: Math.round(root.weatherData.daily.temperature_2m_max[index]) + "\u00b0"; font.pixelSize: Theme.fontSizeS; font.weight: Font.DemiBold; color: Theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
-                                        Text { text: Math.round(root.weatherData.daily.temperature_2m_min[index]) + "\u00b0"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
+                                        RowLayout {
+                                            Layout.alignment: Qt.AlignHCenter; spacing: 2
+                                            Text { text: Math.round(root.weatherData.daily.temperature_2m_min[index]) + "\u00b0"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
+                                            Text { visible: root.weatherData.daily.precipitation_probability_max[index] > 0; text: root.weatherData.daily.precipitation_probability_max[index] + "%"; font.pixelSize: 9; color: Theme.primary }
+                                        }
                                     }
                                 }
                             }
