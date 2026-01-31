@@ -137,7 +137,7 @@ zoxide --version
 | 插件 | 说明 |
 |------|------|
 | `colored-man-pages` | 彩色 man 页面 |
-| `sudo` | 双击 Esc 添加 sudo |
+| `sudo` | Alt + S 添加 sudo |
 | `zsh-vi-mode` | Vi 模式行编辑 |
 | `zsh-completions` | 补全增强 |
 | `fzf-tab` | FZF 补全菜单 |
