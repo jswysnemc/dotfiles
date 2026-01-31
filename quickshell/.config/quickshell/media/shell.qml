@@ -26,13 +26,46 @@ ShellRoot {
 
     // ============ State ============
     property int currentPlayerIndex: 0
-    property var playersList: {
+    property var playersList: []
+    property bool initialized: false  // Wait for data before rendering
+
+    // Update players list when MPRIS changes
+    function refreshPlayersList() {
         var list = []
         var players = Mpris.players.values
         for (var i = 0; i < players.length; i++) {
             list.push(players[i])
         }
-        return list
+        playersList = list
+    }
+
+    Connections {
+        target: Mpris.players
+        function onObjectInsertedPost() { root.refreshPlayersList() }
+        function onObjectRemovedPost() { root.refreshPlayersList() }
+    }
+
+    Component.onCompleted: {
+        refreshPlayersList()
+        // Delay to ensure all data is ready before showing UI
+        initTimer.start()
+    }
+
+    // Initialization timer - wait for MPRIS data to be ready
+    Timer {
+        id: initTimer
+        interval: 50
+        repeat: false
+        onTriggered: {
+            root.updatePlayingState()
+            // Initialize track detection state
+            if (root.activePlayer) {
+                root.lastDetectedTitle = root.activePlayer.trackTitle || ""
+                root.lastDetectedArtist = root.activePlayer.trackArtist || ""
+            }
+            root.onTrackChanged()
+            root.initialized = true
+        }
     }
 
     property var activePlayer: {
@@ -42,7 +75,34 @@ ShellRoot {
     }
 
     property bool hasPlayer: activePlayer !== null
-    property bool isPlaying: hasPlayer && activePlayer.playbackState === MprisPlaybackState.Playing
+    property bool isPlaying: false
+
+    // Update isPlaying state explicitly
+    function updatePlayingState() {
+        isPlaying = hasPlayer && activePlayer && activePlayer.playbackState === MprisPlaybackState.Playing
+    }
+
+    // Watch playback state changes on active player
+    Connections {
+        target: root.activePlayer
+        function onPlaybackStateChanged() { root.updatePlayingState() }
+        function onTrackTitleChanged() { root.onTrackChanged() }
+        function onTrackArtistChanged() { root.onTrackChanged() }
+    }
+
+    // Handle track change - refresh lyrics
+    function onTrackChanged() {
+        var newTitle = activePlayer ? activePlayer.trackTitle : ""
+        if (newTitle && newTitle !== lastFetchedTrack) {
+            fetchLyrics()
+        }
+    }
+
+    onActivePlayerChanged: {
+        updatePlayingState()
+        // Also check for track change when switching players
+        onTrackChanged()
+    }
     property string trackTitle: hasPlayer && activePlayer.trackTitle ? activePlayer.trackTitle : ""
     property string trackArtist: hasPlayer && activePlayer.trackArtist ? activePlayer.trackArtist : ""
     property string trackAlbum: hasPlayer && activePlayer.trackAlbum ? activePlayer.trackAlbum : ""
@@ -66,14 +126,45 @@ ShellRoot {
     property bool isDragging: false
     property real dragPosition: 0
 
-    // Position update timer
+    // Position update timer - always run when player exists
     Timer {
         interval: 500
-        running: root.isPlaying && !root.isDragging
+        running: root.hasPlayer && !root.isDragging
         repeat: true
         onTriggered: {
-            root.position = root.activePlayer ? root.activePlayer.position : 0
-            updateCurrentLyric()
+            if (root.activePlayer) {
+                root.position = root.activePlayer.position
+                if (root.isPlaying) {
+                    updateCurrentLyric()
+                }
+            }
+        }
+    }
+
+    // Fallback refresh timer - ensure UI stays responsive
+    // Also detects track changes for players that don't emit signals
+    property string lastDetectedTitle: ""
+    property string lastDetectedArtist: ""
+
+    Timer {
+        interval: 500
+        running: root.hasPlayer
+        repeat: true
+        onTriggered: {
+            // Force refresh player list and playing state
+            root.refreshPlayersList()
+            root.updatePlayingState()
+            if (root.activePlayer) {
+                root.position = root.activePlayer.position
+                // Detect track change by comparing title/artist
+                var currentTitle = root.activePlayer.trackTitle || ""
+                var currentArtist = root.activePlayer.trackArtist || ""
+                if (currentTitle !== root.lastDetectedTitle || currentArtist !== root.lastDetectedArtist) {
+                    root.lastDetectedTitle = currentTitle
+                    root.lastDetectedArtist = currentArtist
+                    root.onTrackChanged()
+                }
+            }
         }
     }
 
@@ -83,13 +174,6 @@ ShellRoot {
         running: root.isPlaying && root.lyricsLoaded && root.lyricsLines.length > 0 && !root.isDragging
         repeat: true
         onTriggered: updateCurrentLyric()
-    }
-
-    // Track change watcher
-    onTrackTitleChanged: {
-        if (trackTitle && trackTitle !== lastFetchedTrack) {
-            fetchLyrics()
-        }
     }
 
     property string scriptPath: Qt.resolvedUrl("lyrics_fetcher.py").toString().replace("file://", "")
@@ -198,7 +282,11 @@ ShellRoot {
     }
 
     function playPause() {
-        if (hasPlayer) activePlayer.togglePlaying()
+        if (hasPlayer) {
+            activePlayer.togglePlaying()
+            // Immediate UI feedback, then sync with actual state
+            Qt.callLater(updatePlayingState)
+        }
     }
 
     function next() {
@@ -275,6 +363,10 @@ ShellRoot {
                 color: Theme.background
                 radius: Theme.radiusL
                 border.color: Theme.outline
+
+                // Wait for initialization before showing
+                opacity: root.initialized ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150 } }
                 border.width: 1
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
 

@@ -101,7 +101,60 @@ get_status() {
 }
 
 # Continuous output mode for waybar
-while true; do
-    get_status
-    sleep 1
-done
+# Use multiple playerctl --follow listeners for instant updates
+
+cleanup() {
+    # Kill all background jobs
+    jobs -p | xargs -r kill 2>/dev/null
+    exit 0
+}
+trap cleanup EXIT INT TERM
+
+# Output initial status
+get_status
+
+# Track last output to avoid duplicates
+LAST_OUTPUT=""
+output_if_changed() {
+    local output
+    output=$(get_status)
+    if [[ "$output" != "$LAST_OUTPUT" ]]; then
+        echo "$output"
+        LAST_OUTPUT="$output"
+    fi
+}
+
+# Watch for status changes (play/pause/stop)
+(
+    playerctl --follow status 2>/dev/null | while read -r _; do
+        output_if_changed
+    done
+) &
+
+# Watch for metadata changes (track change, seek, etc.)
+(
+    playerctl --follow metadata 2>/dev/null | while read -r _; do
+        output_if_changed
+    done
+) &
+
+# Watch for player add/remove
+(
+    while true; do
+        playerctl --follow metadata --format '{{playerName}}' 2>/dev/null | while read -r _; do
+            output_if_changed
+        done
+        sleep 1
+    done
+) &
+
+# Fallback polling every 2 seconds for players that don't emit signals properly
+(
+    while true; do
+        sleep 2
+        output_if_changed
+    done
+) &
+
+# Keep script running
+wait
