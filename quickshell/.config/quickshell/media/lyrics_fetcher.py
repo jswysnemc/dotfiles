@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
 Lyrics fetcher for QuickShell media player.
-Uses lrclib.net API to fetch synced lyrics.
+Supports:
+  1. MPRIS local lyrics (xesam:asText) - for musicfox, etc.
+  2. lrclib.net API - online fallback
 """
 
 import sys
 import json
 import re
+import subprocess
 import httpx
 
 LRCLIB_API = "https://lrclib.net/api"
@@ -48,8 +51,41 @@ def parse_lrc(lrc_content: str) -> list[dict]:
     return lines
 
 
-def fetch_lyrics(title: str, artist: str = "", album: str = "", duration: float = 0) -> dict:
-    """Fetch lyrics from lrclib.net API."""
+def fetch_mpris_lyrics(player: str = "") -> dict | None:
+    """Fetch lyrics from MPRIS xesam:asText metadata (musicfox, etc.)."""
+    try:
+        cmd = ["playerctl"]
+        if player:
+            cmd.extend(["-p", player])
+        cmd.extend(["metadata", "xesam:asText"])
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+
+        if result.returncode == 0 and result.stdout.strip():
+            lrc_content = result.stdout.strip()
+            # Check if it looks like LRC format
+            if "[" in lrc_content and "]" in lrc_content:
+                lines = parse_lrc(lrc_content)
+                if lines:
+                    return {
+                        "success": True,
+                        "synced": True,
+                        "lines": lines,
+                        "source": "mpris"
+                    }
+        return None
+    except Exception:
+        return None
+
+
+def fetch_lyrics(title: str, artist: str = "", album: str = "", duration: float = 0, player: str = "") -> dict:
+    """Fetch lyrics. Priority: MPRIS local -> lrclib.net API."""
+    # 1. Try MPRIS local lyrics first (musicfox, etc.)
+    mpris_result = fetch_mpris_lyrics(player)
+    if mpris_result:
+        return mpris_result
+
+    # 2. Fallback to lrclib.net API
     try:
         params = {
             "track_name": title,
@@ -168,9 +204,19 @@ if __name__ == "__main__":
         artist = sys.argv[3] if len(sys.argv) > 3 else ""
         album = sys.argv[4] if len(sys.argv) > 4 else ""
         duration = float(sys.argv[5]) if len(sys.argv) > 5 else 0
+        player = sys.argv[6] if len(sys.argv) > 6 else ""
 
-        result = fetch_lyrics(title, artist, album, duration)
+        result = fetch_lyrics(title, artist, album, duration, player)
         print(json.dumps(result, ensure_ascii=False))
+
+    elif command == "mpris":
+        # Direct MPRIS fetch without online fallback
+        player = sys.argv[2] if len(sys.argv) > 2 else ""
+        result = fetch_mpris_lyrics(player)
+        if result:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            print(json.dumps({"success": False, "error": "No MPRIS lyrics available"}))
 
     elif command == "line":
         if len(sys.argv) < 4:
