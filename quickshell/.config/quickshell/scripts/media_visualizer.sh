@@ -90,13 +90,36 @@ start_cava() {
 
     # 启动子 shell
     (
+        idle_start=0
+        last_output=""
+
         # 这里的 sed 负责将数字转为字符
         cava -p "$CONF" 2>/dev/null | stdbuf -o0 sed -u "$SED_DICT" | while IFS= read -r line; do
-            # 检测是否为直线（全是最低字符），如果是则隐藏
+            now=$(date +%s%3N 2>/dev/null || date +%s)000
+            now=${now:0:13}
+
             if [[ "$line" == "$IDLE_LINE" ]]; then
-                printf '{"text": "", "class": "idle"}\n'
+                # 直线状态
+                if [[ "$idle_start" == "0" ]]; then
+                    idle_start=$now
+                fi
+                idle_duration=$(( (now - idle_start) ))
+
+                # 超过1秒才隐藏
+                if [[ "$idle_duration" -ge 1000 ]]; then
+                    if [[ "$last_output" != "idle" ]]; then
+                        printf '{"text": "", "class": "idle"}\n'
+                        last_output="idle"
+                    fi
+                fi
+                # 1秒内保持上一次的显示状态（不输出新内容）
             else
-                printf '{"text": "%s", "class": "playing"}\n' "$line"
+                # 有声音，重置计时器
+                idle_start=0
+                if [[ "$last_output" != "$line" ]]; then
+                    printf '{"text": "%s", "class": "playing"}\n' "$line"
+                    last_output="$line"
+                fi
             fi
         done
     ) &
