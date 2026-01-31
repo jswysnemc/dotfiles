@@ -871,6 +871,21 @@ setup_quickshell() {
         fi
     fi
 
+    # Add welcome screen to niri autostart (only if not already present)
+    local autostart_file="$HOME/.config/niri/conf.d/autostart.kdl"
+    local welcome_line='spawn-sh-at-startup "sleep 1 && POPUP_TYPE=welcome qs -p ~/.config/quickshell"'
+    if [[ -f "$autostart_file" ]]; then
+        if ! grep -q "POPUP_TYPE=welcome" "$autostart_file"; then
+            print_info "Adding welcome screen to niri autostart..."
+            echo "" >> "$autostart_file"
+            echo "// --- Welcome screen (first-time setup, shows once) ---" >> "$autostart_file"
+            echo "$welcome_line" >> "$autostart_file"
+            print_ok "Welcome screen added to autostart"
+        else
+            print_info "Welcome screen already in autostart"
+        fi
+    fi
+
     mark_done "setup_quickshell"
     log "Quickshell configured"
 }
