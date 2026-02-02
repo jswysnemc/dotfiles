@@ -21,7 +21,7 @@ spawn-sh-at-startup "/usr/lib/hyprpolkitagent/hyprpolkitagent"
 // spawn-sh-at-startup "/usr/bin/python ~/.config/quickshell/scripts/notification_daemon.py"
 
 
-spawn-at-startup "sh" "-c" "cd /home/snemc/.config/quickshell && uv run python notifications/main.py"
+spawn-at-startup "sh" "-c" "cd ~/.config/quickshell && uv run python notifications/main.py"
 
 spawn-sh-at-startup "sticky-notes start-server"
 
@@ -36,7 +36,7 @@ spawn-sh-at-startup "~/.config/niri/scripts/clipboard-sync"
 // --- 自定义脚本 ---
 spawn-at-startup "~/.config/niri/scripts/swayidle.sh"
 spawn-at-startup "~/.config/niri/scripts/swww.sh"
-spawn-sh-at-startup "~/.config/niri/scripts/auto-archive.sh /home/snemc/Downloads/"
+spawn-sh-at-startup "~/.config/niri/scripts/auto-archive.sh ~/Downloads/"
 
 // --- 环境变量导出 ---
 spawn-sh-at-startup "systemctl --user import-environment XDG_MENU_PREFIX"

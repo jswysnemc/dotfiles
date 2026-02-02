@@ -1,4 +1,4 @@
-#!/home/snemc/.local/share/python-custom/lunarcalendar/.venv/bin/python
+#!/usr/bin/env python3
 """
 农历转换脚本 - 用于Quickshell日历组件
 依赖: pip install lunarcalendar

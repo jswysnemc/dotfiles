@@ -191,7 +191,7 @@ ShellRoot {
 
     property string scriptPath: Qt.resolvedUrl("lyrics_fetcher.py").toString().replace("file://", "")
     property string uvPath: "/usr/bin/uv"
-    property string rootDir: "/home/snemc/.config/quickshell"
+    property string rootDir: Quickshell.env("HOME") + "/.config/quickshell"
 
     Process {
         id: lyricsFetcher

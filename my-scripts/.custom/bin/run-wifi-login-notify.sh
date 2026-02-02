@@ -5,7 +5,7 @@ sleep 1
 
 # 执行你的登录脚本
 # 请确保这里的路径是正确的
-/home/snemc/.custom/bin/wifi_login
+"$HOME/.custom/bin/wifi_login"
 
 # 检查上一个命令（也就是 wifi_login.sh）的退出码
 # $? 变量保存了上一个命令的退出码

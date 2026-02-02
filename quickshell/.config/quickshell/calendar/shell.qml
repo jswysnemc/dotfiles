@@ -61,7 +61,7 @@ ShellRoot {
 
     property string scriptPath: Qt.resolvedUrl("lunar_calendar.py").toString().replace("file://", "")
     property string uvPath: "/usr/bin/uv"
-    property string rootDir: "/home/snemc/.config/quickshell"
+    property string rootDir: Quickshell.env("HOME") + "/.config/quickshell"
 
     // ============ Processes ============
     Process {

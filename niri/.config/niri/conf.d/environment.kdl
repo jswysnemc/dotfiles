@@ -2,6 +2,9 @@
 // Environment variables configuration
 
 environment {
+    // --- PATH ---
+    PATH "$HOME/.local/bin:$PATH"
+
     // --- 主题相关 ---
     XDG_MENU_PREFIX "arch-"
     QT_QPA_PLATFORMTHEME "qt6ct"

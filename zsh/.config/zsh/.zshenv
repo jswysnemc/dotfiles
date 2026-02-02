@@ -1,2 +1,2 @@
 # uv
-export PATH="/home/snemc/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
