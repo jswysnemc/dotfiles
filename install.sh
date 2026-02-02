@@ -1274,6 +1274,90 @@ enable_services() {
     log "Services enabled"
 }
 
+setup_sddm() {
+    section "Phase 9b" "SDDM Display Manager"
+
+    if is_done "setup_sddm"; then
+        print_skip "SDDM setup (already done)"
+        return
+    fi
+
+    echo ""
+    echo -e "   ${WHITE}SDDM is a display manager that provides a graphical login screen.${NC}"
+    echo -e "   ${DIM}Without it, you need to login via TTY and run 'niri-session' manually.${NC}"
+    echo ""
+
+    if ! confirm "Install and configure SDDM display manager?"; then
+        print_skip "SDDM installation (user declined)"
+        mark_done "setup_sddm"
+        return
+    fi
+
+    # Install sddm package
+    print_info "Installing SDDM..."
+    if $AUR_HELPER -S --needed --noconfirm sddm >> "$LOG_FILE" 2>&1; then
+        print_ok "SDDM installed"
+    else
+        print_fail "Failed to install SDDM"
+        return
+    fi
+
+    # Install theme
+    local theme_name="lunar-glass"
+    local theme_src="$DOTFILES_DIR/sddm-theme"
+    local theme_dst="/usr/share/sddm/themes/$theme_name"
+
+    if [[ -d "$theme_src" ]]; then
+        print_info "Installing SDDM theme: $theme_name"
+
+        # Backup existing theme if present
+        if [[ -d "$theme_dst" ]]; then
+            sudo mv "$theme_dst" "${theme_dst}.bak.$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
+        fi
+
+        # Create theme directory and copy files
+        sudo mkdir -p "$theme_dst"
+        sudo cp -r "$theme_src"/*.qml "$theme_dst/" 2>/dev/null || true
+        sudo cp -r "$theme_src"/*.conf "$theme_dst/" 2>/dev/null || true
+        sudo cp -r "$theme_src"/*.desktop "$theme_dst/" 2>/dev/null || true
+        sudo cp -r "$theme_src"/*.png "$theme_dst/" 2>/dev/null || true
+        sudo cp -r "$theme_src"/*.svg "$theme_dst/" 2>/dev/null || true
+        sudo cp -r "$theme_src"/icons "$theme_dst/" 2>/dev/null || true
+
+        print_ok "Theme files copied to $theme_dst"
+
+        # Configure SDDM to use the theme
+        local sddm_conf="/etc/sddm.conf"
+        print_info "Configuring SDDM..."
+
+        if [[ -f "$sddm_conf" ]]; then
+            sudo cp "$sddm_conf" "${sddm_conf}.bak"
+            if grep -q "^\[Theme\]" "$sddm_conf"; then
+                sudo sed -i '/^\[Theme\]/,/^\[/ s/^Current=.*/Current='"$theme_name"'/' "$sddm_conf"
+            else
+                echo -e "\n[Theme]\nCurrent=$theme_name" | sudo tee -a "$sddm_conf" > /dev/null
+            fi
+        else
+            echo -e "[Theme]\nCurrent=$theme_name" | sudo tee "$sddm_conf" > /dev/null
+        fi
+
+        print_ok "SDDM configured to use $theme_name theme"
+    else
+        print_warn "Theme directory not found: $theme_src"
+    fi
+
+    # Enable SDDM service
+    print_info "Enabling SDDM service..."
+    if sudo systemctl enable sddm >> "$LOG_FILE" 2>&1; then
+        print_ok "SDDM service enabled"
+    else
+        print_warn "Failed to enable SDDM service"
+    fi
+
+    mark_done "setup_sddm"
+    log "SDDM configured"
+}
+
 setup_user_dirs() {
     section "Phase 10" "User Directories"
 
@@ -1326,12 +1410,21 @@ show_completion() {
     echo -e "   ${BOLD}Next Steps:${NC}"
     echo ""
     echo -e "   ${CYAN}1.${NC} Reboot the system"
-    echo -e "   ${CYAN}2.${NC} Login at TTY (no display manager configured)"
-    echo -e "   ${CYAN}3.${NC} Start desktop:  ${YELLOW}niri-session${NC}"
-    echo -e "   ${CYAN}4.${NC} Set wallpaper:  ${YELLOW}matugen image /path/to/wallpaper.jpg${NC}"
-    echo -e "   ${CYAN}5.${NC} Input method:   ${YELLOW}fcitx5-configtool${NC}"
-    echo ""
-    echo -e "   ${DIM}Note: No SDDM/GDM configured. Login via TTY then run 'niri-session'${NC}"
+
+    # Check if SDDM is enabled
+    if systemctl is-enabled sddm &>/dev/null; then
+        echo -e "   ${CYAN}2.${NC} SDDM will start automatically after reboot"
+        echo -e "   ${CYAN}3.${NC} Set wallpaper:  ${YELLOW}matugen image /path/to/wallpaper.jpg${NC}"
+        echo -e "   ${CYAN}4.${NC} Input method:   ${YELLOW}fcitx5-configtool${NC}"
+    else
+        echo -e "   ${CYAN}2.${NC} Login at TTY (no display manager configured)"
+        echo -e "   ${CYAN}3.${NC} Start desktop:  ${YELLOW}niri-session${NC}"
+        echo -e "   ${CYAN}4.${NC} Set wallpaper:  ${YELLOW}matugen image /path/to/wallpaper.jpg${NC}"
+        echo -e "   ${CYAN}5.${NC} Input method:   ${YELLOW}fcitx5-configtool${NC}"
+        echo ""
+        echo -e "   ${DIM}Note: No SDDM/GDM configured. Login via TTY then run 'niri-session'${NC}"
+    fi
+
     echo -e "   ${DIM}Log: $LOG_FILE${NC}"
     echo ""
 
@@ -1445,6 +1538,7 @@ main() {
     setup_matugen
     setup_theme
     enable_services
+    setup_sddm
 
     show_completion
 }
