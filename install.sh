@@ -1293,9 +1293,9 @@ setup_sddm() {
         return
     fi
 
-    # Install sddm package
-    print_info "Installing SDDM..."
-    if $AUR_HELPER -S --needed --noconfirm sddm >> "$LOG_FILE" 2>&1; then
+    # Install sddm package and Qt5 QML dependencies
+    print_info "Installing SDDM and dependencies..."
+    if $AUR_HELPER -S --needed --noconfirm sddm qt5-declarative qt5-quickcontrols qt5-quickcontrols2 qt5-graphicaleffects >> "$LOG_FILE" 2>&1; then
         print_ok "SDDM installed"
     else
         print_fail "Failed to install SDDM"

@@ -1445,7 +1445,9 @@ ShellRoot {
                                                     }
 
                                                     background: Rectangle {
-                                                        color: "transparent"
+                                                        color: modeCombo.hovered ? Theme.alpha(Theme.primary, 0.08) : "transparent"
+                                                        radius: Theme.radiusS
+                                                        Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                                     }
 
                                                     contentItem: Text {
@@ -1454,6 +1456,72 @@ ShellRoot {
                                                         color: Theme.textPrimary
                                                         verticalAlignment: Text.AlignVCenter
                                                         leftPadding: Theme.spacingS
+                                                        rightPadding: Theme.spacingXL
+                                                        elide: Text.ElideRight
+                                                    }
+
+                                                    indicator: Text {
+                                                        x: modeCombo.width - width - Theme.spacingS
+                                                        y: (modeCombo.height - height) / 2
+                                                        text: modeCombo.popup.visible ? "\ue5c7" : "\ue5c5"
+                                                        font.family: "Material Symbols Outlined"
+                                                        font.pixelSize: Theme.iconSizeS
+                                                        color: Theme.textMuted
+                                                    }
+
+                                                    popup: Popup {
+                                                        y: modeCombo.height + 4
+                                                        width: Math.max(modeCombo.width, 180)
+                                                        padding: Theme.spacingXS
+
+                                                        contentItem: ListView {
+                                                            id: popupListView
+                                                            implicitHeight: Math.min(contentHeight, 240)
+                                                            model: modeCombo.popup.visible ? modeCombo.delegateModel : null
+                                                            clip: true
+                                                            currentIndex: modeCombo.highlightedIndex
+                                                            ScrollBar.vertical: ScrollBar {
+                                                                active: true
+                                                                policy: popupListView.contentHeight > popupListView.height ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded
+                                                            }
+                                                        }
+
+                                                        background: Rectangle {
+                                                            color: Theme.surface
+                                                            radius: Theme.radiusM
+                                                            border.width: 1
+                                                            border.color: Theme.outline
+                                                        }
+
+                                                        enter: Transition {
+                                                            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.animFast }
+                                                            NumberAnimation { property: "scale"; from: 0.95; to: 1; duration: Theme.animFast }
+                                                        }
+                                                        exit: Transition {
+                                                            NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Theme.animFast }
+                                                        }
+                                                    }
+
+                                                    delegate: ItemDelegate {
+                                                        width: modeCombo.popup.width - Theme.spacingS
+                                                        height: 32
+                                                        highlighted: modeCombo.highlightedIndex === index
+
+                                                        contentItem: Text {
+                                                            text: modelData.text
+                                                            font.pixelSize: Theme.fontSizeS
+                                                            font.weight: modeCombo.currentIndex === index ? Font.Medium : Font.Normal
+                                                            color: modeCombo.currentIndex === index ? Theme.primary : Theme.textPrimary
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            leftPadding: Theme.spacingS
+                                                        }
+
+                                                        background: Rectangle {
+                                                            color: highlighted ? Theme.alpha(Theme.primary, 0.12) :
+                                                                   (modeCombo.currentIndex === index ? Theme.alpha(Theme.primary, 0.06) : "transparent")
+                                                            radius: Theme.radiusS
+                                                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                                        }
                                                     }
                                                 }
                                             }
