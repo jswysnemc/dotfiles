@@ -1293,9 +1293,9 @@ setup_sddm() {
         return
     fi
 
-    # Install sddm package and Qt5 QML dependencies
+    # Install sddm package, Qt5 QML dependencies, and Wayland compositor
     print_info "Installing SDDM and dependencies..."
-    if $AUR_HELPER -S --needed --noconfirm sddm qt5-declarative qt5-quickcontrols qt5-quickcontrols2 qt5-graphicaleffects >> "$LOG_FILE" 2>&1; then
+    if $AUR_HELPER -S --needed --noconfirm sddm qt5-declarative qt5-quickcontrols qt5-quickcontrols2 qt5-graphicaleffects kwin >> "$LOG_FILE" 2>&1; then
         print_ok "SDDM installed"
     else
         print_fail "Failed to install SDDM"
@@ -1326,22 +1326,26 @@ setup_sddm() {
 
         print_ok "Theme files copied to $theme_dst"
 
-        # Configure SDDM to use the theme
+        # Configure SDDM with Wayland compositor and theme
         local sddm_conf="/etc/sddm.conf"
-        print_info "Configuring SDDM..."
+        print_info "Configuring SDDM with Wayland compositor..."
 
+        # Backup existing config
         if [[ -f "$sddm_conf" ]]; then
             sudo cp "$sddm_conf" "${sddm_conf}.bak"
-            if grep -q "^\[Theme\]" "$sddm_conf"; then
-                sudo sed -i '/^\[Theme\]/,/^\[/ s/^Current=.*/Current='"$theme_name"'/' "$sddm_conf"
-            else
-                echo -e "\n[Theme]\nCurrent=$theme_name" | sudo tee -a "$sddm_conf" > /dev/null
-            fi
-        else
-            echo -e "[Theme]\nCurrent=$theme_name" | sudo tee "$sddm_conf" > /dev/null
         fi
 
-        print_ok "SDDM configured to use $theme_name theme"
+        # Write complete SDDM configuration (Wayland mode, no Xorg)
+        sudo tee "$sddm_conf" > /dev/null << EOF
+[General]
+DisplayServer=wayland
+CompositorCommand=kwin_wayland --no-lockscreen --no-global-shortcuts --locale1
+
+[Theme]
+Current=$theme_name
+EOF
+
+        print_ok "SDDM configured (Wayland mode, theme: $theme_name)"
     else
         print_warn "Theme directory not found: $theme_src"
     fi
