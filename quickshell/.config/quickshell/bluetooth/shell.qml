@@ -11,6 +11,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real panelOpacity: 0
+    property real panelScale: 0.95
+    property real panelY: 15
+
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -42,7 +47,75 @@ ShellRoot {
     property int connectAttempts: 5
     property int connectRetryIntervalMs: 2000
 
-    Component.onCompleted: refreshBluetooth()
+    Component.onCompleted: {
+        refreshBluetooth()
+        enterAnimation.start()
+    }
+
+    // ============ 入场动画 ============
+    ParallelAnimation {
+        id: enterAnimation
+
+        NumberAnimation {
+            target: root
+            property: "panelOpacity"
+            from: 0; to: 1
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelScale"
+            from: 0.95; to: 1.0
+            duration: 300
+            easing.type: Easing.OutBack
+            easing.overshoot: 0.8
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelY"
+            from: 15; to: 0
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    // ============ 退场动画 ============
+    ParallelAnimation {
+        id: exitAnimation
+
+        NumberAnimation {
+            target: root
+            property: "panelOpacity"
+            to: 0
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelScale"
+            to: 0.95
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelY"
+            to: -10
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
+    }
 
     function refreshBluetooth() {
         btStatusProc.running = true
@@ -404,7 +477,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
         }
     }
@@ -433,11 +506,11 @@ ShellRoot {
             implicitHeight: Math.min(720, panelRect.implicitHeight)
 
 
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
 
             Rectangle {
@@ -448,6 +521,11 @@ ShellRoot {
                 border.color: Theme.outline
                 border.width: 1
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
+
+                // 动画属性
+                opacity: root.panelOpacity
+                scale: root.panelScale
+                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -472,12 +550,15 @@ ShellRoot {
                         Rectangle {
                             width: 44; height: 24; radius: 12
                             color: root.btEnabled ? Theme.primary : Theme.surfaceVariant
+
+                            Behavior on color { ColorAnimation { duration: 200 } }
+
                             Rectangle {
                                 width: 18; height: 18; radius: 9
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: root.btEnabled ? parent.width - width - 3 : 3
                                 color: Theme.textPrimary
-                                Behavior on x { NumberAnimation { duration: 150 } }
+                                Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.0 } }
                             }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleBluetooth(!root.btEnabled) }
                         }
@@ -487,14 +568,25 @@ ShellRoot {
                             width: 48; height: 28; radius: Theme.radiusS
                             color: root.btDiscoverable ? Theme.alpha(Theme.primary, 0.2) : "transparent"
                             border.color: root.btDiscoverable ? Theme.primary : Theme.outline
+                            scale: discoverMa.pressed ? 0.95 : 1.0
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+
                             Text { anchors.centerIn: parent; text: "可见"; font.pixelSize: Theme.fontSizeXS; color: root.btDiscoverable ? Theme.primary : Theme.textSecondary }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; enabled: root.btEnabled; onClicked: root.toggleDiscoverable(!root.btDiscoverable) }
+                            MouseArea { id: discoverMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; enabled: root.btEnabled; onClicked: root.toggleDiscoverable(!root.btDiscoverable) }
                         }
 
                         // Scan
                         Rectangle {
                             width: 32; height: 32; radius: Theme.radiusM
                             color: scanMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                            scale: scanMa.pressed ? 0.9 : (scanMa.containsMouse ? 1.05 : 1.0)
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+
                             Text {
                                 anchors.centerIn: parent; text: "\uf021"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeM; color: Theme.textSecondary
                                 RotationAnimation on rotation { running: root.btScanning; from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
@@ -506,8 +598,13 @@ ShellRoot {
                         Rectangle {
                             width: 32; height: 32; radius: Theme.radiusM
                             color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                            scale: closeMa.pressed ? 0.9 : (closeMa.containsMouse ? 1.05 : 1.0)
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+
                             Text { anchors.centerIn: parent; text: "\uf00d"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeM; color: Theme.textSecondary }
-                            MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.quit() }
+                            MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWithAnimation() }
                         }
                     }
 

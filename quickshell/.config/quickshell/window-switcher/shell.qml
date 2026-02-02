@@ -9,6 +9,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real panelOpacity: 0
+    property real panelScale: 0.95
+    property real panelY: 15
+
     // Grid config
     readonly property int cardWidth: 280
     readonly property int cardHeight: 180
@@ -269,7 +274,30 @@ ShellRoot {
         }
     }
 
-    Component.onCompleted: loadWindows.running = true
+    Component.onCompleted: {
+        loadWindows.running = true
+        enterAnimation.start()
+    }
+
+    // ============ Animations ============
+    ParallelAnimation {
+        id: enterAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; from: 0; to: 1; duration: 250; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "panelScale"; from: 0.95; to: 1.0; duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+        NumberAnimation { target: root; property: "panelY"; from: 15; to: 0; duration: 250; easing.type: Easing.OutCubic }
+    }
+
+    ParallelAnimation {
+        id: exitAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; to: 0; duration: 150; easing.type: Easing.InCubic }
+        NumberAnimation { target: root; property: "panelScale"; to: 0.95; duration: 150; easing.type: Easing.InCubic }
+        NumberAnimation { target: root; property: "panelY"; to: -10; duration: 150; easing.type: Easing.InCubic }
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
+    }
 
     // UI
     Variants {
@@ -291,7 +319,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
         }
     }
@@ -315,7 +343,7 @@ ShellRoot {
             anchors.right: true
 
             // Keyboard shortcuts
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
             Shortcut { sequence: "Return"; onActivated: root.focusSelected() }
             Shortcut { sequence: "Enter"; onActivated: root.focusSelected() }
             Shortcut { sequence: "Ctrl+D"; onActivated: root.closeSelected() }
@@ -336,7 +364,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
 
             // Main container
@@ -349,6 +377,10 @@ ShellRoot {
                 radius: Theme.radiusXL
                 border.color: Theme.outline
                 border.width: 1
+
+                opacity: root.panelOpacity
+                scale: root.panelScale
+                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -417,7 +449,7 @@ ShellRoot {
                                             event.accepted = true
                                             break
                                         case Qt.Key_Escape:
-                                            Qt.quit()
+                                            root.closeWithAnimation()
                                             event.accepted = true
                                             break
                                     }

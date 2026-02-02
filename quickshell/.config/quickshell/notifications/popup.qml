@@ -8,6 +8,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real notifOpacity: 0
+    property real notifX: 30
+    property real notifScale: 0.98
+
     function getAppIcon(appName) {
         if (!appName) return "\uf0f3"
         var name = appName.toLowerCase()
@@ -53,6 +58,8 @@ ShellRoot {
             try {
                 root.currentNotif = JSON.parse(data)
                 root.visible = true
+                // 启动入场动画
+                enterAnimation.start()
                 hideTimer.start()
             } catch (e) {}
         } else {
@@ -60,10 +67,70 @@ ShellRoot {
         }
     }
 
+    // ============ 入场动画 (从右滑入，快速) ============
+    ParallelAnimation {
+        id: enterAnimation
+
+        NumberAnimation {
+            target: root
+            property: "notifOpacity"
+            from: 0; to: 1
+            duration: 80
+        }
+
+        NumberAnimation {
+            target: root
+            property: "notifX"
+            from: 30; to: 0
+            duration: 100
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "notifScale"
+            from: 0.98; to: 1.0
+            duration: 80
+        }
+    }
+
+    // ============ 退场动画 (滑出) ============
+    ParallelAnimation {
+        id: exitAnimation
+
+        NumberAnimation {
+            target: root
+            property: "notifOpacity"
+            to: 0
+            duration: 60
+        }
+
+        NumberAnimation {
+            target: root
+            property: "notifX"
+            to: 20
+            duration: 60
+        }
+
+        NumberAnimation {
+            target: root
+            property: "notifScale"
+            to: 0.98
+            duration: 60
+        }
+
+        onFinished: Qt.quit()
+    }
+
+    function dismissWithAnimation() {
+        hideTimer.stop()
+        exitAnimation.start()
+    }
+
     Timer {
         id: hideTimer
         interval: 4000
-        onTriggered: Qt.quit()
+        onTriggered: root.dismissWithAnimation()
     }
 
     function invokeAction(actionId) {
@@ -109,6 +176,11 @@ ShellRoot {
                 border.color: Theme.outline
                 border.width: 1
 
+                // 动画属性
+                opacity: root.notifOpacity
+                scale: root.notifScale
+                transform: Translate { x: root.notifX }
+
                 MouseArea {
                     anchors.fill: parent
                     hoverEnabled: true
@@ -124,7 +196,7 @@ ShellRoot {
                                 root.invokeAction(actions[0].id)
                             }
                         } else {
-                            Qt.quit()
+                            root.dismissWithAnimation()
                         }
                     }
                 }
@@ -213,6 +285,10 @@ ShellRoot {
                             height: 24
                             radius: 12
                             color: closeHover.hovered ? Theme.alpha(Theme.error, 0.1) : "transparent"
+                            scale: closeTap.pressed ? 0.9 : (closeHover.hovered ? 1.1 : 1.0)
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
                             Text {
                                 anchors.centerIn: parent
@@ -220,10 +296,12 @@ ShellRoot {
                                 font.family: "Symbols Nerd Font Mono"
                                 font.pixelSize: 12
                                 color: closeHover.hovered ? Theme.error : Theme.textMuted
+
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
                             }
 
                             HoverHandler { id: closeHover }
-                            TapHandler { onTapped: Qt.quit() }
+                            TapHandler { id: closeTap; onTapped: root.dismissWithAnimation() }
                         }
                     }
 
@@ -245,8 +323,25 @@ ShellRoot {
                                 Layout.preferredWidth: Math.max(actionLabel.implicitWidth + Theme.spacingM * 2, 60)
                                 radius: Theme.radiusS
                                 color: actionBtnHover.hovered ? Theme.alpha(Theme.primary, 0.15) : Theme.alpha(Theme.primary, 0.08)
+                                scale: actionBtnTap.pressed ? 0.95 : (actionBtnHover.hovered ? 1.03 : 1.0)
+
+                                // 快速入场
+                                opacity: 0
+                                Component.onCompleted: actionEnterAnim.start()
+
+                                SequentialAnimation {
+                                    id: actionEnterAnim
+                                    PauseAnimation { duration: 50 + actionBtn.index * 20 }
+                                    NumberAnimation {
+                                        target: actionBtn
+                                        property: "opacity"
+                                        to: 1
+                                        duration: 60
+                                    }
+                                }
 
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
                                 Text {
                                     id: actionLabel
@@ -259,6 +354,7 @@ ShellRoot {
 
                                 HoverHandler { id: actionBtnHover }
                                 TapHandler {
+                                    id: actionBtnTap
                                     onTapped: root.invokeAction(actionBtn.modelData.id)
                                 }
                             }

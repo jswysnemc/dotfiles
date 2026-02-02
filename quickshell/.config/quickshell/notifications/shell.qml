@@ -9,6 +9,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real panelOpacity: 0
+    property real panelScale: 0.98
+    property real panelY: 8
+
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -25,10 +30,35 @@ ShellRoot {
     // State
     property var notifications: []
     property bool dndMode: false
+    property bool clearingAll: false
     readonly property string socketPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/qs-notifications.sock"
 
     // Load history on start
-    Component.onCompleted: loadHistory()
+    Component.onCompleted: {
+        loadHistory()
+        enterAnimation.start()
+    }
+
+    // ============ 入场动画 ============
+    ParallelAnimation {
+        id: enterAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; from: 0; to: 1; duration: 80 }
+        NumberAnimation { target: root; property: "panelScale"; from: 0.98; to: 1.0; duration: 80 }
+        NumberAnimation { target: root; property: "panelY"; from: 8; to: 0; duration: 80 }
+    }
+
+    // ============ 退场动画 ============
+    ParallelAnimation {
+        id: exitAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; to: 0; duration: 60 }
+        NumberAnimation { target: root; property: "panelScale"; to: 0.98; duration: 60 }
+        NumberAnimation { target: root; property: "panelY"; to: -4; duration: 60 }
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
+    }
 
     Process {
         id: cmdProcess
@@ -64,8 +94,20 @@ ShellRoot {
     }
 
     function clearAll() {
+        clearingAll = true
+        clearAllTimer.start()
+    }
+
+    function doClearAll() {
         notifications = []
         sendCmd({cmd: "clear_history"})
+        clearingAll = false
+    }
+
+    Timer {
+        id: clearAllTimer
+        interval: 150
+        onTriggered: root.doClearAll()
     }
 
     function deleteNotif(id) {
@@ -113,7 +155,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
         }
     }
@@ -143,7 +185,7 @@ ShellRoot {
             implicitHeight: 550
 
 
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
 
             Rectangle {
                 id: mainContainer
@@ -152,6 +194,11 @@ ShellRoot {
                 radius: Theme.radiusXL
                 border.color: Theme.outline
                 border.width: 1
+
+                // 动画属性
+                opacity: root.panelOpacity
+                scale: root.panelScale
+                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -242,7 +289,7 @@ ShellRoot {
                             }
 
                             HoverHandler { id: closeHover }
-                            TapHandler { onTapped: Qt.quit() }
+                            TapHandler { onTapped: root.closeWithAnimation() }
                         }
                     }
 
@@ -299,6 +346,34 @@ ShellRoot {
                                     color: itemHover.hovered ? Theme.surfaceVariant : Theme.surface
                                     border.color: Theme.outline
                                     border.width: 1
+
+                                    // 入场动画
+                                    opacity: 0
+                                    transform: Translate { id: notifTranslate; x: 0 }
+
+                                    Component.onCompleted: notifEnterAnim.start()
+
+                                    ParallelAnimation {
+                                        id: notifEnterAnim
+                                        PauseAnimation { duration: 30 + notifItem.index * 15 }
+                                        NumberAnimation { target: notifItem; property: "opacity"; to: 1; duration: 80 }
+                                    }
+
+                                    // 删除动画
+                                    ParallelAnimation {
+                                        id: notifDeleteAnim
+                                        NumberAnimation { target: notifItem; property: "opacity"; to: 0; duration: 100 }
+                                        NumberAnimation { target: notifTranslate; property: "x"; to: 50; duration: 100; easing.type: Easing.InCubic }
+                                        onFinished: root.deleteNotif(notifItem.modelData.id)
+                                    }
+
+                                    // 清除全部动画
+                                    ParallelAnimation {
+                                        id: clearAllAnim
+                                        running: root.clearingAll
+                                        NumberAnimation { target: notifItem; property: "opacity"; to: 0; duration: 120 }
+                                        NumberAnimation { target: notifTranslate; property: "x"; to: 80; duration: 120; easing.type: Easing.InCubic }
+                                    }
 
                                     Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
@@ -421,22 +496,34 @@ ShellRoot {
 
                                         // Delete button
                                         Rectangle {
+                                            id: delBtn
                                             Layout.preferredWidth: 24
                                             Layout.preferredHeight: 24
                                             Layout.alignment: Qt.AlignTop
                                             radius: 12
-                                            color: delHover.hovered ? Theme.alpha(Theme.error, 0.15) : "transparent"
+                                            color: delMa.containsMouse ? Theme.alpha(Theme.error, 0.15) : "transparent"
+                                            scale: delMa.pressed ? 0.9 : 1.0
+
+                                            Behavior on scale { NumberAnimation { duration: 50 } }
 
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: "\uf00d"
                                                 font.family: "Symbols Nerd Font Mono"
                                                 font.pixelSize: 12
-                                                color: delHover.hovered ? Theme.error : Theme.textMuted
+                                                color: delMa.containsMouse ? Theme.error : Theme.textMuted
                                             }
 
-                                            HoverHandler { id: delHover }
-                                            TapHandler { onTapped: root.deleteNotif(notifItem.modelData.id) }
+                                            MouseArea {
+                                                id: delMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: function(mouse) {
+                                                    mouse.accepted = true
+                                                    notifDeleteAnim.start()
+                                                }
+                                            }
                                         }
                                     }
                                 }

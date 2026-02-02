@@ -9,6 +9,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real panelOpacity: 0
+    property real panelScale: 0.95
+    property real panelY: 15
+
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "center"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -234,7 +239,7 @@ ShellRoot {
     function selectItem(item) {
         copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy"]
         copyProcess.running = true
-        Qt.quit()
+        root.closeWithAnimation()
     }
 
     function deleteItem(item) {
@@ -259,6 +264,27 @@ ShellRoot {
     Component.onCompleted: {
         loading = true
         loadClipboard.running = true
+        enterAnimation.start()
+    }
+
+    // ============ Animations ============
+    ParallelAnimation {
+        id: enterAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; from: 0; to: 1; duration: 20 }
+        NumberAnimation { target: root; property: "panelScale"; from: 0.98; to: 1.0; duration: 20 }
+        NumberAnimation { target: root; property: "panelY"; from: 4; to: 0; duration: 20 }
+    }
+
+    ParallelAnimation {
+        id: exitAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; to: 0; duration: 20 }
+        NumberAnimation { target: root; property: "panelScale"; to: 0.98; duration: 20 }
+        NumberAnimation { target: root; property: "panelY"; to: -4; duration: 20 }
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
     }
 
     // ============ UI ============
@@ -280,7 +306,7 @@ ShellRoot {
             anchors.right: true
 
 
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
             Shortcut { sequence: "Return"; onActivated: root.selectCurrent() }
             Shortcut { sequence: "Enter"; onActivated: root.selectCurrent() }
             Shortcut {
@@ -296,7 +322,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
 
             Rectangle {
@@ -317,6 +343,10 @@ ShellRoot {
                 radius: Theme.radiusXL
                 border.color: Theme.outline
                 border.width: 1
+
+                opacity: root.panelOpacity
+                scale: root.panelScale
+                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -387,7 +417,7 @@ ShellRoot {
                             }
 
                             HoverHandler { id: closeHover }
-                            TapHandler { onTapped: Qt.quit() }
+                            TapHandler { onTapped: root.closeWithAnimation() }
                         }
                     }
 

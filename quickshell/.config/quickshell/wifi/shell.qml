@@ -9,6 +9,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real panelOpacity: 0
+    property real panelScale: 0.95
+    property real panelY: 15
+
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -111,6 +116,72 @@ ShellRoot {
 
     Component.onCompleted: {
         loadCache()
+        enterAnimation.start()
+    }
+
+    // ============ 入场动画 ============
+    ParallelAnimation {
+        id: enterAnimation
+
+        NumberAnimation {
+            target: root
+            property: "panelOpacity"
+            from: 0; to: 1
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelScale"
+            from: 0.95; to: 1.0
+            duration: 300
+            easing.type: Easing.OutBack
+            easing.overshoot: 0.8
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelY"
+            from: 15; to: 0
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    // ============ 退场动画 ============
+    ParallelAnimation {
+        id: exitAnimation
+
+        NumberAnimation {
+            target: root
+            property: "panelOpacity"
+            to: 0
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelScale"
+            to: 0.95
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelY"
+            to: -10
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
     }
 
     // ============ WiFi Processes ============
@@ -509,7 +580,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
         }
     }
@@ -539,11 +610,11 @@ ShellRoot {
             implicitHeight: Math.min(720, panelRect.implicitHeight)
 
 
-            Shortcut { sequence: "Escape"; onActivated: { root.showPasswordDialog = false; root.showInfoDialog = false; Qt.quit() } }
+            Shortcut { sequence: "Escape"; onActivated: { root.showPasswordDialog = false; root.showInfoDialog = false; root.closeWithAnimation() } }
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
 
             Rectangle {
@@ -554,6 +625,11 @@ ShellRoot {
                 border.color: Theme.outline
                 border.width: 1
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
+
+                // 动画属性
+                opacity: root.panelOpacity
+                scale: root.panelScale
+                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -578,12 +654,15 @@ ShellRoot {
                         Rectangle {
                             width: 44; height: 24; radius: 12
                             color: root.wifiEnabled ? Theme.primary : Theme.surfaceVariant
+
+                            Behavior on color { ColorAnimation { duration: 200 } }
+
                             Rectangle {
                                 width: 18; height: 18; radius: 9
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: root.wifiEnabled ? parent.width - width - 3 : 3
                                 color: Theme.textPrimary
-                                Behavior on x { NumberAnimation { duration: 150 } }
+                                Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.0 } }
                             }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleWifi(!root.wifiEnabled) }
                         }
@@ -592,6 +671,11 @@ ShellRoot {
                         Rectangle {
                             width: 32; height: 32; radius: Theme.radiusM
                             color: refreshMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                            scale: refreshMa.pressed ? 0.9 : (refreshMa.containsMouse ? 1.05 : 1.0)
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+
                             Text {
                                 anchors.centerIn: parent; text: "\uf021"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeM; color: Theme.textSecondary
                                 RotationAnimation on rotation { running: root.wifiScanning; from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
@@ -603,8 +687,13 @@ ShellRoot {
                         Rectangle {
                             width: 32; height: 32; radius: Theme.radiusM
                             color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                            scale: closeMa.pressed ? 0.9 : (closeMa.containsMouse ? 1.05 : 1.0)
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+
                             Text { anchors.centerIn: parent; text: "\uf00d"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeM; color: Theme.textSecondary }
-                            MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.quit() }
+                            MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWithAnimation() }
                         }
                     }
 
@@ -622,6 +711,11 @@ ShellRoot {
                                 radius: Theme.radiusM
                                 color: root.currentTab === modelData.idx ? Theme.primary : Theme.surface
                                 border.color: root.currentTab === modelData.idx ? Theme.primary : Theme.outline
+                                scale: tabMa.pressed ? 0.97 : 1.0
+
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
                                 Text {
                                     anchors.centerIn: parent
@@ -629,8 +723,10 @@ ShellRoot {
                                     font.pixelSize: Theme.fontSizeM
                                     font.weight: root.currentTab === modelData.idx ? Font.Bold : Font.Medium
                                     color: root.currentTab === modelData.idx ? Theme.background : Theme.textSecondary
+
+                                    Behavior on color { ColorAnimation { duration: 150 } }
                                 }
-                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.currentTab = modelData.idx }
+                                MouseArea { id: tabMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.currentTab = modelData.idx }
                             }
                         }
                     }

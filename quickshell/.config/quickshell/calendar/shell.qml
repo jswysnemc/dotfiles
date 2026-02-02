@@ -9,6 +9,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real panelOpacity: 0
+    property real panelScale: 0.95
+    property real panelY: 15
+
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -328,6 +333,72 @@ ShellRoot {
     Component.onCompleted: {
         setCurrentMonth(currentYear, currentMonth)
         loadTodayInfo()
+        enterAnimation.start()
+    }
+
+    // ============ 入场动画 ============
+    ParallelAnimation {
+        id: enterAnimation
+
+        NumberAnimation {
+            target: root
+            property: "panelOpacity"
+            from: 0; to: 1
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelScale"
+            from: 0.95; to: 1.0
+            duration: 300
+            easing.type: Easing.OutBack
+            easing.overshoot: 0.8
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelY"
+            from: 15; to: 0
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    // ============ 退场动画 ============
+    ParallelAnimation {
+        id: exitAnimation
+
+        NumberAnimation {
+            target: root
+            property: "panelOpacity"
+            to: 0
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelScale"
+            to: 0.95
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "panelY"
+            to: -10
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
     }
 
     // ============ UI ============
@@ -351,7 +422,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
         }
     }
@@ -381,11 +452,11 @@ ShellRoot {
             implicitHeight: panelRect.implicitHeight
 
 
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
 
             Rectangle {
@@ -396,6 +467,11 @@ ShellRoot {
                 border.color: Theme.outline
                 border.width: 1
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
+
+                // 动画属性
+                opacity: root.panelOpacity
+                scale: root.panelScale
+                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -512,7 +588,7 @@ ShellRoot {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: Qt.quit()
+                                    onClicked: root.closeWithAnimation()
                                 }
                             }
                         }

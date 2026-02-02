@@ -9,6 +9,11 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real panelOpacity: 0
+    property real panelScale: 0.95
+    property real panelY: 15
+
     Process {
         id: closeProcess
         command: ["niri", "msg", "action", "close-window"]
@@ -17,6 +22,30 @@ ShellRoot {
 
     function confirmClose() {
         closeProcess.running = true
+    }
+
+    Component.onCompleted: {
+        enterAnimation.start()
+    }
+
+    // ============ Animations ============
+    ParallelAnimation {
+        id: enterAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; from: 0; to: 1; duration: 250; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "panelScale"; from: 0.95; to: 1.0; duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+        NumberAnimation { target: root; property: "panelY"; from: 15; to: 0; duration: 250; easing.type: Easing.OutCubic }
+    }
+
+    ParallelAnimation {
+        id: exitAnimation
+        NumberAnimation { target: root; property: "panelOpacity"; to: 0; duration: 150; easing.type: Easing.InCubic }
+        NumberAnimation { target: root; property: "panelScale"; to: 0.95; duration: 150; easing.type: Easing.InCubic }
+        NumberAnimation { target: root; property: "panelY"; to: -10; duration: 150; easing.type: Easing.InCubic }
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
     }
 
     // Background overlay
@@ -39,7 +68,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
         }
     }
@@ -63,14 +92,14 @@ ShellRoot {
             anchors.left: true
             anchors.right: true
 
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
             Shortcut { sequence: "Return"; onActivated: root.confirmClose() }
             Shortcut { sequence: "y"; onActivated: root.confirmClose() }
-            Shortcut { sequence: "n"; onActivated: Qt.quit() }
+            Shortcut { sequence: "n"; onActivated: root.closeWithAnimation() }
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
 
             Rectangle {
@@ -82,6 +111,10 @@ ShellRoot {
                 radius: Theme.radiusXL
                 border.color: Theme.outline
                 border.width: 1
+
+                opacity: root.panelOpacity
+                scale: root.panelScale
+                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -149,7 +182,7 @@ ShellRoot {
                             }
 
                             HoverHandler { id: cancelHover }
-                            TapHandler { onTapped: Qt.quit() }
+                            TapHandler { onTapped: root.closeWithAnimation() }
                         }
 
                         Rectangle {

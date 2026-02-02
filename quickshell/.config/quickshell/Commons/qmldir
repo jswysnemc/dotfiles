@@ -1,0 +1,8 @@
+module Commons
+
+AnimatedPopup 1.0 AnimatedPopup.qml
+AnimatedListItem 1.0 AnimatedListItem.qml
+AnimatedButton 1.0 AnimatedButton.qml
+AnimatedToggle 1.0 AnimatedToggle.qml
+LoadingSpinner 1.0 LoadingSpinner.qml
+SlideNotification 1.0 SlideNotification.qml

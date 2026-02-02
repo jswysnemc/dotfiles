@@ -9,6 +9,12 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property bool animationReady: false
+    property real containerOpacity: 0
+    property real containerScale: 0.92
+    property real containerY: 20
+
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "center"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 0
@@ -293,6 +299,67 @@ ShellRoot {
 
     Component.onCompleted: {
         loadCache.running = true
+        enterAnimation.start()
+    }
+
+    // ============ 入场动画 ============
+    ParallelAnimation {
+        id: enterAnimation
+
+        NumberAnimation {
+            target: root
+            property: "containerOpacity"
+            from: 0; to: 1
+            duration: 20
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerScale"
+            from: 0.98; to: 1.0
+            duration: 20
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerY"
+            from: 4; to: 0
+            duration: 20
+        }
+
+        onFinished: root.animationReady = true
+    }
+
+    // ============ 退场动画 ============
+    ParallelAnimation {
+        id: exitAnimation
+
+        NumberAnimation {
+            target: root
+            property: "containerOpacity"
+            to: 0
+            duration: 20
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerScale"
+            to: 0.98
+            duration: 20
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerY"
+            to: -4
+            duration: 20
+        }
+
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
     }
 
     // ============ UI ============
@@ -315,7 +382,7 @@ ShellRoot {
 
 
             // Keyboard
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
             Shortcut { sequence: "Return"; onActivated: root.launchSelected() }
             Shortcut { sequence: "Enter"; onActivated: root.launchSelected() }
             Shortcut { sequence: "Tab"; onActivated: root.nextCategory() }
@@ -329,7 +396,7 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: Qt.quit()
+                onClicked: root.closeWithAnimation()
             }
 
             // Main container
@@ -352,8 +419,13 @@ ShellRoot {
                 border.color: Theme.outline
                 border.width: 1
 
-                Behavior on width { NumberAnimation { duration: Theme.animNormal } }
-                Behavior on height { NumberAnimation { duration: Theme.animNormal } }
+                // 动画属性
+                opacity: root.containerOpacity
+                scale: root.containerScale
+                transform: Translate { y: root.containerY }
+
+                Behavior on width { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
+                Behavior on height { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
 
                 MouseArea {
                     anchors.fill: parent
@@ -379,6 +451,9 @@ ShellRoot {
                             color: Theme.surface
                             border.color: searchInput.activeFocus ? Theme.primary : Theme.outline
                             border.width: searchInput.activeFocus ? 2 : 1
+
+                            Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on border.width { NumberAnimation { duration: Theme.animFast } }
 
                             RowLayout {
                                 anchors.fill: parent
@@ -427,7 +502,7 @@ ShellRoot {
                                                 event.accepted = true
                                                 break
                                             case Qt.Key_Escape:
-                                                Qt.quit()
+                                                root.closeWithAnimation()
                                                 event.accepted = true
                                                 break
                                             case Qt.Key_Tab:
@@ -466,6 +541,10 @@ ShellRoot {
                             color: sizeHover.hovered ? Theme.alpha(Theme.textPrimary, 0.08) : Theme.surface
                             border.color: Theme.outline
                             border.width: 1
+                            scale: sizeHover.hovered ? 1.05 : 1.0
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 
                             Text {
                                 anchors.centerIn: parent
@@ -473,6 +552,15 @@ ShellRoot {
                                 font.family: "Symbols Nerd Font Mono"
                                 font.pixelSize: 16
                                 color: Theme.textSecondary
+
+                                // 图标切换动画
+                                Behavior on text {
+                                    SequentialAnimation {
+                                        NumberAnimation { target: parent; property: "scale"; to: 0.8; duration: 80 }
+                                        PropertyAction { }
+                                        NumberAnimation { target: parent; property: "scale"; to: 1.0; duration: 120; easing.type: Easing.OutBack }
+                                    }
+                                }
                             }
 
                             HoverHandler { id: sizeHover }
@@ -508,8 +596,10 @@ ShellRoot {
                                     color: root.selectedCategory === modelData.id
                                         ? Theme.primary
                                         : (catHover.hovered ? Theme.alpha(Theme.textPrimary, 0.08) : "transparent")
+                                    scale: catHover.hovered ? 1.05 : 1.0
 
                                     Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                    Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 
                                     HoverHandler { id: catHover }
                                     TapHandler { onTapped: root.selectedCategory = catBtn.modelData.id }
@@ -525,6 +615,8 @@ ShellRoot {
                                             font.pixelSize: 12
                                             color: root.selectedCategory === catBtn.modelData.id
                                                 ? "white" : Theme.textSecondary
+
+                                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                         }
 
                                         Text {
@@ -532,6 +624,8 @@ ShellRoot {
                                             font.pixelSize: Theme.fontSizeS
                                             color: root.selectedCategory === catBtn.modelData.id
                                                 ? "white" : Theme.textSecondary
+
+                                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                         }
                                     }
                                 }
@@ -598,10 +692,30 @@ ShellRoot {
                                         ? Theme.alpha(Theme.primary, 0.15)
                                         : (appHover.hovered ? Theme.alpha(Theme.textPrimary, 0.08) : "transparent")
 
+                                    // 图标立即显示
+                                    opacity: 1
+                                    scale: 1.0
+
                                     Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
+                                    // 悬停缩放效果
+                                    property real hoverScale: appHover.hovered && index !== root.selectedIndex ? 1.05 : 1.0
+                                    Behavior on hoverScale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+
                                     HoverHandler { id: appHover }
-                                    TapHandler { onTapped: root.launchApp(appItem.modelData) }
+                                    TapHandler {
+                                        onTapped: {
+                                            // 点击弹跳动画
+                                            clickBounce.start()
+                                            root.launchApp(appItem.modelData)
+                                        }
+                                    }
+
+                                    SequentialAnimation {
+                                        id: clickBounce
+                                        NumberAnimation { target: appItem; property: "scale"; to: 0.92; duration: 50; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: appItem; property: "scale"; to: 1.0; duration: 80; easing.type: Easing.OutCubic }
+                                    }
 
                                     ColumnLayout {
                                         anchors.fill: parent
@@ -612,6 +726,7 @@ ShellRoot {
                                             Layout.alignment: Qt.AlignHCenter
                                             width: root.iconSize
                                             height: root.iconSize
+                                            scale: appItem.hoverScale
 
                                             Image {
                                                 id: iconImg
@@ -622,6 +737,10 @@ ShellRoot {
                                                 asynchronous: true
                                                 cache: true
                                                 visible: status === Image.Ready
+
+                                                // 图标加载淡入
+                                                opacity: status === Image.Ready ? 1 : 0
+                                                Behavior on opacity { NumberAnimation { duration: 200 } }
                                             }
 
                                             Rectangle {
@@ -652,6 +771,7 @@ ShellRoot {
                                         }
                                     }
 
+                                    // 选中边框
                                     Rectangle {
                                         visible: appItem.index === root.selectedIndex
                                         anchors.fill: parent
@@ -659,6 +779,15 @@ ShellRoot {
                                         color: "transparent"
                                         border.color: Theme.primary
                                         border.width: 2
+
+                                        // 选中时的脉冲效果 (更快更微妙)
+                                        opacity: 1
+                                        SequentialAnimation on opacity {
+                                            running: appItem.index === root.selectedIndex
+                                            loops: Animation.Infinite
+                                            NumberAnimation { to: 0.7; duration: 500; easing.type: Easing.InOutSine }
+                                            NumberAnimation { to: 1.0; duration: 500; easing.type: Easing.InOutSine }
+                                        }
                                     }
                                 }
                             }

@@ -9,6 +9,12 @@ import "./Theme.js" as Theme
 ShellRoot {
     id: root
 
+    // ============ Animation State ============
+    property real bgOpacity: 0
+    property real containerOpacity: 0
+    property real containerScale: 0.85
+    property real containerY: 25
+
     // Position from environment
     property string posEnv: Quickshell.env("QS_POS") || "center"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 0
@@ -52,6 +58,89 @@ ShellRoot {
                 }
             }
         }
+        // 启动入场动画
+        enterAnimation.start()
+    }
+
+    // ============ 入场动画 ============
+    ParallelAnimation {
+        id: enterAnimation
+
+        NumberAnimation {
+            target: root
+            property: "bgOpacity"
+            from: 0; to: 1
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerOpacity"
+            from: 0; to: 1
+            duration: 300
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerScale"
+            from: 0.85; to: 1.0
+            duration: 350
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.2
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerY"
+            from: 25; to: 0
+            duration: 300
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    // ============ 退场动画 ============
+    ParallelAnimation {
+        id: exitAnimation
+
+        NumberAnimation {
+            target: root
+            property: "bgOpacity"
+            to: 0
+            duration: 180
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerOpacity"
+            to: 0
+            duration: 150
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerScale"
+            to: 0.9
+            duration: 180
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: root
+            property: "containerY"
+            to: -15
+            duration: 180
+            easing.type: Easing.InCubic
+        }
+
+        onFinished: Qt.quit()
+    }
+
+    function closeWithAnimation() {
+        exitAnimation.start()
     }
 
     Process {
@@ -117,7 +206,7 @@ ShellRoot {
             required property ShellScreen modelData
             screen: modelData
 
-            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.3)
+            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.3 * root.bgOpacity)
             WlrLayershell.namespace: "qs-power-menu-bg"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -133,7 +222,7 @@ ShellRoot {
                     if (root.confirmMode) {
                         root.cancelConfirm()
                     } else {
-                        Qt.quit()
+                        root.closeWithAnimation()
                     }
                 }
             }
@@ -158,7 +247,7 @@ ShellRoot {
             anchors.left: true
             anchors.right: true
 
-            Shortcut { sequence: "Escape"; onActivated: root.confirmMode ? root.cancelConfirm() : Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.confirmMode ? root.cancelConfirm() : root.closeWithAnimation() }
             Shortcut { sequence: "Left"; onActivated: root.moveLeft() }
             Shortcut { sequence: "Right"; onActivated: root.moveRight() }
             Shortcut { sequence: "h"; onActivated: root.moveLeft() }
@@ -173,7 +262,7 @@ ShellRoot {
                     if (root.confirmMode) {
                         root.cancelConfirm()
                     } else {
-                        Qt.quit()
+                        root.closeWithAnimation()
                     }
                 }
             }
@@ -187,6 +276,11 @@ ShellRoot {
                 radius: Theme.radiusXL
                 border.color: Theme.outline
                 border.width: 1
+
+                // 动画属性
+                opacity: root.containerOpacity
+                scale: root.containerScale
+                transform: Translate { y: root.containerY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -213,6 +307,12 @@ ShellRoot {
                         Layout.alignment: Qt.AlignHCenter
                         spacing: Theme.spacingM
 
+                        // 确认对话框入场动画
+                        opacity: root.confirmMode ? 1 : 0
+                        scale: root.confirmMode ? 1 : 0.9
+                        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                        Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+
                         Text {
                             Layout.alignment: Qt.AlignHCenter
                             text: {
@@ -234,6 +334,10 @@ ShellRoot {
                                 color: cancelHover.hovered ? Theme.surfaceVariant : Theme.surface
                                 border.color: Theme.outline
                                 border.width: 1
+                                scale: cancelTap.pressed ? 0.95 : (cancelHover.hovered ? 1.03 : 1.0)
+
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
                                 Text {
                                     anchors.centerIn: parent
@@ -243,7 +347,7 @@ ShellRoot {
                                 }
 
                                 HoverHandler { id: cancelHover }
-                                TapHandler { onTapped: root.cancelConfirm() }
+                                TapHandler { id: cancelTap; onTapped: root.cancelConfirm() }
                             }
 
                             Rectangle {
@@ -254,6 +358,10 @@ ShellRoot {
                                     var action = root.actions.find(a => a.id === root.confirmAction)
                                     return action ? (confirmHover.hovered ? Theme.alpha(action.color, 0.8) : action.color) : Theme.error
                                 }
+                                scale: confirmTap.pressed ? 0.95 : (confirmHover.hovered ? 1.03 : 1.0)
+
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
                                 Text {
                                     anchors.centerIn: parent
@@ -264,7 +372,7 @@ ShellRoot {
                                 }
 
                                 HoverHandler { id: confirmHover }
-                                TapHandler { onTapped: root.executeAction(root.confirmAction) }
+                                TapHandler { id: confirmTap; onTapped: root.executeAction(root.confirmAction) }
                             }
                         }
                     }
@@ -295,12 +403,64 @@ ShellRoot {
                                 border.color: root.selectedIndex === index ? modelData.color : Theme.outline
                                 border.width: root.selectedIndex === index ? 2 : 1
 
+                                // 交错入场动画
+                                opacity: 0
+                                scale: 0.7
+                                transform: Translate { id: btnTranslate; y: 20 }
+
+                                Component.onCompleted: btnEnterAnim.start()
+
+                                ParallelAnimation {
+                                    id: btnEnterAnim
+
+                                    PauseAnimation { duration: actionBtn.index * 60 }
+
+                                    SequentialAnimation {
+                                        PauseAnimation { duration: actionBtn.index * 60 }
+                                        NumberAnimation {
+                                            target: actionBtn
+                                            property: "opacity"
+                                            to: 1
+                                            duration: 250
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+
+                                    SequentialAnimation {
+                                        PauseAnimation { duration: actionBtn.index * 60 }
+                                        NumberAnimation {
+                                            target: actionBtn
+                                            property: "scale"
+                                            to: 1.0
+                                            duration: 300
+                                            easing.type: Easing.OutBack
+                                            easing.overshoot: 1.5
+                                        }
+                                    }
+
+                                    SequentialAnimation {
+                                        PauseAnimation { duration: actionBtn.index * 60 }
+                                        NumberAnimation {
+                                            target: btnTranslate
+                                            property: "y"
+                                            to: 0
+                                            duration: 250
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                }
+
+                                // 悬停/选中缩放
+                                property real hoverScale: btnTap.pressed ? 0.95 : (btnHover.hovered ? 1.08 : 1.0)
+                                Behavior on hoverScale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                 Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
                                 ColumnLayout {
                                     anchors.centerIn: parent
                                     spacing: Theme.spacingS
+                                    scale: actionBtn.hoverScale
 
                                     Rectangle {
                                         Layout.alignment: Qt.AlignHCenter
@@ -308,6 +468,17 @@ ShellRoot {
                                         height: 48
                                         radius: 24
                                         color: Theme.alpha(actionBtn.modelData.color, 0.1)
+
+                                        // 选中时的脉冲效果
+                                        property real pulseScale: 1.0
+                                        scale: pulseScale
+
+                                        SequentialAnimation on pulseScale {
+                                            running: root.selectedIndex === actionBtn.index
+                                            loops: Animation.Infinite
+                                            NumberAnimation { to: 1.08; duration: 600; easing.type: Easing.InOutSine }
+                                            NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                                        }
 
                                         Text {
                                             anchors.centerIn: parent
@@ -323,6 +494,8 @@ ShellRoot {
                                         text: actionBtn.modelData.name
                                         font.pixelSize: Theme.fontSizeS
                                         color: root.selectedIndex === actionBtn.index ? actionBtn.modelData.color : Theme.textSecondary
+
+                                        Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                     }
                                 }
 
@@ -334,6 +507,7 @@ ShellRoot {
                                 }
 
                                 TapHandler {
+                                    id: btnTap
                                     onTapped: root.confirmAndExecute(actionBtn.modelData.id)
                                 }
                             }
