@@ -1,4 +1,4 @@
-import QtQuick 2.0
+import QtQuick 2.7
 import SddmComponents 2.0
 
 Rectangle {
@@ -242,6 +242,9 @@ Rectangle {
                 verticalAlignment: TextInput.AlignVCenter
                 clip: true
                 text: userModel.lastUser || ""
+                activeFocusOnTab: true
+                KeyNavigation.tab: passwordInput
+                KeyNavigation.backtab: passwordInput
             }
         }
 
@@ -309,6 +312,9 @@ Rectangle {
                 verticalAlignment: TextInput.AlignVCenter
                 clip: true
                 focus: true
+                activeFocusOnTab: true
+                KeyNavigation.tab: usernameInput
+                KeyNavigation.backtab: usernameInput
 
                 onAccepted: doLogin()
             }
