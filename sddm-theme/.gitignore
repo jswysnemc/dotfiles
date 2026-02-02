@@ -1,0 +1,33 @@
+# Qt/QML
+*.qmlc
+*.jsc
+.qmake.cache
+.qmake.stash
+*.pro.user
+*.pro.user.*
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+Makefile*
+*-build-*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Logs
+*.log
