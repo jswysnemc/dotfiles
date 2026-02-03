@@ -685,7 +685,7 @@ apply_dotfiles() {
     if [[ -f "$waybar_config" ]]; then
         print_info "Configuring waybar browser to Firefox..."
         sed -i \
-            -e 's/"format": ""/"format": ""/' \
+            -e 's/"format": ""/"format": "󰈹"/' \
             -e 's/"tooltip-format": "浏览器(brave 浏览器)"/"tooltip-format": "Firefox 浏览器"/' \
             -e 's/"on-click": "brave"/"on-click": "firefox"/' \
             "$waybar_config"
