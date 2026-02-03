@@ -648,326 +648,395 @@ ShellRoot {
                         NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
                     }
 
-                    // ===== Top: Clock and Date =====
-                    Column {
-                        id: clockArea
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    // ===== Left Side: Clock & Date (Vertical Layout) =====
+                    Item {
+                        id: leftPanel
+                        anchors.left: parent.left
                         anchors.top: parent.top
-                        anchors.topMargin: parent.height * 0.1
-                        spacing: 8
-
-                        // Time
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: currentTime
-                            font.pixelSize: 108
-                            font.weight: Font.Light
-                            font.letterSpacing: -2
-                            color: root.textColor
-                            style: Text.Outline
-                            styleColor: Qt.rgba(0, 0, 0, 0.4)
-                        }
-
-                        // Solar date
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: currentDate
-                            font.pixelSize: 22
-                            font.weight: Font.Normal
-                            color: root.textMuted
-                        }
-
-                        // Lunar date row
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 16
-                            visible: lunarDate.length > 0
-
-                            Text {
-                                text: lunarYear
-                                font.pixelSize: 15
-                                color: root.textDim
-                            }
-
-                            Rectangle {
-                                width: 1
-                                height: 14
-                                color: root.textDim
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
-                                text: lunarDate
-                                font.pixelSize: 15
-                                color: root.textDim
-                            }
-                        }
-
-                        // Festival (if any)
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            visible: festival.length > 0
-                            width: festivalText.width + 24
-                            height: 28
-                            radius: 14
-                            color: Qt.rgba(1, 1, 1, 0.15)
-
-                            Text {
-                                id: festivalText
-                                anchors.centerIn: parent
-                                text: festival
-                                font.pixelSize: 13
-                                font.weight: Font.Medium
-                                color: "#fbbf24"
-                            }
-                        }
-                    }
-
-                    // ===== Center: Login Area =====
-                    Column {
-                        anchors.centerIn: parent
-                        anchors.verticalCenterOffset: 30
-                        spacing: 20
-                        width: 340
-
-                        // User avatar
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: 100
-                            height: 100
-                            radius: 50
-                            color: authInProgress ? root.secondaryColor :
-                                   (avatarMouse.containsMouse ? Qt.lighter(root.primaryColor, 1.2) : root.primaryColor)
-
-                            Behavior on color { ColorAnimation { duration: 200 } }
-
-                            // Glow effect
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: parent.width + 8
-                                height: parent.height + 8
-                                radius: width / 2
-                                color: "transparent"
-                                border.width: 2
-                                border.color: authInProgress ? root.secondaryColor : root.primaryColor
-                                opacity: 0.4
-
-                                SequentialAnimation on scale {
-                                    running: authInProgress
-                                    loops: Animation.Infinite
-                                    NumberAnimation { to: 1.1; duration: 800; easing.type: Easing.InOutSine }
-                                    NumberAnimation { to: 1.0; duration: 800; easing.type: Easing.InOutSine }
-                                }
-                            }
-
-                            Text {
-                                id: avatarIcon
-                                anchors.centerIn: parent
-                                text: pamFace.active ? "\uf2f1" : "\uf007"
-                                font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: 44
-                                color: root.textColor
-                                rotation: pamFace.active ? avatarRotation.rotation : 0
-
-                                RotationAnimator {
-                                    id: avatarRotation
-                                    target: avatarIcon
-                                    running: pamFace.active
-                                    from: 0; to: 360
-                                    duration: 2000
-                                    loops: Animation.Infinite
-                                }
-                            }
-
-                            MouseArea {
-                                id: avatarMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                enabled: !pamPassword.active && !pamPassword.responseRequired
-                                onClicked: root.startAuth()
-                            }
-                        }
-
-                        // Username
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: userName
-                            font.pixelSize: 24
-                            font.weight: Font.Medium
-                            color: root.textColor
-                        }
-
-                        // Status message
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: statusMessage
-                            font.pixelSize: 14
-                            color: root.secondaryColor
-                            visible: statusMessage.length > 0
-                        }
-
-                        // Password input
-                        Rectangle {
-                            width: parent.width
-                            height: 52
-                            radius: 26
-                            color: Qt.rgba(1, 1, 1, 0.1)
-                            border.color: passwordField.activeFocus ? root.primaryColor : Qt.rgba(1, 1, 1, 0.2)
-                            border.width: 2
-
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                            Row {
-                                anchors.fill: parent
-                                anchors.leftMargin: 20
-                                anchors.rightMargin: 20
-                                spacing: 12
-
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "\uf023"
-                                    font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: 18
-                                    color: Qt.rgba(1, 1, 1, 0.5)
-                                }
-
-                                TextInput {
-                                    id: passwordField
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 80
-                                    color: root.textColor
-                                    font.pixelSize: 16
-                                    echoMode: TextInput.Password
-                                    clip: true
-
-                                    Text {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "输入密码..."
-                                        color: Qt.rgba(1, 1, 1, 0.4)
-                                        font.pixelSize: 16
-                                        visible: !passwordField.text && !passwordField.activeFocus
-                                    }
-
-                                    onAccepted: {
-                                        if (text.length > 0) {
-                                            root.startAuthWithPassword(text)
-                                            text = ""
-                                        }
-                                    }
-
-                                    Keys.onEscapePressed: {
-                                        text = ""
-                                        errorMessage = ""
-                                    }
-                                }
-
-                                Text {
-                                    id: submitIcon
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: pamPassword.active ? "\uf110" : "\uf054"
-                                    font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: 18
-                                    color: root.primaryColor
-                                    visible: passwordField.text.length > 0 || pamPassword.active
-                                    rotation: pamPassword.active ? submitRotation.rotation : 0
-
-                                    RotationAnimator {
-                                        id: submitRotation
-                                        target: submitIcon
-                                        running: pamPassword.active
-                                        from: 0; to: 360
-                                        duration: 1000
-                                        loops: Animation.Infinite
-                                    }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        anchors.margins: -10
-                                        enabled: !authInProgress && passwordField.text.length > 0
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            root.startAuthWithPassword(passwordField.text)
-                                            passwordField.text = ""
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Error message
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: errorMessage
-                            font.pixelSize: 14
-                            color: root.errorColor
-                            visible: errorMessage.length > 0
-                        }
-
-                        // Hint
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "点击头像进行人脸识别，或输入密码"
-                            font.pixelSize: 12
-                            color: Qt.rgba(1, 1, 1, 0.4)
-                            visible: !authInProgress && !pamPassword.responseRequired && passwordField.text.length === 0
-                        }
-                    }
-
-                    // ===== Bottom: Power Buttons =====
-                    Row {
-                        anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 50
-                        spacing: 50
+                        width: parent.width * 0.45
 
-                        Repeater {
-                            model: [
-                                { icon: "\uf186", label: "睡眠", cmd: ["systemctl", "suspend"] },
-                                { icon: "\uf021", label: "重启", cmd: ["systemctl", "reboot"] },
-                                { icon: "\uf011", label: "关机", cmd: ["systemctl", "poweroff"] }
-                            ]
+                        Column {
+                            anchors.centerIn: parent
+                            anchors.horizontalCenterOffset: 40
+                            spacing: 16
 
-                            Column {
-                                spacing: 8
+                            // Large Time Display
+                            Text {
+                                text: currentTime
+                                font.pixelSize: 140
+                                font.weight: Font.ExtraLight
+                                font.letterSpacing: -4
+                                color: root.textColor
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    shadowEnabled: true
+                                    shadowColor: Qt.rgba(0, 0, 0, 0.5)
+                                    shadowBlur: 0.3
+                                    shadowVerticalOffset: 2
+                                }
+                            }
+
+                            // Date with decorative line
+                            Row {
+                                spacing: 16
 
                                 Rectangle {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: 48
-                                    height: 48
-                                    radius: 24
-                                    color: pwrMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(1, 1, 1, 0.08)
+                                    width: 40
+                                    height: 2
+                                    color: root.primaryColor
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
 
-                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                Column {
+                                    spacing: 4
 
                                     Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.icon
-                                        font.family: "Symbols Nerd Font Mono"
+                                        text: currentDate
                                         font.pixelSize: 20
-                                        color: pwrMouse.containsMouse ? "#ffffff" : Qt.rgba(1, 1, 1, 0.6)
+                                        font.weight: Font.Normal
+                                        font.letterSpacing: 1
+                                        color: root.textMuted
+                                    }
+
+                                    // Lunar info
+                                    Text {
+                                        text: lunarYear + (lunarDate.length > 0 ? "  " + lunarDate : "")
+                                        font.pixelSize: 14
+                                        color: root.textDim
+                                        visible: lunarDate.length > 0
+                                    }
+                                }
+                            }
+
+                            // Festival badge
+                            Rectangle {
+                                visible: festival.length > 0
+                                width: festivalText.width + 32
+                                height: 36
+                                radius: 18
+                                color: Qt.rgba(251, 191, 36, 0.15)
+                                border.color: Qt.rgba(251, 191, 36, 0.4)
+                                border.width: 1
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 8
+
+                                    Text {
+                                        text: "\uf005"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 14
+                                        color: "#fbbf24"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        id: festivalText
+                                        text: festival
+                                        font.pixelSize: 14
+                                        font.weight: Font.Medium
+                                        color: "#fbbf24"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ===== Vertical Divider =====
+                    Rectangle {
+                        id: divider
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.horizontalCenterOffset: -parent.width * 0.05
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 1
+                        height: parent.height * 0.5
+                        color: Qt.rgba(1, 1, 1, 0.1)
+
+                        // Gradient fade at edges
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: "transparent" }
+                            GradientStop { position: 0.2; color: Qt.rgba(1, 1, 1, 0.15) }
+                            GradientStop { position: 0.5; color: Qt.rgba(1, 1, 1, 0.2) }
+                            GradientStop { position: 0.8; color: Qt.rgba(1, 1, 1, 0.15) }
+                            GradientStop { position: 1.0; color: "transparent" }
+                        }
+                    }
+
+                    // ===== Right Side: Login Area =====
+                    Item {
+                        id: rightPanel
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: parent.width * 0.45
+
+                        Column {
+                            anchors.centerIn: parent
+                            anchors.horizontalCenterOffset: -40
+                            spacing: 24
+                            width: 320
+
+                            // User avatar with animated ring
+                            Item {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: 120
+                                height: 120
+
+                                // Outer animated ring
+                                Rectangle {
+                                    id: outerRing
+                                    anchors.centerIn: parent
+                                    width: 120
+                                    height: 120
+                                    radius: 60
+                                    color: "transparent"
+                                    border.width: 2
+                                    border.color: authInProgress ? root.secondaryColor : root.primaryColor
+                                    opacity: 0.3
+
+                                    SequentialAnimation on scale {
+                                        running: true
+                                        loops: Animation.Infinite
+                                        NumberAnimation { to: 1.08; duration: 2000; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.0; duration: 2000; easing.type: Easing.InOutSine }
+                                    }
+
+                                    SequentialAnimation on opacity {
+                                        running: authInProgress
+                                        loops: Animation.Infinite
+                                        NumberAnimation { to: 0.6; duration: 600; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 0.2; duration: 600; easing.type: Easing.InOutSine }
+                                    }
+                                }
+
+                                // Avatar circle
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 100
+                                    height: 100
+                                    radius: 50
+                                    color: authInProgress ? root.secondaryColor :
+                                           (avatarMouse.containsMouse ? Qt.lighter(root.primaryColor, 1.15) : root.primaryColor)
+
+                                    Behavior on color { ColorAnimation { duration: 200 } }
+
+                                    // Subtle inner shadow
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: parent.radius
+                                        gradient: Gradient {
+                                            GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.2) }
+                                            GradientStop { position: 0.5; color: "transparent" }
+                                            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.2) }
+                                        }
+                                    }
+
+                                    Text {
+                                        id: avatarIcon
+                                        anchors.centerIn: parent
+                                        text: pamFace.active ? "\uf2f1" : "\uf007"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 42
+                                        color: root.textColor
+
+                                        RotationAnimator on rotation {
+                                            running: pamFace.active
+                                            from: 0; to: 360
+                                            duration: 2000
+                                            loops: Animation.Infinite
+                                        }
                                     }
 
                                     MouseArea {
-                                        id: pwrMouse
+                                        id: avatarMouse
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            pwrProc.command = modelData.cmd
-                                            pwrProc.running = true
-                                        }
+                                        enabled: !pamPassword.active && !pamPassword.responseRequired
+                                        onClicked: root.startAuth()
                                     }
                                 }
+                            }
+
+                            // Username
+                            Column {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                spacing: 4
 
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.label
-                                    font.pixelSize: 12
-                                    color: Qt.rgba(1, 1, 1, 0.5)
+                                    text: userName
+                                    font.pixelSize: 26
+                                    font.weight: Font.Medium
+                                    font.letterSpacing: 1
+                                    color: root.textColor
+                                }
+
+                                // Status message
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: statusMessage
+                                    font.pixelSize: 13
+                                    color: root.secondaryColor
+                                    visible: statusMessage.length > 0
                                 }
                             }
+
+                            // Password input - glass morphism style
+                            Rectangle {
+                                width: parent.width
+                                height: 54
+                                radius: 27
+                                color: Qt.rgba(1, 1, 1, 0.08)
+                                border.color: passwordField.activeFocus ? root.primaryColor : Qt.rgba(1, 1, 1, 0.15)
+                                border.width: passwordField.activeFocus ? 2 : 1
+
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                                Behavior on border.width { NumberAnimation { duration: 150 } }
+
+                                // Subtle gradient overlay
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: parent.radius
+                                    gradient: Gradient {
+                                        GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.05) }
+                                        GradientStop { position: 1.0; color: "transparent" }
+                                    }
+                                }
+
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 22
+                                    anchors.rightMargin: 22
+                                    spacing: 14
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "\uf023"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 16
+                                        color: Qt.rgba(1, 1, 1, 0.4)
+                                    }
+
+                                    TextInput {
+                                        id: passwordField
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - 80
+                                        color: root.textColor
+                                        font.pixelSize: 15
+                                        font.letterSpacing: 2
+                                        echoMode: TextInput.Password
+                                        clip: true
+
+                                        Text {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: "Enter password"
+                                            color: Qt.rgba(1, 1, 1, 0.35)
+                                            font.pixelSize: 14
+                                            font.letterSpacing: 0.5
+                                            visible: !passwordField.text && !passwordField.activeFocus
+                                        }
+
+                                        onAccepted: {
+                                            if (text.length > 0) {
+                                                root.startAuthWithPassword(text)
+                                                text = ""
+                                            }
+                                        }
+
+                                        Keys.onEscapePressed: {
+                                            text = ""
+                                            errorMessage = ""
+                                        }
+                                    }
+
+                                    Text {
+                                        id: submitIcon
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: pamPassword.active ? "\uf110" : "\uf054"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 16
+                                        color: root.primaryColor
+                                        visible: passwordField.text.length > 0 || pamPassword.active
+
+                                        RotationAnimator on rotation {
+                                            running: pamPassword.active
+                                            from: 0; to: 360
+                                            duration: 1000
+                                            loops: Animation.Infinite
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            anchors.margins: -12
+                                            enabled: !authInProgress && passwordField.text.length > 0
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                root.startAuthWithPassword(passwordField.text)
+                                                passwordField.text = ""
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Error message
+                            Rectangle {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                visible: errorMessage.length > 0
+                                width: errorText.width + 24
+                                height: 32
+                                radius: 16
+                                color: Qt.rgba(239, 68, 68, 0.15)
+                                border.color: Qt.rgba(239, 68, 68, 0.3)
+                                border.width: 1
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 8
+
+                                    Text {
+                                        text: "\uf071"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 12
+                                        color: root.errorColor
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        id: errorText
+                                        text: errorMessage
+                                        font.pixelSize: 13
+                                        color: root.errorColor
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+
+                            // Hint text
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "Click avatar for face recognition"
+                                font.pixelSize: 12
+                                font.letterSpacing: 0.3
+                                color: Qt.rgba(1, 1, 1, 0.35)
+                                visible: !authInProgress && !pamPassword.responseRequired && passwordField.text.length === 0
+                            }
                         }
+                    }
+
+                    // ===== Bottom: Minimal branding =====
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 30
+                        text: "\uf023  Locked"
+                        font.family: "Symbols Nerd Font Mono"
+                        font.pixelSize: 12
+                        font.letterSpacing: 2
+                        color: Qt.rgba(1, 1, 1, 0.2)
                     }
                 }
 
@@ -1009,11 +1078,6 @@ ShellRoot {
                     Component.onCompleted: {
                         forceActiveFocus()
                     }
-                }
-
-                Process {
-                    id: pwrProc
-                    running: false
                 }
             }
         }
