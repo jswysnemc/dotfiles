@@ -680,6 +680,18 @@ apply_dotfiles() {
         fi
     done
 
+    # Replace browser in waybar config (Brave -> Firefox)
+    local waybar_config="$HOME/.config/waybar/config.jsonc"
+    if [[ -f "$waybar_config" ]]; then
+        print_info "Configuring waybar browser to Firefox..."
+        sed -i \
+            -e 's/"format": ""/"format": ""/' \
+            -e 's/"tooltip-format": "浏览器(brave 浏览器)"/"tooltip-format": "Firefox 浏览器"/' \
+            -e 's/"on-click": "brave"/"on-click": "firefox"/' \
+            "$waybar_config"
+        print_ok "Waybar browser set to Firefox"
+    fi
+
     # Initialize matugen default colors (required for symlinks like waybar/colors.css)
     local init_script="$HOME/.config/matugen/defaults/matugen-init"
     if [[ -x "$init_script" ]]; then
