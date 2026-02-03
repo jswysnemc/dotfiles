@@ -758,6 +758,14 @@ setup_nvim() {
         print_warn "Nvim config directory not found in dotfiles"
     fi
 
+    # Bootstrap lazy.nvim (clone lazy.nvim and install plugins)
+    print_info "Bootstrapping lazy.nvim..."
+    if nvim --headless "+Lazy! sync" +qa >> "$LOG_FILE" 2>&1; then
+        print_ok "Lazy.nvim bootstrapped and plugins installed"
+    else
+        print_warn "Lazy.nvim bootstrap may have issues (check manually)"
+    fi
+
     # Optional: Install LSP dependencies
     if confirm "Install LSP dependencies (tree-sitter-cli, clang, stylua, ruff, pyright, lua-language-server)?"; then
         local lsp_pkgs="tree-sitter-cli clang stylua ruff pyright lua-language-server"
