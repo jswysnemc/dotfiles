@@ -41,8 +41,8 @@ declare -A PKG_GROUPS
 
 PKG_GROUPS[wm]="niri swww swayidle hyprpolkitagent"
 PKG_GROUPS[bar]="waybar"
-PKG_GROUPS[terminal]="kitty zsh starship tmux"
-PKG_GROUPS[editor]="neovim"
+PKG_GROUPS[terminal]="kitty starship"
+PKG_GROUPS[editor]=""
 PKG_GROUPS[files]="dolphin"
 PKG_GROUPS[theme]="matugen kvantum qt5ct qt6ct"
 PKG_GROUPS[appearance]="papirus-icon-theme phinger-cursors"
@@ -646,14 +646,10 @@ apply_dotfiles() {
         "$HOME/.config/waybar"
         "$HOME/.config/quickshell"
         "$HOME/.config/matugen"
-        "$HOME/.config/nvim"
-        "$HOME/.config/zsh"
         "$HOME/.config/kitty"
         "$HOME/.config/yazi"
-        "$HOME/.config/tmux"
         "$HOME/.config/starship.toml"
         "$HOME/.config/fontconfig"
-        "$HOME/.zshrc"
     )
 
     local has_backup=false
@@ -672,7 +668,7 @@ apply_dotfiles() {
 
     # Stow
     print_info "Applying configs with stow..."
-    local stow_dirs=(niri waybar quickshell matugen nvim zsh starship tmux kitty font my-scripts electron-flags)
+    local stow_dirs=(niri waybar quickshell matugen starship kitty font my-scripts electron-flags)
 
     for dir in "${stow_dirs[@]}"; do
         if [[ -d "$dir" ]]; then
@@ -700,14 +696,122 @@ apply_dotfiles() {
     log "Dotfiles applied"
 }
 
+setup_nvim() {
+    section "Phase 6a" "Neovim Editor"
+
+    if is_done "setup_nvim"; then
+        print_skip "Neovim setup (already done)"
+        return
+    fi
+
+    echo ""
+    echo -e "   ${WHITE}Neovim is a modern, extensible text editor.${NC}"
+    echo -e "   ${DIM}This will install Neovim and apply the pre-configured setup.${NC}"
+    echo ""
+
+    if ! confirm "Install and configure Neovim?"; then
+        print_skip "Neovim installation (user declined)"
+        mark_done "setup_nvim"
+        return
+    fi
+
+    # Install neovim
+    print_info "Installing Neovim..."
+    if $AUR_HELPER -S --needed --noconfirm neovim >> "$LOG_FILE" 2>&1; then
+        print_ok "Neovim installed"
+    else
+        print_fail "Failed to install Neovim"
+        return
+    fi
+
+    # Apply nvim config with stow
+    print_info "Applying Neovim configuration..."
+    cd "$DOTFILES_DIR"
+    if [[ -d "nvim" ]]; then
+        # Backup existing config
+        if [[ -e "$HOME/.config/nvim" && ! -L "$HOME/.config/nvim" ]]; then
+            local backup_dir="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
+            mkdir -p "$backup_dir"
+            cp -r "$HOME/.config/nvim" "$backup_dir/"
+            rm -rf "$HOME/.config/nvim"
+            print_info "Backed up existing nvim config"
+        fi
+
+        if stow -R nvim >> "$LOG_FILE" 2>&1; then
+            print_ok "Neovim configuration applied"
+        else
+            print_fail "Failed to apply Neovim configuration"
+        fi
+    else
+        print_warn "Nvim config directory not found in dotfiles"
+    fi
+
+    # Optional: Install LSP dependencies
+    if confirm "Install LSP dependencies (tree-sitter-cli, clang, stylua, ruff, pyright, lua-language-server)?"; then
+        local lsp_pkgs="tree-sitter-cli clang stylua ruff pyright lua-language-server"
+        print_info "Installing LSP dependencies..."
+        if $AUR_HELPER -S --needed --noconfirm $lsp_pkgs >> "$LOG_FILE" 2>&1; then
+            print_ok "LSP dependencies installed"
+        else
+            print_warn "Some LSP dependencies failed"
+        fi
+    fi
+
+    mark_done "setup_nvim"
+    log "Neovim configured"
+}
+
 setup_zsh() {
-    section "Phase 6" "Zsh Configuration"
+    section "Phase 6b" "Zsh Shell"
 
     if is_done "setup_zsh"; then
         print_skip "Zsh setup (already done)"
         return
     fi
 
+    echo ""
+    echo -e "   ${WHITE}Zsh is a powerful shell with advanced features.${NC}"
+    echo -e "   ${DIM}Includes starship prompt, plugins, and custom configuration.${NC}"
+    echo ""
+
+    if ! confirm "Install and configure Zsh?"; then
+        print_skip "Zsh installation (user declined)"
+        mark_done "setup_zsh"
+        return
+    fi
+
+    # Install zsh
+    print_info "Installing Zsh..."
+    if $AUR_HELPER -S --needed --noconfirm zsh >> "$LOG_FILE" 2>&1; then
+        print_ok "Zsh installed"
+    else
+        print_fail "Failed to install Zsh"
+        return
+    fi
+
+    # Apply zsh config with stow
+    print_info "Applying Zsh configuration..."
+    cd "$DOTFILES_DIR"
+    if [[ -d "zsh" ]]; then
+        # Backup existing config
+        if [[ -e "$HOME/.config/zsh" && ! -L "$HOME/.config/zsh" ]]; then
+            local backup_dir="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
+            mkdir -p "$backup_dir"
+            cp -r "$HOME/.config/zsh" "$backup_dir/"
+            rm -rf "$HOME/.config/zsh"
+            print_info "Backed up existing zsh config"
+        fi
+
+        if stow -R zsh >> "$LOG_FILE" 2>&1; then
+            print_ok "Zsh configuration applied"
+        else
+            print_fail "Failed to apply Zsh configuration"
+        fi
+    else
+        print_warn "Zsh config directory not found in dotfiles"
+    fi
+
+    # Create .zshenv
     cat > "$HOME/.zshenv" << 'ZSHENV'
 # Zsh config directory
 export ZDOTDIR="$HOME/.config/zsh"
@@ -715,6 +819,7 @@ export ZDOTDIR="$HOME/.config/zsh"
 ZSHENV
     print_ok "Created .zshenv"
 
+    # Set default shell
     if [[ "$SHELL" != *"zsh"* ]]; then
         if confirm "Set Zsh as default shell?"; then
             if chsh -s /bin/zsh; then
@@ -729,6 +834,60 @@ ZSHENV
 
     mark_done "setup_zsh"
     log "Zsh configured"
+}
+
+setup_tmux() {
+    section "Phase 6c" "Tmux Terminal Multiplexer"
+
+    if is_done "setup_tmux"; then
+        print_skip "Tmux setup (already done)"
+        return
+    fi
+
+    echo ""
+    echo -e "   ${WHITE}Tmux is a terminal multiplexer for managing multiple sessions.${NC}"
+    echo -e "   ${DIM}Features: Split panes, session persistence, custom keybindings.${NC}"
+    echo ""
+
+    if ! confirm "Install and configure Tmux?"; then
+        print_skip "Tmux installation (user declined)"
+        mark_done "setup_tmux"
+        return
+    fi
+
+    # Install tmux
+    print_info "Installing Tmux..."
+    if $AUR_HELPER -S --needed --noconfirm tmux >> "$LOG_FILE" 2>&1; then
+        print_ok "Tmux installed"
+    else
+        print_fail "Failed to install Tmux"
+        return
+    fi
+
+    # Apply tmux config with stow
+    print_info "Applying Tmux configuration..."
+    cd "$DOTFILES_DIR"
+    if [[ -d "tmux" ]]; then
+        # Backup existing config
+        if [[ -e "$HOME/.config/tmux" && ! -L "$HOME/.config/tmux" ]]; then
+            local backup_dir="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
+            mkdir -p "$backup_dir"
+            cp -r "$HOME/.config/tmux" "$backup_dir/"
+            rm -rf "$HOME/.config/tmux"
+            print_info "Backed up existing tmux config"
+        fi
+
+        if stow -R tmux >> "$LOG_FILE" 2>&1; then
+            print_ok "Tmux configuration applied"
+        else
+            print_fail "Failed to apply Tmux configuration"
+        fi
+    else
+        print_warn "Tmux config directory not found in dotfiles"
+    fi
+
+    mark_done "setup_tmux"
+    log "Tmux configured"
 }
 
 setup_locale() {
@@ -1621,7 +1780,9 @@ main() {
     clone_dotfiles
     install_packages
     apply_dotfiles
+    setup_nvim
     setup_zsh
+    setup_tmux
     setup_locale
     setup_bash_path
     setup_quickshell
