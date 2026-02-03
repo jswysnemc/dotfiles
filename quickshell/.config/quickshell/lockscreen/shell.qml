@@ -87,11 +87,34 @@ ShellRoot {
     }
     property bool hasPlayer: activePlayer !== null
     property bool isPlaying: false
-    property string trackTitle: hasPlayer && activePlayer.trackTitle ? activePlayer.trackTitle : ""
-    property string trackArtist: hasPlayer && activePlayer.trackArtist ? activePlayer.trackArtist : ""
-    property string artUrl: hasPlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
-    property real mediaPosition: hasPlayer && activePlayer.position !== undefined ? activePlayer.position : 0
-    property real mediaLength: hasPlayer && activePlayer.length !== undefined ? activePlayer.length : 0
+    // Media properties - manually managed to ensure proper updates on track change
+    property string trackTitle: ""
+    property string trackArtist: ""
+    property string artUrl: ""
+    property real mediaPosition: 0
+    property real mediaLength: 0
+
+    function updateMediaProperties() {
+        if (!hasPlayer || !activePlayer) {
+            trackTitle = ""
+            trackArtist = ""
+            artUrl = ""
+            mediaPosition = 0
+            mediaLength = 0
+            return
+        }
+        trackTitle = activePlayer.trackTitle || ""
+        trackArtist = activePlayer.trackArtist || ""
+        artUrl = activePlayer.trackArtUrl || ""
+        mediaLength = activePlayer.length !== undefined ? activePlayer.length : 0
+        mediaPosition = activePlayer.position !== undefined ? activePlayer.position : 0
+    }
+
+    function updateMediaPosition() {
+        if (hasPlayer && activePlayer) {
+            mediaPosition = activePlayer.position !== undefined ? activePlayer.position : 0
+        }
+    }
 
     // Lyrics
     property var lyricsLines: []
@@ -151,7 +174,7 @@ ShellRoot {
         repeat: true
         onTriggered: {
             if (activePlayer) {
-                mediaPosition = activePlayer.position
+                updateMediaPosition()
                 if (isPlaying) updateCurrentLyric()
             }
         }
@@ -171,6 +194,7 @@ ShellRoot {
         triggeredOnStart: true
         onTriggered: {
             refreshPlayersList()
+            updateMediaProperties()
             updatePlayingState()
             if (activePlayer && trackTitle !== lastFetchedTrack) {
                 fetchLyrics()
@@ -207,11 +231,69 @@ ShellRoot {
     }
 
     function nextTrack() {
-        if (hasPlayer && activePlayer.canGoNext) activePlayer.next()
+        if (hasPlayer && activePlayer.canGoNext) {
+            // 记录旧标题，清空歌词状态
+            trackChangeChecker.oldTitle = trackTitle
+            trackChangeChecker.attempts = 0
+            lyricsLoaded = false
+            currentLyric = ""
+            nextLyric = ""
+            currentLyricIndex = -1
+
+            activePlayer.next()
+            trackChangeChecker.start()
+        }
     }
 
     function previousTrack() {
-        if (hasPlayer && activePlayer.canGoPrevious) activePlayer.previous()
+        if (hasPlayer && activePlayer.canGoPrevious) {
+            // 记录旧标题，清空歌词状态
+            trackChangeChecker.oldTitle = trackTitle
+            trackChangeChecker.attempts = 0
+            lyricsLoaded = false
+            currentLyric = ""
+            nextLyric = ""
+            currentLyricIndex = -1
+
+            activePlayer.previous()
+            trackChangeChecker.start()
+        }
+    }
+
+    Timer {
+        id: trackChangeChecker
+        interval: 150
+        repeat: true
+        property string oldTitle: ""
+        property int attempts: 0
+
+        onTriggered: {
+            attempts++
+
+            // 直接从 activePlayer 读取最新值
+            var newTitle = activePlayer ? (activePlayer.trackTitle || "") : ""
+            var newArtist = activePlayer ? (activePlayer.trackArtist || "") : ""
+            var newArtUrl = activePlayer ? (activePlayer.trackArtUrl || "") : ""
+            var newLength = activePlayer ? (activePlayer.length !== undefined ? activePlayer.length : 0) : 0
+
+            // 如果标题变了，或者尝试了太多次（2秒），就停止
+            if (newTitle !== oldTitle || attempts > 13) {
+                stop()
+
+                // 更新所有媒体属性
+                trackTitle = newTitle
+                trackArtist = newArtist
+                artUrl = newArtUrl
+                mediaLength = newLength
+                mediaPosition = activePlayer ? (activePlayer.position !== undefined ? activePlayer.position : 0) : 0
+
+                updatePlayingState()
+
+                if (trackTitle && trackTitle !== lastFetchedTrack) {
+                    fetchLyrics()
+                }
+            }
+        }
     }
 
     Connections {
@@ -224,9 +306,22 @@ ShellRoot {
         target: root.activePlayer
         function onPlaybackStateChanged() { root.updatePlayingState() }
         function onTrackTitleChanged() {
+            root.updateMediaProperties()
             if (root.trackTitle && root.trackTitle !== root.lastFetchedTrack) {
                 root.fetchLyrics()
             }
+        }
+        function onTrackArtistChanged() { root.updateMediaProperties() }
+        function onTrackArtUrlChanged() { root.updateMediaProperties() }
+        function onLengthChanged() { root.updateMediaProperties() }
+        function onTrackAlbumChanged() { root.updateMediaProperties() }
+    }
+
+    onActivePlayerChanged: {
+        updateMediaProperties()
+        updatePlayingState()
+        if (activePlayer && trackTitle && trackTitle !== lastFetchedTrack) {
+            fetchLyrics()
         }
     }
 
