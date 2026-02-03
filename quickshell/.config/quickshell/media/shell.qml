@@ -114,14 +114,13 @@ ShellRoot {
         function onPlaybackStateChanged() { root.updatePlayingState() }
         function onTrackTitleChanged() { root.onTrackChanged() }
         function onTrackArtistChanged() { root.onTrackChanged() }
+        function onTrackAlbumChanged() { root.onTrackChanged() }
+        function onLengthChanged() { root.onTrackChanged() }
     }
 
     // Handle track change - refresh lyrics
     function onTrackChanged() {
-        var newTitle = activePlayer ? activePlayer.trackTitle : ""
-        if (newTitle && newTitle !== lastFetchedTrack) {
-            fetchLyrics()
-        }
+        scheduleLyricsFetch()
     }
 
     onActivePlayerChanged: {
@@ -149,6 +148,7 @@ ShellRoot {
         }
         return name
     }
+    property string trackKey: trackTitle + "||" + trackArtist + "||" + trackAlbum + "||" + playerctlName
 
     // Lyrics state
     property var lyricsLines: []
@@ -159,11 +159,30 @@ ShellRoot {
     property string nextLyric: ""
     property int currentLyricIndex: -1
     property bool showLyrics: true
-    property string lastFetchedTrack: ""
+    property string lastFetchedTrackKey: ""
 
     // Dragging state for progress bar
     property bool isDragging: false
     property real dragPosition: 0
+
+    function resetLyricsState() {
+        lyricsLoaded = false
+        lyricsLines = []
+        currentLyric = ""
+        nextLyric = ""
+        currentLyricIndex = -1
+        lyricsError = ""
+    }
+
+    function shouldFetchLyrics() {
+        return trackTitle && trackKey !== lastFetchedTrackKey
+    }
+
+    function scheduleLyricsFetch() {
+        if (!shouldFetchLyrics()) return
+        resetLyricsState()
+        lyricsFetchTimer.restart()
+    }
 
     // Position update timer - always run when player exists
     Timer {
@@ -203,6 +222,17 @@ ShellRoot {
                     root.lastDetectedArtist = currentArtist
                     root.onTrackChanged()
                 }
+            }
+        }
+    }
+
+    Timer {
+        id: lyricsFetchTimer
+        interval: 250
+        repeat: false
+        onTriggered: {
+            if (shouldFetchLyrics()) {
+                fetchLyrics()
             }
         }
     }
@@ -271,13 +301,9 @@ ShellRoot {
     function fetchLyrics() {
         if (!trackTitle) return
 
-        lastFetchedTrack = trackTitle
+        lastFetchedTrackKey = trackKey
+        resetLyricsState()
         lyricsLoading = true
-        lyricsLoaded = false
-        lyricsLines = []
-        currentLyric = ""
-        nextLyric = ""
-        lyricsError = ""
 
         // Always pass all arguments with fixed positions
         // Python expects: fetch title artist album duration player
@@ -905,7 +931,7 @@ ShellRoot {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                root.lastFetchedTrack = ""
+                                                root.lastFetchedTrackKey = ""
                                                 root.fetchLyrics()
                                             }
                                         }

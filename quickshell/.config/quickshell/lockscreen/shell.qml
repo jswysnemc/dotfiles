@@ -90,6 +90,7 @@ ShellRoot {
     // Media properties - manually managed to ensure proper updates on track change
     property string trackTitle: ""
     property string trackArtist: ""
+    property string trackAlbum: ""
     property string artUrl: ""
     property real mediaPosition: 0
     property real mediaLength: 0
@@ -98,6 +99,7 @@ ShellRoot {
         if (!hasPlayer || !activePlayer) {
             trackTitle = ""
             trackArtist = ""
+            trackAlbum = ""
             artUrl = ""
             mediaPosition = 0
             mediaLength = 0
@@ -105,6 +107,7 @@ ShellRoot {
         }
         trackTitle = activePlayer.trackTitle || ""
         trackArtist = activePlayer.trackArtist || ""
+        trackAlbum = activePlayer.trackAlbum || ""
         artUrl = activePlayer.trackArtUrl || ""
         mediaLength = activePlayer.length !== undefined ? activePlayer.length : 0
         mediaPosition = activePlayer.position !== undefined ? activePlayer.position : 0
@@ -122,7 +125,7 @@ ShellRoot {
     property string currentLyric: ""
     property string nextLyric: ""
     property int currentLyricIndex: -1
-    property string lastFetchedTrack: ""
+    property string lastFetchedTrackKey: ""
     property string playerctlName: {
         if (!activePlayer || !activePlayer.dbusName) return ""
         var name = activePlayer.dbusName
@@ -132,6 +135,7 @@ ShellRoot {
         }
         return name
     }
+    property string trackKey: trackTitle + "||" + trackArtist + "||" + trackAlbum + "||" + playerctlName
 
     // ==================== Timers ====================
 
@@ -188,6 +192,17 @@ ShellRoot {
     }
 
     Timer {
+        id: lyricsFetchTimer
+        interval: 250
+        repeat: false
+        onTriggered: {
+            if (shouldFetchLyrics()) {
+                fetchLyrics()
+            }
+        }
+    }
+
+    Timer {
         interval: 1000
         running: phase === "locked"
         repeat: true
@@ -196,8 +211,8 @@ ShellRoot {
             refreshPlayersList()
             updateMediaProperties()
             updatePlayingState()
-            if (activePlayer && trackTitle !== lastFetchedTrack) {
-                fetchLyrics()
+            if (activePlayer) {
+                scheduleLyricsFetch()
             }
         }
     }
@@ -232,13 +247,10 @@ ShellRoot {
 
     function nextTrack() {
         if (hasPlayer && activePlayer.canGoNext) {
-            // 记录旧标题，清空歌词状态
-            trackChangeChecker.oldTitle = trackTitle
+            // 记录旧曲目 key，清空歌词状态
+            trackChangeChecker.oldTrackKey = trackKey
             trackChangeChecker.attempts = 0
-            lyricsLoaded = false
-            currentLyric = ""
-            nextLyric = ""
-            currentLyricIndex = -1
+            resetLyricsState()
 
             activePlayer.next()
             trackChangeChecker.start()
@@ -247,13 +259,10 @@ ShellRoot {
 
     function previousTrack() {
         if (hasPlayer && activePlayer.canGoPrevious) {
-            // 记录旧标题，清空歌词状态
-            trackChangeChecker.oldTitle = trackTitle
+            // 记录旧曲目 key，清空歌词状态
+            trackChangeChecker.oldTrackKey = trackKey
             trackChangeChecker.attempts = 0
-            lyricsLoaded = false
-            currentLyric = ""
-            nextLyric = ""
-            currentLyricIndex = -1
+            resetLyricsState()
 
             activePlayer.previous()
             trackChangeChecker.start()
@@ -264,7 +273,7 @@ ShellRoot {
         id: trackChangeChecker
         interval: 150
         repeat: true
-        property string oldTitle: ""
+        property string oldTrackKey: ""
         property int attempts: 0
 
         onTriggered: {
@@ -273,25 +282,26 @@ ShellRoot {
             // 直接从 activePlayer 读取最新值
             var newTitle = activePlayer ? (activePlayer.trackTitle || "") : ""
             var newArtist = activePlayer ? (activePlayer.trackArtist || "") : ""
+            var newAlbum = activePlayer ? (activePlayer.trackAlbum || "") : ""
             var newArtUrl = activePlayer ? (activePlayer.trackArtUrl || "") : ""
             var newLength = activePlayer ? (activePlayer.length !== undefined ? activePlayer.length : 0) : 0
+            var newKey = newTitle + "||" + newArtist + "||" + newAlbum + "||" + playerctlName
 
-            // 如果标题变了，或者尝试了太多次（2秒），就停止
-            if (newTitle !== oldTitle || attempts > 13) {
+            // 如果曲目信息变了，或者尝试了太多次（2秒），就停止
+            if (newKey !== oldTrackKey || attempts > 13) {
                 stop()
 
                 // 更新所有媒体属性
                 trackTitle = newTitle
                 trackArtist = newArtist
+                trackAlbum = newAlbum
                 artUrl = newArtUrl
                 mediaLength = newLength
                 mediaPosition = activePlayer ? (activePlayer.position !== undefined ? activePlayer.position : 0) : 0
 
                 updatePlayingState()
 
-                if (trackTitle && trackTitle !== lastFetchedTrack) {
-                    fetchLyrics()
-                }
+                scheduleLyricsFetch()
             }
         }
     }
@@ -307,25 +317,50 @@ ShellRoot {
         function onPlaybackStateChanged() { root.updatePlayingState() }
         function onTrackTitleChanged() {
             root.updateMediaProperties()
-            if (root.trackTitle && root.trackTitle !== root.lastFetchedTrack) {
-                root.fetchLyrics()
-            }
+            root.scheduleLyricsFetch()
         }
-        function onTrackArtistChanged() { root.updateMediaProperties() }
+        function onTrackArtistChanged() {
+            root.updateMediaProperties()
+            root.scheduleLyricsFetch()
+        }
         function onTrackArtUrlChanged() { root.updateMediaProperties() }
-        function onLengthChanged() { root.updateMediaProperties() }
-        function onTrackAlbumChanged() { root.updateMediaProperties() }
+        function onLengthChanged() {
+            root.updateMediaProperties()
+            root.scheduleLyricsFetch()
+        }
+        function onTrackAlbumChanged() {
+            root.updateMediaProperties()
+            root.scheduleLyricsFetch()
+        }
     }
 
     onActivePlayerChanged: {
         updateMediaProperties()
         updatePlayingState()
-        if (activePlayer && trackTitle && trackTitle !== lastFetchedTrack) {
-            fetchLyrics()
+        if (activePlayer) {
+            scheduleLyricsFetch()
         }
     }
 
     // ==================== Lyrics Functions ====================
+
+    function resetLyricsState() {
+        lyricsLoaded = false
+        lyricsLines = []
+        currentLyric = ""
+        nextLyric = ""
+        currentLyricIndex = -1
+    }
+
+    function shouldFetchLyrics() {
+        return trackTitle && trackKey !== lastFetchedTrackKey
+    }
+
+    function scheduleLyricsFetch() {
+        if (!shouldFetchLyrics()) return
+        resetLyricsState()
+        lyricsFetchTimer.restart()
+    }
 
     Process {
         id: lyricsFetcher
@@ -351,18 +386,15 @@ ShellRoot {
 
     function fetchLyrics() {
         if (!trackTitle) return
-        lastFetchedTrack = trackTitle
-        lyricsLoaded = false
-        lyricsLines = []
-        currentLyric = ""
-        nextLyric = ""
+        lastFetchedTrackKey = trackKey
+        resetLyricsState()
 
         var scriptPath = homeDir + "/.config/quickshell/media/lyrics_fetcher.py"
         var uvPath = "/usr/bin/uv"
         var rootDir = homeDir + "/.config/quickshell"
 
         lyricsFetcher.command = [uvPath, "run", "--directory", rootDir, scriptPath, "fetch",
-            trackTitle, trackArtist || "", "", mediaLength > 0 ? mediaLength.toString() : "0", playerctlName || ""]
+            trackTitle, trackArtist || "", trackAlbum || "", mediaLength > 0 ? mediaLength.toString() : "0", playerctlName || ""]
         lyricsFetcher.running = true
     }
 
