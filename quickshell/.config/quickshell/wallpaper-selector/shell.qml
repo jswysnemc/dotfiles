@@ -212,10 +212,10 @@ ShellRoot {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: Theme.spacingXL
-                    spacing: Theme.spacingL
+                    anchors.margins: Theme.spacingL
+                    spacing: Theme.spacingM
 
-                    // Header
+                    // Header with Tab bar
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingM
@@ -232,6 +232,60 @@ ShellRoot {
                             font.pixelSize: Theme.fontSizeL
                             font.bold: true
                             color: Theme.textPrimary
+                        }
+
+                        // Tab bar - 放在标题右侧
+                        Rectangle {
+                            Layout.preferredWidth: 240
+                            Layout.preferredHeight: 32
+                            radius: Theme.radiusM
+                            color: Theme.surfaceVariant
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 3
+                                spacing: 3
+
+                                Repeater {
+                                    model: [{name: "壁纸", icon: "\uf03e"}, {name: "主题设置", icon: "\uf1fc"}]
+
+                                    Rectangle {
+                                        required property int index
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        radius: Theme.radiusS
+                                        color: root.currentTab === index ? Theme.surface : "transparent"
+
+                                        Behavior on color { ColorAnimation { duration: Theme.animFast } }
+
+                                        RowLayout {
+                                            anchors.centerIn: parent
+                                            spacing: 6
+
+                                            Text {
+                                                text: modelData.icon
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: Theme.fontSizeS
+                                                color: root.currentTab === index ? Theme.primary : Theme.textMuted
+                                            }
+
+                                            Text {
+                                                text: modelData.name
+                                                font.pixelSize: Theme.fontSizeS
+                                                font.bold: root.currentTab === index
+                                                color: root.currentTab === index ? Theme.primary : Theme.textMuted
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.currentTab = parent.index
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         Item { Layout.fillWidth: true }
@@ -260,60 +314,6 @@ ShellRoot {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: root.closeWithAnimation()
-                            }
-                        }
-                    }
-
-                    // Tab bar
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 36
-                        radius: Theme.radiusM
-                        color: Theme.surfaceVariant
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 3
-                            spacing: 3
-
-                            Repeater {
-                                model: [{name: "壁纸", icon: "\uf03e"}, {name: "主题设置", icon: "\uf1fc"}]
-
-                                Rectangle {
-                                    required property int index
-                                    required property var modelData
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    radius: Theme.radiusS
-                                    color: root.currentTab === index ? Theme.surface : "transparent"
-
-                                    Behavior on color { ColorAnimation { duration: Theme.animFast } }
-
-                                    RowLayout {
-                                        anchors.centerIn: parent
-                                        spacing: 6
-
-                                        Text {
-                                            text: modelData.icon
-                                            font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: Theme.fontSizeS
-                                            color: root.currentTab === index ? Theme.primary : Theme.textMuted
-                                        }
-
-                                        Text {
-                                            text: modelData.name
-                                            font.pixelSize: Theme.fontSizeS
-                                            font.bold: root.currentTab === index
-                                            color: root.currentTab === index ? Theme.primary : Theme.textMuted
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.currentTab = parent.index
-                                    }
-                                }
                             }
                         }
                     }
@@ -449,212 +449,333 @@ ShellRoot {
                         }
 
                         // ============ Theme Settings Tab ============
-                        ColumnLayout {
-                            spacing: Theme.spacingL
+                        Item {
+                            id: themeSettingsTab
 
-                            // 通用主题选择组件
-                            component ThemeRow: Rectangle {
-                                id: themeRow
-                                property string title: ""
-                                property string subtitle: ""
+                            // 模式按钮组件
+                            component ModeButton: Rectangle {
+                                id: modeBtn
+                                property string mode: ""
                                 property string icon: ""
-                                property color iconColor: Theme.primary
+                                property string label: ""
+                                property bool isActive: false
                                 property color activeColor: Theme.primary
-                                property string currentMode: ""
-                                signal modeSelected(string mode)
+                                signal clicked()
 
-                                Layout.fillWidth: true
-                                height: 72
-                                radius: Theme.radiusL
-                                color: Theme.surface
-                                border.color: Theme.outline
+                                width: 64
+                                height: 30
+                                radius: Theme.radiusS
+                                color: isActive ? activeColor : (modeBtnMa.containsMouse ? Theme.surfaceVariant : "transparent")
+                                border.color: isActive ? activeColor : Theme.outline
                                 border.width: 1
 
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: Theme.spacingL
-                                    anchors.rightMargin: Theme.spacingL
-                                    spacing: Theme.spacingM
-
-                                    // 左侧图标
-                                    Rectangle {
-                                        Layout.preferredWidth: 44
-                                        Layout.preferredHeight: 44
-                                        radius: Theme.radiusM
-                                        color: Theme.surfaceVariant
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: themeRow.icon
-                                            font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: 20
-                                            color: themeRow.iconColor
-                                        }
-                                    }
-
-                                    // 中间文字
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 2
-
-                                        Text {
-                                            text: themeRow.title
-                                            font.pixelSize: Theme.fontSizeM
-                                            font.bold: true
-                                            color: Theme.textPrimary
-                                        }
-
-                                        Text {
-                                            text: themeRow.subtitle
-                                            font.pixelSize: Theme.fontSizeS
-                                            color: Theme.textMuted
-                                        }
-                                    }
-
-                                    // 右侧按钮组 - 固定宽度
-                                    Row {
-                                        Layout.preferredWidth: 200
-                                        Layout.alignment: Qt.AlignVCenter
-                                        spacing: 6
-
-                                        Repeater {
-                                            model: [{mode: "dark", icon: "\uf186", label: "深色"},
-                                                    {mode: "light", icon: "\uf185", label: "浅色"},
-                                                    {mode: "auto", icon: "\uf021", label: "自动"}]
-
-                                            Rectangle {
-                                                required property var modelData
-                                                required property int index
-                                                width: 62; height: 32
-                                                radius: Theme.radiusS
-                                                color: themeRow.currentMode === modelData.mode ? themeRow.activeColor : (btnMa.containsMouse ? Theme.surfaceVariant : "transparent")
-                                                border.color: themeRow.currentMode === modelData.mode ? themeRow.activeColor : Theme.outline
-                                                border.width: 1
-
-                                                Row {
-                                                    anchors.centerIn: parent
-                                                    spacing: 4
-
-                                                    Text {
-                                                        text: modelData.icon
-                                                        font.family: "Symbols Nerd Font Mono"
-                                                        font.pixelSize: 11
-                                                        color: themeRow.currentMode === modelData.mode ? "white" : Theme.textSecondary
-                                                        anchors.verticalCenter: parent.verticalCenter
-                                                    }
-
-                                                    Text {
-                                                        text: modelData.label
-                                                        font.pixelSize: 11
-                                                        color: themeRow.currentMode === modelData.mode ? "white" : Theme.textSecondary
-                                                        anchors.verticalCenter: parent.verticalCenter
-                                                    }
-                                                }
-
-                                                MouseArea {
-                                                    id: btnMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: themeRow.modeSelected(modelData.mode)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // QuickShell Theme
-                            ThemeRow {
-                                title: "QuickShell 主题"
-                                subtitle: "控制 QuickShell 组件的颜色模式"
-                                icon: "\uf0e7"
-                                iconColor: Theme.primary
-                                activeColor: Theme.primary
-                                currentMode: root.qsMode
-                                onModeSelected: mode => root.setQsModeValue(mode)
-                            }
-
-                            // Waybar Theme
-                            ThemeRow {
-                                title: "Waybar 主题"
-                                subtitle: "控制状态栏的颜色模式"
-                                icon: "\uf0c9"
-                                iconColor: Theme.secondary
-                                activeColor: Theme.secondary
-                                currentMode: root.waybarMode
-                                onModeSelected: mode => root.setWaybarModeValue(mode)
-                            }
-
-                            // Info box
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 70
-                                radius: Theme.radiusL
-                                color: Theme.alpha(Theme.tertiary, 0.1)
-                                border.color: Theme.alpha(Theme.tertiary, 0.3)
-                                border.width: 1
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.spacingM
-                                    spacing: Theme.spacingM
-
-                                    Text {
-                                        text: "\uf05a"
-                                        font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: 20
-                                        color: Theme.tertiary
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: "模式在下次设置壁纸时生效\n点击「立即应用」可立刻刷新所有组件主题"
-                                        font.pixelSize: Theme.fontSizeS
-                                        color: Theme.textSecondary
-                                        wrapMode: Text.WordWrap
-                                    }
-                                }
-                            }
-
-                            // Apply button
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 44
-                                radius: Theme.radiusM
-                                color: applyMa.containsMouse ? Theme.alpha(Theme.primary, 0.2) : Theme.alpha(Theme.primary, 0.1)
-                                border.color: Theme.primary
-                                border.width: 1
-
-                                RowLayout {
+                                Row {
                                     anchors.centerIn: parent
-                                    spacing: 8
-
+                                    spacing: 4
                                     Text {
-                                        text: "\uf021"
+                                        text: modeBtn.icon
                                         font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: Theme.fontSizeL
-                                        color: Theme.primary
+                                        font.pixelSize: 11
+                                        color: modeBtn.isActive ? "white" : Theme.textSecondary
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
-
                                     Text {
-                                        text: "立即应用主题"
-                                        font.pixelSize: Theme.fontSizeM
-                                        font.bold: true
-                                        color: Theme.primary
+                                        text: modeBtn.label
+                                        font.pixelSize: 11
+                                        color: modeBtn.isActive ? "white" : Theme.textSecondary
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
 
                                 MouseArea {
-                                    id: applyMa
+                                    id: modeBtnMa
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: applyTheme.running = true
+                                    onClicked: modeBtn.clicked()
                                 }
                             }
 
-                            Item { Layout.fillHeight: true }
+                            Column {
+                                anchors.fill: parent
+                                spacing: Theme.spacingM
+
+                                // Row 1: QuickShell Theme
+                                Rectangle {
+                                    width: parent.width
+                                    height: 68
+                                    radius: Theme.radiusL
+                                    color: Theme.surface
+                                    border.color: Theme.outline
+                                    border.width: 1
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 16
+                                        anchors.rightMargin: 16
+                                        spacing: 12
+
+                                        // Icon
+                                        Rectangle {
+                                            width: 42
+                                            height: 42
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            radius: Theme.radiusM
+                                            color: Theme.surfaceVariant
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "\uf0e7"
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: 18
+                                                color: Theme.primary
+                                            }
+                                        }
+
+                                        // Text
+                                        Column {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 42 - 210 - 36
+                                            spacing: 2
+                                            Text {
+                                                text: "QuickShell 主题"
+                                                font.pixelSize: Theme.fontSizeM
+                                                font.bold: true
+                                                color: Theme.textPrimary
+                                            }
+                                            Text {
+                                                text: "控制 QuickShell 组件的颜色模式"
+                                                font.pixelSize: Theme.fontSizeS
+                                                color: Theme.textMuted
+                                            }
+                                        }
+
+                                        // Buttons
+                                        Row {
+                                            width: 210
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 6
+                                            ModeButton {
+                                                mode: "dark"; icon: "\uf186"; label: "深色"
+                                                isActive: root.qsMode === "dark"
+                                                activeColor: Theme.primary
+                                                onClicked: root.setQsModeValue("dark")
+                                            }
+                                            ModeButton {
+                                                mode: "light"; icon: "\uf185"; label: "浅色"
+                                                isActive: root.qsMode === "light"
+                                                activeColor: Theme.primary
+                                                onClicked: root.setQsModeValue("light")
+                                            }
+                                            ModeButton {
+                                                mode: "auto"; icon: "\uf021"; label: "自动"
+                                                isActive: root.qsMode === "auto"
+                                                activeColor: Theme.primary
+                                                onClicked: root.setQsModeValue("auto")
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Row 2: Waybar Theme
+                                Rectangle {
+                                    width: parent.width
+                                    height: 68
+                                    radius: Theme.radiusL
+                                    color: Theme.surface
+                                    border.color: Theme.outline
+                                    border.width: 1
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 16
+                                        anchors.rightMargin: 16
+                                        spacing: 12
+
+                                        // Icon
+                                        Rectangle {
+                                            width: 42
+                                            height: 42
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            radius: Theme.radiusM
+                                            color: Theme.surfaceVariant
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "\uf0c9"
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: 18
+                                                color: Theme.secondary
+                                            }
+                                        }
+
+                                        // Text
+                                        Column {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 42 - 210 - 36
+                                            spacing: 2
+                                            Text {
+                                                text: "Waybar 主题"
+                                                font.pixelSize: Theme.fontSizeM
+                                                font.bold: true
+                                                color: Theme.textPrimary
+                                            }
+                                            Text {
+                                                text: "控制状态栏的颜色模式"
+                                                font.pixelSize: Theme.fontSizeS
+                                                color: Theme.textMuted
+                                            }
+                                        }
+
+                                        // Buttons
+                                        Row {
+                                            width: 210
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 6
+                                            ModeButton {
+                                                mode: "dark"; icon: "\uf186"; label: "深色"
+                                                isActive: root.waybarMode === "dark"
+                                                activeColor: Theme.secondary
+                                                onClicked: root.setWaybarModeValue("dark")
+                                            }
+                                            ModeButton {
+                                                mode: "light"; icon: "\uf185"; label: "浅色"
+                                                isActive: root.waybarMode === "light"
+                                                activeColor: Theme.secondary
+                                                onClicked: root.setWaybarModeValue("light")
+                                            }
+                                            ModeButton {
+                                                mode: "auto"; icon: "\uf021"; label: "自动"
+                                                isActive: root.waybarMode === "auto"
+                                                activeColor: Theme.secondary
+                                                onClicked: root.setWaybarModeValue("auto")
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Row 3: Info
+                                Rectangle {
+                                    width: parent.width
+                                    height: 68
+                                    radius: Theme.radiusL
+                                    color: Theme.alpha(Theme.tertiary, 0.08)
+                                    border.color: Theme.alpha(Theme.tertiary, 0.2)
+                                    border.width: 1
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 16
+                                        anchors.rightMargin: 16
+                                        spacing: 12
+
+                                        // Icon
+                                        Rectangle {
+                                            width: 42
+                                            height: 42
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            radius: Theme.radiusM
+                                            color: Theme.alpha(Theme.tertiary, 0.15)
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "\uf05a"
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: 18
+                                                color: Theme.tertiary
+                                            }
+                                        }
+
+                                        // Text
+                                        Column {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 42 - 210 - 36
+                                            spacing: 2
+                                            Text {
+                                                text: "模式在下次设置壁纸时生效"
+                                                font.pixelSize: Theme.fontSizeM
+                                                font.bold: true
+                                                color: Theme.textPrimary
+                                            }
+                                            Text {
+                                                text: "点击下方按钮可立刻刷新所有组件主题"
+                                                font.pixelSize: Theme.fontSizeS
+                                                color: Theme.textMuted
+                                            }
+                                        }
+
+                                        // Placeholder for alignment
+                                        Item {
+                                            width: 210
+                                            height: 1
+                                        }
+                                    }
+                                }
+
+                                // Row 4: Apply Button
+                                Rectangle {
+                                    width: parent.width
+                                    height: 68
+                                    radius: Theme.radiusL
+                                    color: applyMa.containsMouse ? Theme.primary : Theme.alpha(Theme.primary, 0.08)
+                                    border.color: Theme.primary
+                                    border.width: applyMa.containsMouse ? 0 : 1
+
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 16
+                                        anchors.rightMargin: 16
+                                        spacing: 12
+
+                                        // Icon
+                                        Rectangle {
+                                            width: 42
+                                            height: 42
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            radius: Theme.radiusM
+                                            color: applyMa.containsMouse ? Theme.alpha("white", 0.2) : Theme.alpha(Theme.primary, 0.15)
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "\uf021"
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: 18
+                                                color: applyMa.containsMouse ? "white" : Theme.primary
+                                            }
+                                        }
+
+                                        // Text
+                                        Column {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 42 - 210 - 36
+                                            spacing: 2
+                                            Text {
+                                                text: "立即应用主题"
+                                                font.pixelSize: Theme.fontSizeM
+                                                font.bold: true
+                                                color: applyMa.containsMouse ? "white" : Theme.primary
+                                            }
+                                            Text {
+                                                text: "刷新 QuickShell 和 Waybar 的主题配色"
+                                                font.pixelSize: Theme.fontSizeS
+                                                color: applyMa.containsMouse ? Theme.alpha("white", 0.8) : Theme.textMuted
+                                            }
+                                        }
+
+                                        // Placeholder for alignment
+                                        Item {
+                                            width: 210
+                                            height: 1
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: applyMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: applyTheme.running = true
+                                    }
+                                }
+                            }
                         }
                     }
 
