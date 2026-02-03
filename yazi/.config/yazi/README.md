@@ -2,40 +2,20 @@
 
 Yazi 是一个用 Rust 编写的现代化终端文件管理器，支持快速导航、预览和插件扩展。
 
-## 从零开始安装
+## 快速安装
 
-### 1. 安装依赖
+使用 dotfiles 安装脚本时会询问是否安装 Yazi 及其依赖。
 
+手动安装：
 ```bash
-# 核心
-paru -S yazi fd ripgrep fzf
-
-# 预览支持
-paru -S ffmpegthumbnailer poppler jq imagemagick ffmpeg mpv
+# 核心 + 预览依赖
+paru -S yazi fd ripgrep fzf zoxide ffmpegthumbnailer poppler jq imagemagick ffmpeg mpv p7zip
 
 # 可选
-paru -S exiftool zoxide
-```
+paru -S exiftool starship
 
-### 2. 应用配置
-
-```bash
-cd ~/.dotfiles
-stow yazi
-```
-
-### 3. 安装插件
-
-插件已包含在配置中，无需额外安装。
-
-### 4. 验证安装
-
-```bash
-# 启动 Yazi
-yazi
-
-# 检查版本
-yazi --version
+# 应用配置
+cd ~/.dotfiles && stow yazi
 ```
 
 ## 目录结构
@@ -45,22 +25,155 @@ yazi --version
 ├── yazi.toml              # 主配置文件
 ├── keymap.toml            # 快捷键配置
 ├── theme.toml             # 主题配置
-├── init.lua              # Lua 插件入口
+├── init.lua               # Lua 插件入口
 ├── package.toml           # 插件包配置
-└── plugins/              # 插件目录
+└── plugins/               # 插件目录
     ├── compress.yazi/     # 压缩插件
-    ├── git.yazi/         # Git 状态插件
+    ├── git.yazi/          # Git 状态插件
     ├── smart-enter.yazi/  # 智能进入插件
-    ├── smart-filter.yazi/  # 智能过滤插件
-    ├── starship.yazi/    # Starship 集成
-    └── zoom.yazi/        # 缩放插件
+    ├── smart-filter.yazi/ # 智能过滤插件
+    ├── starship.yazi/     # Starship 集成
+    └── zoom.yazi/         # 缩放插件
 ```
+
+## 快捷键
+
+### 基础导航
+
+| 快捷键 | 说明 |
+|--------|------|
+| `h` | 返回上级目录 |
+| `l` | 进入子目录 / 打开文件 |
+| `j` / `k` | 下一个 / 上一个文件 |
+| `gg` | 跳转到顶部 |
+| `G` | 跳转到底部 |
+| `H` / `L` | 历史后退 / 前进 |
+| `Ctrl+u` / `Ctrl+d` | 上移 / 下移半页 |
+| `Ctrl+b` / `Ctrl+f` | 上移 / 下移一页 |
+
+### 文件操作
+
+| 快捷键 | 说明 |
+|--------|------|
+| `o` / `Enter` | 打开文件 |
+| `O` | 交互式打开（选择程序） |
+| `y` | 复制文件 |
+| `x` | 剪切文件 |
+| `p` | 粘贴文件 |
+| `P` | 粘贴并覆盖 |
+| `d` | 移动到回收站 |
+| `D` | 永久删除 |
+| `a` | 创建文件/目录（以 `/` 结尾创建目录） |
+| `r` | 重命名 |
+| `-` | 创建符号链接（绝对路径） |
+| `_` | 创建符号链接（相对路径） |
+
+### 选择
+
+| 快捷键 | 说明 |
+|--------|------|
+| `Space` | 切换选择状态 |
+| `Ctrl+a` | 全选 |
+| `Ctrl+r` | 反选 |
+| `v` | 进入可视模式 |
+| `V` | 进入可视模式（取消选择） |
+
+### 搜索与过滤
+
+| 快捷键 | 说明 |
+|--------|------|
+| `s` | 通过 fd 按文件名搜索 |
+| `S` | 通过 ripgrep 按内容搜索 |
+| `f` | 过滤文件 |
+| `F` | 智能过滤（插件） |
+| `/` | 查找下一个 |
+| `?` | 查找上一个 |
+| `n` / `N` | 跳转到下一个 / 上一个匹配 |
+| `z` | 通过 fzf 跳转 |
+| `Z` | 通过 zoxide 跳转 |
+| `i` | 搜索跳转模式 |
+
+### 复制路径
+
+| 快捷键 | 说明 |
+|--------|------|
+| `cc` | 复制文件完整路径 |
+| `cd` | 复制目录路径 |
+| `cf` | 复制文件名 |
+| `cn` | 复制不含扩展名的文件名 |
+
+### 排序 (`,` 前缀)
+
+| 快捷键 | 说明 |
+|--------|------|
+| `,m` / `,M` | 按修改时间排序 / 倒序 |
+| `,b` / `,B` | 按创建时间排序 / 倒序 |
+| `,s` / `,S` | 按文件大小排序 / 倒序 |
+| `,a` / `,A` | 按字母顺序排序 / 倒序 |
+| `,n` / `,N` | 按自然顺序排序 / 倒序 |
+| `,e` / `,E` | 按扩展名排序 / 倒序 |
+| `,r` | 随机排序 |
+
+### 行模式 (`m` 前缀)
+
+| 快捷键 | 说明 |
+|--------|------|
+| `ms` | 显示文件大小 |
+| `mp` | 显示权限 |
+| `mb` | 显示创建时间 |
+| `mm` | 显示修改时间 |
+| `mo` | 显示所有者 |
+| `mn` | 无额外信息 |
+
+### 快速跳转 (`g` 前缀)
+
+| 快捷键 | 说明 |
+|--------|------|
+| `gh` | 跳转到 `~` |
+| `gc` | 跳转到 `~/.config` |
+| `gd` | 跳转到 `~/Downloads` |
+| `g<Space>` | 交互式跳转 |
+| `gf` | 跟随符号链接 |
+
+### 标签页
+
+| 快捷键 | 说明 |
+|--------|------|
+| `t` | 在当前目录创建新标签页 |
+| `1-9` | 切换到第 N 个标签页 |
+| `[` / `]` | 切换到上一个 / 下一个标签页 |
+| `{` / `}` | 与上一个 / 下一个标签页交换位置 |
+
+### 压缩 (`ca` 前缀)
+
+| 快捷键 | 说明 |
+|--------|------|
+| `caa` | 压缩选中的文件 |
+| `cap` | 压缩并设置密码 |
+| `cah` | 压缩并加密文件头 |
+| `cal` | 压缩并设置压缩级别 |
+| `cau` | 压缩（完整选项） |
+
+### 其他
+
+| 快捷键 | 说明 |
+|--------|------|
+| `.` | 切换隐藏文件显示 |
+| `w` | 显示任务管理器 |
+| `Tab` | 聚焦悬停文件 |
+| `K` / `J` | 预览窗口上下滚动 |
+| `+` / `-` | 放大 / 缩小悬停文件 |
+| `;` | 运行 shell 命令 |
+| `:` | 运行 shell 命令（阻塞） |
+| `~` / `F1` | 打开帮助 |
+| `q` | 退出 |
+| `Ctrl+c` | 关闭当前标签页 |
 
 ## 配置特性
 
 ### 文件管理器 (mgr)
 - 列布局比例：`[1, 4, 3]`
-- 排序方式：字母顺序
+- 排序方式：字母顺序，目录优先
 - 显示隐藏文件：关闭
 - 显示符号链接：开启
 - 滚动偏移：5 行
@@ -69,36 +182,20 @@ yazi --version
 - 最大宽度：600px
 - 最大高度：900px
 - 图像质量：75%
-- 图像滤镜：triangle
-
-### 文件打开器 (opener)
-- 编辑器：`$EDITOR` 或 `vi`
-- 打开：`xdg-open`（Linux）
-- 揭示：`xdg-open` 显示父目录
-- 解压：`ya pub extract`
-- 播放：`mpv --force-window`
-
-### 预览器 (previewers)
-支持以下文件类型预览：
-- 文本文件
-- 图片（AVIF、HEIC、JXL、SVG、普通图片）
-- 视频
-- PDF
-- 字体
-- 压缩包
+- 图像协议：Kitty
 
 ### 插件
 
 | 插件 | 说明 |
 |------|------|
-| **compress.yazi** | 压缩文件 |
+| **compress.yazi** | 压缩文件（支持密码、加密头、压缩级别） |
 | **git.yazi** | 显示 Git 状态 |
 | **smart-enter.yazi** | 智能进入目录/打开文件 |
 | **smart-filter.yazi** | 智能过滤 |
 | **starship.yazi** | Starship 提示符集成 |
 | **zoom.yazi** | 缩放视图 |
 
-## Arch Linux 依赖
+## 依赖
 
 ### 核心依赖
 
@@ -108,6 +205,7 @@ yazi --version
 | `fd` | 文件查找 |
 | `ripgrep` | 内容搜索 |
 | `fzf` | 模糊查找 |
+| `zoxide` | 智能目录跳转 |
 
 ### 预览依赖
 
@@ -116,9 +214,9 @@ yazi --version
 | `ffmpegthumbnailer` | 视频缩略图 |
 | `poppler` | PDF 预览 |
 | `jq` | JSON 预览 |
-| `unarchiver` | 压缩包预览 |
-| `imagemagick` | 图片处理（某些格式） |
+| `imagemagick` | 图片处理 |
 | `ffmpeg` | 视频预览 |
+| `p7zip` | 压缩包预览/压缩 |
 
 ### 打开器依赖
 
@@ -132,33 +230,10 @@ yazi --version
 | 包名 | 用途 |
 |------|------|
 | `exiftool` | 显示 EXIF 信息 |
-| `zoxide` | 智能目录跳转 |
 | `starship` | 提示符集成 |
-
-## 安装
-
-1. 使用 Stow 安装配置：
-   ```bash
-   cd ~/.dotfiles
-   stow yazi
-   ```
-
-2. 安装预览依赖：
-   ```bash
-   sudo pacman -S ffmpegthumbnailer poppler jq unarchiver imagemagick ffmpeg mpv xdg-utils
-   ```
-
-3. 安装命令行工具：
-   ```bash
-   sudo pacman -S fd ripgrep fzf
-   ```
 
 ## Neovim 集成
 
 在 Neovim 中打开 Yazi：
 - `<leader>E` - 在当前文件位置打开
 - `<leader>cw` - 在工作目录打开
-
-## 许可
-
-MIT License

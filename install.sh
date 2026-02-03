@@ -43,7 +43,7 @@ PKG_GROUPS[wm]="niri swww swayidle hyprpolkitagent"
 PKG_GROUPS[bar]="waybar"
 PKG_GROUPS[terminal]="kitty zsh starship tmux"
 PKG_GROUPS[editor]="neovim"
-PKG_GROUPS[files]="yazi dolphin"
+PKG_GROUPS[files]="dolphin"
 PKG_GROUPS[theme]="matugen kvantum qt5ct qt6ct"
 PKG_GROUPS[appearance]="papirus-icon-theme phinger-cursors"
 PKG_GROUPS[input]="fcitx5 fcitx5-im fcitx5-chinese-addons"
@@ -672,7 +672,7 @@ apply_dotfiles() {
 
     # Stow
     print_info "Applying configs with stow..."
-    local stow_dirs=(niri waybar quickshell matugen nvim zsh starship tmux yazi kitty font my-scripts electron-flags)
+    local stow_dirs=(niri waybar quickshell matugen nvim zsh starship tmux kitty font my-scripts electron-flags)
 
     for dir in "${stow_dirs[@]}"; do
         if [[ -d "$dir" ]]; then
@@ -1362,6 +1362,95 @@ EOF
     log "SDDM configured"
 }
 
+setup_yazi() {
+    section "Phase 9c" "Yazi File Manager"
+
+    if is_done "setup_yazi"; then
+        print_skip "Yazi setup (already done)"
+        return
+    fi
+
+    echo ""
+    echo -e "   ${WHITE}Yazi is a modern terminal file manager with image preview support.${NC}"
+    echo -e "   ${DIM}Features: Git integration, compression, smart filtering, Kitty image protocol${NC}"
+    echo ""
+
+    if ! confirm "Install and configure Yazi file manager?"; then
+        print_skip "Yazi installation (user declined)"
+        mark_done "setup_yazi"
+        return
+    fi
+
+    # Core packages
+    local yazi_core="yazi"
+    # Preview dependencies
+    local yazi_preview="ffmpegthumbnailer poppler jq imagemagick ffmpeg p7zip"
+    # Opener dependencies
+    local yazi_opener="xdg-utils mpv"
+    # Optional dependencies (already in cli group: fd ripgrep fzf zoxide)
+    local yazi_optional="exiftool"
+
+    print_info "Installing Yazi and dependencies..."
+
+    # Install core
+    if $AUR_HELPER -S --needed --noconfirm $yazi_core >> "$LOG_FILE" 2>&1; then
+        print_ok "Yazi installed"
+    else
+        print_fail "Failed to install Yazi"
+        return
+    fi
+
+    # Install preview dependencies
+    print_info "Installing preview dependencies..."
+    if $AUR_HELPER -S --needed --noconfirm $yazi_preview >> "$LOG_FILE" 2>&1; then
+        print_ok "Preview dependencies installed"
+    else
+        print_warn "Some preview dependencies failed"
+    fi
+
+    # Install opener dependencies
+    print_info "Installing opener dependencies..."
+    if $AUR_HELPER -S --needed --noconfirm $yazi_opener >> "$LOG_FILE" 2>&1; then
+        print_ok "Opener dependencies installed"
+    else
+        print_warn "Some opener dependencies failed"
+    fi
+
+    # Optional: exiftool
+    if confirm "Install exiftool (for EXIF metadata display)?"; then
+        if $AUR_HELPER -S --needed --noconfirm $yazi_optional >> "$LOG_FILE" 2>&1; then
+            print_ok "exiftool installed"
+        else
+            print_warn "Failed to install exiftool"
+        fi
+    fi
+
+    # Apply yazi config with stow
+    print_info "Applying Yazi configuration..."
+    cd "$DOTFILES_DIR"
+    if [[ -d "yazi" ]]; then
+        # Backup existing config
+        if [[ -e "$HOME/.config/yazi" && ! -L "$HOME/.config/yazi" ]]; then
+            local backup_dir="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
+            mkdir -p "$backup_dir"
+            cp -r "$HOME/.config/yazi" "$backup_dir/"
+            rm -rf "$HOME/.config/yazi"
+            print_info "Backed up existing yazi config"
+        fi
+
+        if stow -R yazi >> "$LOG_FILE" 2>&1; then
+            print_ok "Yazi configuration applied"
+        else
+            print_fail "Failed to apply Yazi configuration"
+        fi
+    else
+        print_warn "Yazi config directory not found in dotfiles"
+    fi
+
+    mark_done "setup_yazi"
+    log "Yazi configured"
+}
+
 setup_user_dirs() {
     section "Phase 10" "User Directories"
 
@@ -1538,6 +1627,7 @@ main() {
     setup_quickshell
     install_wayscrollshot
     setup_pam_lock
+    setup_yazi
     setup_user_dirs
     setup_matugen
     setup_theme
