@@ -20,5 +20,8 @@ $RECYCLE.BIN/
 .nfs*
 .directory
 
+# MPV shaders (too large)
+mpv/.config/mpv/shaders/
+
 .claude
 .marscode
