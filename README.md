@@ -283,21 +283,8 @@ chsh -s /bin/zsh
 
 # 创建 qs-popup 符号链接 (用于 Quickshell 弹窗)
 mkdir -p ~/.local/bin
-cat > ~/.local/bin/qs-popup << 'EOF'
-#!/bin/bash
-# QuickShell popup launcher
-QS_CONFIG_DIR="$HOME/.config/quickshell"
-COMPONENT="$1"
-[[ -z "$COMPONENT" ]] && { echo "Usage: qs-popup <component>"; exit 0; }
-shift
-shell_path="$QS_CONFIG_DIR/$COMPONENT/shell.qml"
-if pgrep -f "quickshell.*$COMPONENT/shell.qml" > /dev/null; then
-    pkill -f "quickshell.*$COMPONENT/shell.qml"
-else
-    [[ -f "$shell_path" ]] && quickshell -p "$shell_path" &
-fi
-EOF
-chmod +x ~/.local/bin/qs-popup
+# 复制仓库的 `.dotfiles/local-bin` 下的所有脚本到  `~/.local/bin`
+
 
 # 安装 Quickshell Python 依赖
 cd ~/.config/quickshell && uv sync
