@@ -116,6 +116,7 @@ window-rule {
     match app-id="waypaper"
     match app-id="markpix"
     match app-id="imv"
+    match app-id="mpv"
     match app-id="clipse-gui"
     match app-id="img-viewer"
     match app-id="pot"
