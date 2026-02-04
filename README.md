@@ -2,18 +2,25 @@
 
 这个仓库包含了我的 Arch Linux 开发环境配置文件，使用 GNU Stow 进行管理。
 
+## 特点
+
+- **Quickshell 独立组件架构**：每个 UI 组件（启动器、日历、WiFi 管理等）都是独立进程，仅在调用时启动，用完即退出，不常驻内存
+- **动态主题**：基于 Matugen 从壁纸提取配色，自动生成 Waybar、Quickshell 主题
+- **Niri 平铺窗口管理器**：Wayland 原生，滚动式工作区布局
+- **一键安装**：自动化脚本支持断点续传，从裸机到完整桌面环境
+
 ## 预览
 
-![quick-preview](https://imgbed.snemc.cn/i/fd12803db5a7.gif)
+![quick-preview](.assets/quick-preview.gif)
 
 <details>
 <summary>桌面与状态栏</summary>
 
 ### 桌面
-![desktop](https://imgbed.snemc.cn/i/4ac3b8b6999e.png)
+![desktop](.assets/destop.png)
 
 ### Waybar 状态栏
-![waybar](https://imgbed.snemc.cn/i/d9191d99aee9.png)
+![waybar](.assets/bar.png)
 
 </details>
 
@@ -21,33 +28,28 @@
 <summary>Quickshell 组件</summary>
 
 ### 壁纸选择器
-![wallpaper-selector](https://imgbed.snemc.cn/i/e25f83b0506d.png)
+![wallpaper-selector](.assets/wallpaper-selector.png)
 
 ### 应用启动器
-![app-launcher](https://imgbed.snemc.cn/i/4e78e30e1fce.png)
+![app-launcher](.assets/app-launcher.png)
 
 ### 剪贴板管理
-![paste-view](https://imgbed.snemc.cn/i/5b8b8232728a.png)
+![paste](.assets/paste.png)
 
 ### WiFi 管理
-![wifi](https://imgbed.snemc.cn/i/01d0b177803f.png)
+![wifi](.assets/wifi.png)
 
 ### 日历
-![calendar](https://imgbed.snemc.cn/i/11b762020a38.png)
+![calendar](.assets/calendar.png)
 
-### 电源菜单
-![power-menu](https://imgbed.snemc.cn/i/bc7dbbaf8f9d.png)
+### 窗口切换器
+![window-selector](.assets/window-selector.png)
 
-</details>
+### 通知中心
+![notification](.assets/notification.png)
 
-<details>
-<summary>终端与编辑器</summary>
-
-### Shell (Zsh + Starship)
-![shell](https://imgbed.snemc.cn/i/26fd3af12f87.png)
-
-### Neovim
-![nvim](https://imgbed.snemc.cn/i/815a732bb66a.png)
+### 其他组件
+![others](.assets/others.png)
 
 </details>
 
