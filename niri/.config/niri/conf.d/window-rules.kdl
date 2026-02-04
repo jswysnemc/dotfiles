@@ -121,7 +121,7 @@ window-rule {
     match app-id="img-viewer"
     match app-id="pot"
     match app-id="mihomo-zashboard-nativefier-5a68a2"
-    match app-id="chrome-127.0.0.1__ui_zashboard_-Default"
+    match app-id="brave-127.0.0.1__ui_zashboard_-Default"
     match app-id="image-viewer"
     match app-id="yad"
     match app-id="rnote"
