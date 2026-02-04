@@ -5,6 +5,7 @@ nvim:~/.config/nvim
 yazi:~/.config/yazi
 font:~/.config/fontconfig
 kitty:~/.config/kitty
+mpv:~/.config/mpv
 my-scripts:~/.custom/bin
 waybar:~/.config/waybar
 niri:~/.config/niri

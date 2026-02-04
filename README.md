@@ -77,6 +77,7 @@
 | **tmux** | Tmux 终端复用器配置 | [README](tmux/.config/tmux/README.md) |
 | **yazi** | Yazi 文件管理器配置 | [README](yazi/.config/yazi/README.md) |
 | **kitty** | Kitty 终端模拟器配置 | [README](kitty/.config/kitty/README.md) |
+| **mpv** | MPV 媒体播放器配置（含 Anime4K） | [README](mpv/.config/mpv/README.md) |
 | **sddm-theme** | SDDM 登录主题 (lunar-glass) | [README](sddm-theme/README.md) |
 | **my-scripts** | 自定义脚本集合 | [README](my-scripts/.custom/bin/README.md) |
 | **font** | 字体配置 | [README](font/.config/fontconfig/README.md) |
@@ -117,6 +118,7 @@ cd ~/.dotfiles
 | Phase 6a | Neovim 编辑器（可选，含 lazy.nvim 自动 bootstrap） |
 | Phase 6b | Zsh Shell（可选，含 .zshenv 自动创建） |
 | Phase 6c | Tmux 终端复用器（可选） |
+| Phase 6d | MPV 媒体播放器（可选，含 Anime4K 着色器） |
 | Phase 7 | Quickshell 配置与 PAM 锁屏 |
 | Phase 8 | Matugen 主题生成 + GTK/Qt 主题配置 |
 | Phase 9 | 启用系统服务（NetworkManager、蓝牙） |

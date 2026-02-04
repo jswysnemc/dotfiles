@@ -910,6 +910,89 @@ setup_tmux() {
     log "Tmux configured"
 }
 
+setup_mpv() {
+    section "Phase 6d" "MPV Media Player"
+
+    if is_done "setup_mpv"; then
+        print_skip "MPV setup (already done)"
+        return
+    fi
+
+    echo ""
+    echo -e "   ${WHITE}MPV is a powerful media player with Anime4K support.${NC}"
+    echo -e "   ${DIM}Features: Hardware decoding, modern OSC, thumbnail preview.${NC}"
+    echo ""
+
+    if ! confirm "Install and configure MPV?"; then
+        print_skip "MPV installation (user declined)"
+        mark_done "setup_mpv"
+        return
+    fi
+
+    # Install mpv
+    print_info "Installing MPV..."
+    if $AUR_HELPER -S --needed --noconfirm mpv >> "$LOG_FILE" 2>&1; then
+        print_ok "MPV installed"
+    else
+        print_fail "Failed to install MPV"
+        return
+    fi
+
+    # Apply mpv config with stow
+    print_info "Applying MPV configuration..."
+    cd "$DOTFILES_DIR"
+    if [[ -d "mpv" ]]; then
+        # Backup existing config
+        if [[ -e "$HOME/.config/mpv" && ! -L "$HOME/.config/mpv" ]]; then
+            local backup_dir="$HOME/.config-backup-$(date +%Y%m%d-%H%M%S)"
+            mkdir -p "$backup_dir"
+            cp -r "$HOME/.config/mpv" "$backup_dir/"
+            rm -rf "$HOME/.config/mpv"
+            print_info "Backed up existing mpv config"
+        fi
+
+        if stow -R mpv >> "$LOG_FILE" 2>&1; then
+            print_ok "MPV configuration applied"
+            # Comment out glsl-shaders line (user needs to download shaders first)
+            local mpv_conf="$HOME/.config/mpv/mpv.conf"
+            if [[ -f "$mpv_conf" ]]; then
+                sed -i 's/^glsl-shaders=/# glsl-shaders=/' "$mpv_conf"
+            fi
+        else
+            print_fail "Failed to apply MPV configuration"
+        fi
+    else
+        print_warn "MPV config directory not found in dotfiles"
+    fi
+
+    # Download Anime4K shaders
+    if confirm "Download Anime4K shaders for enhanced anime playback?"; then
+        print_info "Downloading Anime4K shaders..."
+        local shader_dir="$HOME/.config/mpv/shaders"
+        mkdir -p "$shader_dir"
+
+        if git clone --depth 1 https://github.com/bloc97/Anime4K.git /tmp/Anime4K >> "$LOG_FILE" 2>&1; then
+            cp -r /tmp/Anime4K/glsl_4.0/* "$shader_dir/"
+            rm -rf /tmp/Anime4K
+            print_ok "Anime4K shaders installed"
+
+            # Enable shaders in config
+            local mpv_conf="$HOME/.config/mpv/mpv.conf"
+            if [[ -f "$mpv_conf" ]]; then
+                sed -i 's/^# glsl-shaders=/glsl-shaders=/' "$mpv_conf"
+                print_ok "Anime4K shaders enabled in config"
+            fi
+        else
+            print_warn "Failed to download Anime4K shaders (check manually)"
+        fi
+    else
+        print_info "Skipped Anime4K shaders (can be installed later, see mpv README)"
+    fi
+
+    mark_done "setup_mpv"
+    log "MPV configured"
+}
+
 setup_locale() {
     section "Phase 6a" "Locale Configuration"
 
@@ -1803,6 +1886,7 @@ main() {
     setup_nvim
     setup_zsh
     setup_tmux
+    setup_mpv
     setup_locale
     setup_bash_path
     setup_quickshell
