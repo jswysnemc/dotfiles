@@ -152,6 +152,7 @@ niri-session
 ```
 
 > 脚本支持断点续传：如果安装中断，重新运行会自动跳过已完成的步骤。
+> 安装日志默认保存到 `~/.local/state/dotfiles/`（或 `$XDG_STATE_HOME/dotfiles`）。
 
 ---
 
