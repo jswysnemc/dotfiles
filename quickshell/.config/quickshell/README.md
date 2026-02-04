@@ -208,6 +208,7 @@ qs-popup launcher
 | 壁纸选择 | `qs-popup wallpaper-selector` | `wallpaper`, `wp` | 壁纸切换 (swww) |
 | 关闭确认 | `qs-popup close-confirm` | `close` | 窗口关闭确认 |
 | 窗口切换 | `qs-popup window-switcher` | `windows`, `ws` | 模糊搜索窗口切换 |
+| 锁屏 | `qs-lock` | - | 锁屏界面 (PAM 认证 + 人脸识别) |
 
 ## 目录结构
 
@@ -222,7 +223,7 @@ qs-popup launcher
 ├── Commons/
 │   └── Theme.js                 # 统一主题配置
 │
-├── 功能组件目录 (13 个)
+├── 功能组件目录 (14 个)
 │   ├── wifi/shell.qml
 │   ├── bluetooth/
 │   │   ├── shell.qml
@@ -246,7 +247,11 @@ qs-popup launcher
 │   ├── power-menu/shell.qml
 │   ├── wallpaper-selector/shell.qml
 │   ├── close-confirm/shell.qml
-│   └── window-switcher/shell.qml
+│   ├── window-switcher/shell.qml
+│   └── lockscreen/              # 锁屏组件
+│       ├── shell.qml
+│       ├── lunar_info.py
+│       └── README.md
 │
 └── scripts/                     # Waybar 集成脚本
     ├── clock_lunar.sh           # 农历时钟 (3 种格式)

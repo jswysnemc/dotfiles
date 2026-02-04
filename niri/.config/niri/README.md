@@ -22,8 +22,8 @@ paru -S niri
 # 输入法
 paru -S fcitx5 fcitx5-im fcitx5-chinese-addons
 
-# 壁纸和锁屏
-paru -S swww swayidle hyprlock
+# 壁纸和空闲管理
+paru -S swww swayidle
 
 # 系统工具
 paru -S brightnessctl wireplumber pipewire \
@@ -203,7 +203,7 @@ Noctalia 配色方案：
 | `Alt+V` | 剪贴板 (quickshell clipboard) |
 | `Mod+B` | 浏览器 (Firefox) |
 | `Mod+E` | 文件管理器 (Dolphin) |
-| `Super+Alt+L` | 锁屏 (swaylock) |
+| `Super+Alt+L` | 锁屏 (quickshell lockscreen) |
 | `Mod+Shift+Return` | 浮动终端 |
 | `Mod+Shift+B` | 重启 waybar |
 | `Mod+Z` | 任务管理器 (Mission Center) |
@@ -303,9 +303,9 @@ Noctalia 配色方案：
 
 ### swayidle.sh - 空闲管理
 
-- 60 秒空闲: 锁屏 (hyprlock)
+- 45 秒空闲: 锁屏 (quickshell lockscreen，带 grace period)
 - 120 秒空闲: 关闭显示器
-- 唤醒后: 自动按回车触发认证
+- 唤醒后: 自动恢复显示器
 
 ### auto-archive.sh - 文件自动归档
 
@@ -338,7 +338,7 @@ X11 和 Wayland 剪贴板双向同步：
 | `waybar` | 状态栏 |
 | `swww` | 壁纸管理 |
 | `swayidle` | 空闲管理 |
-| `hyprlock` | 锁屏工具 |
+| `quickshell` | 锁屏和弹窗组件 (AUR) |
 | `fcitx5` | 输入法 |
 | `hyprpolkitagent` | 权限认证 |
 | `brightnessctl` | 亮度控制 |

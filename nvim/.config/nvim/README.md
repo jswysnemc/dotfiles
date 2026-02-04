@@ -26,10 +26,18 @@ stow nvim
 
 ### 3. 安装插件
 
-首次启动 Neovim 时，Lazy.nvim 会自动安装所有插件：
+> **注意**：如果使用 dotfiles 安装脚本 (`install.sh`)，lazy.nvim 会自动 bootstrap 并安装所有插件。
+
+首次启动 Neovim 时，Lazy.nvim 会自动克隆并安装所有插件：
 
 ```bash
 nvim
+```
+
+或者使用命令行 headless 模式安装：
+
+```bash
+nvim --headless "+Lazy! sync" +qa
 ```
 
 ### 4. 安装语言服务器

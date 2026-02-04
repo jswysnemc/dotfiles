@@ -40,20 +40,18 @@ stow starship
 chsh -s /bin/zsh
 ```
 
-### 4. 创建必要的符号链接
+### 4. 创建 .zshenv 文件
 
-Zsh 默认读取 `~/.zshrc` 和 `~/.zshenv`，需要创建符号链接：
+> **注意**：如果使用 dotfiles 安装脚本 (`install.sh`)，此步骤会自动完成。
 
-```bash
-# 链接到 XDG 配置目录
-ln -sf ~/.config/zsh/.zshrc ~/.zshrc
-ln -sf ~/.config/zsh/.zshenv ~/.zshenv
-```
-
-或者在 `/etc/zsh/zshenv` 中设置 `ZDOTDIR`（需要 root 权限）：
+Zsh 需要知道配置文件在 `~/.config/zsh/` 目录下，创建 `~/.zshenv`：
 
 ```bash
-echo 'export ZDOTDIR="$HOME/.config/zsh"' | sudo tee -a /etc/zsh/zshenv
+cat > ~/.zshenv << 'ZSHENV'
+# Zsh config directory
+export ZDOTDIR="$HOME/.config/zsh"
+[[ -f "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"
+ZSHENV
 ```
 
 ### 5. 安装插件

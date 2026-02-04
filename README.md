@@ -33,6 +33,7 @@
 | **tmux** | Tmux 终端复用器配置 | [README](tmux/.config/tmux/README.md) |
 | **yazi** | Yazi 文件管理器配置 | [README](yazi/.config/yazi/README.md) |
 | **kitty** | Kitty 终端模拟器配置 | [README](kitty/.config/kitty/README.md) |
+| **sddm-theme** | SDDM 登录主题 (lunar-glass) | [README](sddm-theme/README.md) |
 | **my-scripts** | 自定义脚本集合 | [README](my-scripts/.custom/bin/README.md) |
 | **font** | 字体配置 | [README](font/.config/fontconfig/README.md) |
 
@@ -65,21 +66,29 @@ cd ~/.dotfiles
 | Phase 1 | 安装基础工具（git、stow、base-devel） |
 | Phase 2 | 安装 AUR 助手（paru，通过 archlinuxcn 镜像） |
 | Phase 3 | 克隆 dotfiles 仓库 |
-| Phase 4 | 安装核心包组（窗口管理器、终端、编辑器等） |
+| Phase 4 | 安装核心包组（窗口管理器、终端、主题等） |
 | Phase 4b | 安装 AUR 包（quickshell、xwayland-satellite 等） |
 | Phase 4c | 可选包（交互式选择） |
 | Phase 5 | 使用 stow 应用配置文件 |
-| Phase 6 | Zsh/Bash/Locale 配置 |
+| Phase 6a | Neovim 编辑器（可选，含 lazy.nvim 自动 bootstrap） |
+| Phase 6b | Zsh Shell（可选，含 .zshenv 自动创建） |
+| Phase 6c | Tmux 终端复用器（可选） |
 | Phase 7 | Quickshell 配置与 PAM 锁屏 |
 | Phase 8 | Matugen 主题生成 + GTK/Qt 主题配置 |
 | Phase 9 | 启用系统服务（NetworkManager、蓝牙） |
+| Phase 9b | SDDM 显示管理器（可选，含 lunar-glass 主题） |
+| Phase 9c | Yazi 文件管理器（可选） |
 | Phase 10 | 创建用户目录、复制壁纸 |
 
 #### 安装后启动
 
-脚本不配置显示管理器（SDDM/GDM），安装完成后需要手动启动桌面：
+安装脚本会询问是否安装 SDDM 显示管理器：
+
+- **选择安装 SDDM**：重启后自动显示图形登录界面，选择 Niri 会话登录即可
+- **不安装 SDDM**：需要手动从 TTY 启动桌面
 
 ```bash
+# 如果没有安装 SDDM，手动启动桌面：
 # 1. 重启系统
 # 2. 在 TTY 登录界面输入用户名和密码
 # 3. 启动 niri 桌面
@@ -312,7 +321,7 @@ sudo reboot
 niri-session
 ```
 
-> 注意：本配置不使用显示管理器（SDDM/GDM），每次开机需要在 TTY 手动输入 `niri-session` 启动桌面。
+> 提示：如果安装了 SDDM，重启后会自动显示图形登录界面。
 
 ## Arch Linux 依赖
 
