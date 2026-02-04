@@ -195,7 +195,7 @@ ShellRoot {
                 id: mainContainer
                 anchors.centerIn: parent
                 width: Math.min(parent.width * 0.8, 900)
-                height: Math.min(parent.height * 0.8, 700)
+                height: Math.min(parent.height * 0.9, 730)
                 color: Theme.background
                 radius: Theme.radiusXL
                 border.color: Theme.outline
@@ -325,33 +325,20 @@ ShellRoot {
                         currentIndex: root.currentTab
 
                         // ============ Wallpapers Tab ============
-                        Rectangle {
-                            color: Theme.surfaceVariant
-                            radius: Theme.radiusL
-                            clip: true
-
+                        Item {
                             GridView {
                                 id: gridView
-                                anchors.fill: parent
-                                anchors.margins: Theme.spacingM
-                                anchors.rightMargin: Theme.spacingM + 8
-                                cellWidth: Math.floor((width - Theme.spacingM - 8) / 3)
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.right: scrollBar.left
+                                anchors.rightMargin: 6
+                                cellWidth: Math.floor(width / 3)
                                 cellHeight: 160
                                 model: wallpaperModel
                                 currentIndex: root.selectedIndex
                                 cacheBuffer: 800
-                                ScrollBar.vertical: ScrollBar {
-                                    id: scrollBar
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: -Theme.spacingM - 4
-                                    width: 6
-                                    policy: ScrollBar.AsNeeded
-                                    contentItem: Rectangle {
-                                        implicitWidth: 6
-                                        radius: 3
-                                        color: scrollBar.pressed ? Theme.primary : (scrollBar.hovered ? Theme.textMuted : Theme.outline)
-                                    }
-                                }
+                                clip: true
 
                                 delegate: Item {
                                     width: gridView.cellWidth
@@ -443,6 +430,42 @@ ShellRoot {
                                             onEntered: root.selectedIndex = index
                                             onClicked: root.applyWallpaper(path)
                                         }
+                                    }
+                                }
+                            }
+
+                            ScrollBar {
+                                id: scrollBar
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 6
+                                policy: gridView.contentHeight > gridView.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                                contentItem: Rectangle {
+                                    implicitWidth: 6
+                                    radius: 3
+                                    color: scrollBar.pressed ? Theme.primary : (scrollBar.hovered ? Theme.textMuted : Theme.outline)
+                                }
+                            }
+
+                            Binding {
+                                target: scrollBar
+                                property: "position"
+                                value: gridView.visibleArea.yPosition
+                                when: !scrollBar.pressed
+                            }
+
+                            Binding {
+                                target: scrollBar
+                                property: "size"
+                                value: gridView.visibleArea.heightRatio
+                            }
+
+                            Connections {
+                                target: scrollBar
+                                function onPositionChanged() {
+                                    if (scrollBar.pressed) {
+                                        gridView.contentY = scrollBar.position * gridView.contentHeight
                                     }
                                 }
                             }

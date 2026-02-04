@@ -1,13 +1,55 @@
 # Dotfiles 配置仓库
 
-![desktop](/.assets/destoktop.png)
-![shell](/.assets/shell.png)
-![launcher](./.assets/app-launcher.png)
-![paste](./.assets/paste-view.png)
-![wifi](./.assets/wifi.png)
-![nvim](./.assets/nvim.png)
-
 这个仓库包含了我的 Arch Linux 开发环境配置文件，使用 GNU Stow 进行管理。
+
+## 预览
+
+![quick-preview](https://imgbed.snemc.cn/i/fd12803db5a7.gif)
+
+<details>
+<summary>桌面与状态栏</summary>
+
+### 桌面
+![desktop](https://imgbed.snemc.cn/i/4ac3b8b6999e.png)
+
+### Waybar 状态栏
+![waybar](https://imgbed.snemc.cn/i/d9191d99aee9.png)
+
+</details>
+
+<details>
+<summary>Quickshell 组件</summary>
+
+### 壁纸选择器
+![wallpaper-selector](https://imgbed.snemc.cn/i/e25f83b0506d.png)
+
+### 应用启动器
+![app-launcher](https://imgbed.snemc.cn/i/4e78e30e1fce.png)
+
+### 剪贴板管理
+![paste-view](https://imgbed.snemc.cn/i/5b8b8232728a.png)
+
+### WiFi 管理
+![wifi](https://imgbed.snemc.cn/i/01d0b177803f.png)
+
+### 日历
+![calendar](https://imgbed.snemc.cn/i/11b762020a38.png)
+
+### 电源菜单
+![power-menu](https://imgbed.snemc.cn/i/bc7dbbaf8f9d.png)
+
+</details>
+
+<details>
+<summary>终端与编辑器</summary>
+
+### Shell (Zsh + Starship)
+![shell](https://imgbed.snemc.cn/i/26fd3af12f87.png)
+
+### Neovim
+![nvim](https://imgbed.snemc.cn/i/815a732bb66a.png)
+
+</details>
 
 ## 目录
 
