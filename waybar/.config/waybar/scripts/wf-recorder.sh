@@ -642,9 +642,14 @@ start_rec() {
     else printf '%s\n' "$(msg warn_invalid_fps "$FRAMERATE")" >&2; fi
   fi
 
-  # Pixel format
-  if [[ "$CODEC" == *"_vaapi" ]]; then args+=( -F "scale_vaapi=format=nv12:out_range=full:out_color_primaries=bt709" )
-  else args+=( -F "format=yuv420p" ); fi
+  # Pixel format and quality
+  if [[ "$CODEC" == *"_vaapi" ]]; then
+    args+=( -F "scale_vaapi=format=nv12:out_range=full:out_color_primaries=bt709" )
+  else
+    # CPU 编码：设置高质量参数 (CRF 18 = 高质量)
+    args+=( -F "format=yuv420p" )
+    args+=( -p "crf=18" -p "preset=fast" )
+  fi
 
   # 清理之前的片段列表和暂停状态
   rm -f "$SEGMENTSFILE" "$PAUSEFILE" "$PAUSE_TOTAL_FILE"
@@ -778,9 +783,14 @@ resume_rec() {
     if [[ "$FRAMERATE" =~ ^[0-9]+$ && "$FRAMERATE" -gt 0 ]]; then args+=( --framerate "$FRAMERATE" ); fi
   fi
 
-  # Pixel format
-  if [[ "$CODEC" == *"_vaapi" ]]; then args+=( -F "scale_vaapi=format=nv12:out_range=full:out_color_primaries=bt709" )
-  else args+=( -F "format=yuv420p" ); fi
+  # Pixel format and quality
+  if [[ "$CODEC" == *"_vaapi" ]]; then
+    args+=( -F "scale_vaapi=format=nv12:out_range=full:out_color_primaries=bt709" )
+  else
+    # CPU 编码：设置高质量参数 (CRF 18 = 高质量)
+    args+=( -F "format=yuv420p" )
+    args+=( -p "crf=18" -p "preset=fast" )
+  fi
 
   # 添加到片段列表
   echo "$SAVE_PATH" >>"$SEGMENTSFILE"
