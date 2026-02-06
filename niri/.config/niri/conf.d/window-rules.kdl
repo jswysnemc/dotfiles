@@ -37,6 +37,24 @@ window-rule {
     default-column-width {}
 }
 
+window-rule {
+    match app-id="Doubaoime Voice OSD"
+    // 或者
+    //match title="Doubaoime Voice OSD"
+
+    // Niri 的不抢焦点规则
+    open-focused false
+    open-floating true
+
+    border {
+        off
+    }
+    shadow {
+        off
+    }
+
+}
+
 // --- Fcitx5 输入法窗口 ---
 window-rule {
     match app-id="fcitx"

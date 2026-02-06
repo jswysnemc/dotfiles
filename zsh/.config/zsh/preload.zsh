@@ -10,7 +10,7 @@ ZSH_AUTOSUGGEST_MANUAL_REBIND=1
 ZSH_AUTOSUGGEST_USE_ASYNC=1
 ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
-# 早加载 vi
+# 早加载 vi (zsh-vi-mode 必须同步加载，需要此变量)
 export ZVM_INIT_MODE=sourcing
 
 

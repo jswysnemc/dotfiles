@@ -171,6 +171,9 @@ binds {
     Ctrl+Print hotkey-overlay-title="截取当前屏幕" { screenshot-screen; }
     Alt+Print hotkey-overlay-title="截取当前窗口" { screenshot-window; }
 
+    // === 语音输入 ===
+    F6 hotkey-overlay-title="语音输入" { spawn "doubaoime-voice-toggle"; }
+
     // === 系统操作 ===
     XF86PowerOff allow-when-locked=true hotkey-overlay-title="电源菜单" { spawn-sh "qs-popup power-menu"; }
     Mod+MouseMiddle hotkey-overlay-title="关闭确认" { spawn-sh "qs-popup close-confirm"; }

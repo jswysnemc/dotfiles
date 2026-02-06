@@ -6,7 +6,8 @@ zi snippet OMZ::plugins/sudo/sudo.plugin.zsh
 
 
 # vimode 插件， 在行编辑模式启用 vi
-zi ice atinit'
+# 注意: zsh-vi-mode 不兼容 turbo 延迟加载，必须同步加载
+zi ice wait"0" lucid atinit'
     ZVM_VI_INSERT_ESCAPE_BINDKEY="jj"
     ZVM_VI_MODE_RESET_PROMPT_ON_MODE_CHANGE=1
 '

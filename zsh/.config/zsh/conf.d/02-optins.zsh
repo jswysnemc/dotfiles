@@ -23,8 +23,7 @@ zle_highlight=('paste:none')
 
 
 # ------------------- 基础补全配置 -------------------
-# 加载补全模块
-autoload -Uz compinit && compinit
+# compinit 由 zi turbo (zicompinit) 统一处理，此处不再重复调用
 
 zstyle ':completion:*' completer _expand _complete _ignored
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'  # 忽略大小写
