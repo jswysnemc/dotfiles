@@ -116,14 +116,13 @@ tooltip label {
  * 4. 左侧模块
  * ============================================================================== */
 #custom-arch {
-    color: @highlight;
-    /* 替换：rgba(137, 180, 250, 0.2) -> alpha(@highlight, 0.2) */
-    background-color: alpha(@highlight, 0.2);
+    color: #ffffff;
+    background-color: #1793d1;
 }
 
 #custom-arch:hover {
-    background-color: @hover-bg;
-    color: @text-main;
+    background-color: #0f7bb3;
+    color: #ffffff;
 }
 
 #custom-separator-line,
