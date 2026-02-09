@@ -245,6 +245,7 @@ Rectangle {
                 activeFocusOnTab: true
                 KeyNavigation.tab: passwordInput
                 KeyNavigation.backtab: passwordInput
+                Keys.onDownPressed: passwordInput.forceActiveFocus()
             }
         }
 
@@ -315,6 +316,7 @@ Rectangle {
                 activeFocusOnTab: true
                 KeyNavigation.tab: usernameInput
                 KeyNavigation.backtab: usernameInput
+                Keys.onUpPressed: usernameInput.forceActiveFocus()
 
                 onAccepted: doLogin()
             }

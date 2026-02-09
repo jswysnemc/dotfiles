@@ -565,7 +565,7 @@ setup_sddm() {
 
     # Install sddm package, Qt5 QML dependencies, and Wayland compositor
     print_info "Installing SDDM and dependencies..."
-    if $AUR_HELPER -S --needed --noconfirm sddm qt5-declarative qt5-quickcontrols qt5-quickcontrols2 qt5-graphicaleffects kwin >> "$LOG_FILE" 2>&1; then
+    if $AUR_HELPER -S --needed --noconfirm sddm qt5-declarative qt5-quickcontrols qt5-quickcontrols2 qt5-graphicaleffects qt5-wayland qt6-wayland kwin >> "$LOG_FILE" 2>&1; then
         print_ok "SDDM installed"
     else
         print_fail "Failed to install SDDM"
