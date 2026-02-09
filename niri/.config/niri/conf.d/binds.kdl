@@ -10,7 +10,7 @@ binds {
     Mod+Return hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
     Alt+Space hotkey-overlay-title="应用启动器" { spawn-sh "qs-popup launcher"; }
     Alt+V hotkey-overlay-title="剪贴板" { spawn-sh "qs-popup clipboard"; }
-    Mod+B hotkey-overlay-title="浏览器" { spawn "firefox"; }
+    Mod+B hotkey-overlay-title="浏览器" { spawn-sh " xdg-open \"http://\""; }
     Mod+E hotkey-overlay-title="文件管理器" { spawn "dolphin"; }
     Super+Alt+L hotkey-overlay-title="锁屏" { spawn "loginctl" "lock-session"; }
     Mod+Shift+S hotkey-overlay-title="截屏" { spawn-sh "wayfreeze & PID=$!; sleep 0.1; grim -g \"$(slurp)\" - | wl-copy; kill $PID"; }

@@ -557,12 +557,14 @@
     },
     "custom/power-icon": {
         "format": "",
-        "tooltip": false
+        "tooltip": false,
+        "on-click-right": "qs-popup power"
     },
     "custom/lock": {
         "format": "",
         "on-click": "loginctl lock-session",
-        "tooltip-format": "锁定屏幕 (Lock)"
+        "tooltip-format": "锁定屏幕 (Lock)",
+        "on-click-right": "qs-popup power"
     },
     "custom/sleep": {
         "format": "󰤄",
@@ -572,16 +574,19 @@
     "custom/logout": {
         "format": "",
         "on-click": "QS_POWER_ACTION=logout qs-popup power",
-        "tooltip-format": "注销 (Logout)"
+        "tooltip-format": "注销 (Logout)",
+        "on-click-right": "qs-popup power"
     },
     "custom/reboot": {
         "format": "",
         "on-click": "QS_POWER_ACTION=reboot qs-popup power",
-        "tooltip-format": "重启 (Reboot)"
+        "tooltip-format": "重启 (Reboot)",
+        "on-click-right": "qs-popup power"
     },
     "custom/shutdown": {
         "format": "",
         "on-click": "QS_POWER_ACTION=shutdown qs-popup power",
-        "tooltip-format": "关机 (Shutdown)"
+        "tooltip-format": "关机 (Shutdown)",
+        "on-click-right": "qs-popup power"
     }
 }
