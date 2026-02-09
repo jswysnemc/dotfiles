@@ -609,6 +609,8 @@ setup_sddm() {
         sudo tee "$sddm_conf" > /dev/null << EOF
 [General]
 DisplayServer=wayland
+
+[Wayland]
 CompositorCommand=kwin_wayland --no-lockscreen --no-global-shortcuts --locale1
 
 [Theme]
