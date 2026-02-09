@@ -27,6 +27,8 @@ if [[ ! -d "$DOTFILES_DIR/.git" ]]; then
     fi
     echo "[i] Cloning dotfiles to $DOTFILES_DIR..."
     git clone --depth 1 "$DOTFILES_REPO" "$DOTFILES_DIR"
+    # Mark as freshly cloned via env var
+    export DOTFILES_JUST_CLONED=1
 fi
 
 if [[ ! -f "$DOTFILES_DIR/setup/main.sh" ]]; then

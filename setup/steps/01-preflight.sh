@@ -118,6 +118,13 @@ REPO
 clone_dotfiles() {
     section "Phase 3" "Clone Dotfiles"
 
+    # Skip if just cloned by install.sh bootstrap
+    if [[ "${DOTFILES_JUST_CLONED:-}" == "1" ]]; then
+        print_ok "Repository cloned (bootstrap)"
+        mark_done "clone_dotfiles"
+        return
+    fi
+
     if [[ -d "$DOTFILES_DIR" ]]; then
         print_info "Directory exists: $DOTFILES_DIR"
         if confirm "Update existing repo?"; then
