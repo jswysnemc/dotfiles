@@ -349,6 +349,13 @@ ShellRoot {
         if (item.isFile) {
             // Restore file URIs with correct MIME type so file managers recognize it
             copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy --type text/uri-list"]
+        } else if (item.isImage) {
+            // Binary image: detect MIME via pipe, then copy with correct type
+            copyProcess.command = ["bash", "-c",
+                "tmp=$(mktemp); cliphist decode " + item.id + " > \"$tmp\"; " +
+                "mime=$(file -b --mime-type \"$tmp\"); " +
+                "wl-copy --type \"$mime\" < \"$tmp\"; rm -f \"$tmp\""
+            ]
         } else {
             copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy"]
         }
@@ -837,41 +844,55 @@ ShellRoot {
                                                 Layout.fillWidth: true
                                                 spacing: 2
 
-                                                // File entry: show file badge + path info
+                                                // First line: type badge + content
                                                 RowLayout {
-                                                    visible: clipItem.modelData.isFile
                                                     spacing: Theme.spacingS
 
+                                                    // Universal type badge
                                                     Rectangle {
-                                                        width: fileLabel.implicitWidth + 8
-                                                        height: fileLabel.implicitHeight + 4
+                                                        width: typeBadgeText.implicitWidth + 8
+                                                        height: typeBadgeText.implicitHeight + 4
                                                         radius: 3
-                                                        color: Theme.alpha(Theme.tertiary, 0.15)
+                                                        color: clipItem.modelData.isImage
+                                                            ? Theme.alpha(Theme.primary, 0.15)
+                                                            : clipItem.modelData.isFile
+                                                                ? Theme.alpha(Theme.tertiary, 0.15)
+                                                                : Theme.alpha(Theme.secondary, 0.15)
 
                                                         Text {
-                                                            id: fileLabel
+                                                            id: typeBadgeText
                                                             anchors.centerIn: parent
-                                                            text: clipItem.modelData.fileType === "gif" ? "GIF"
-                                                                : clipItem.modelData.fileType === "image" ? "IMG"
-                                                                : clipItem.modelData.fileType === "video" ? "VID"
-                                                                : "FILE"
+                                                            text: {
+                                                                if (clipItem.modelData.isImage) return "IMG"
+                                                                if (clipItem.modelData.isFile) {
+                                                                    if (clipItem.modelData.fileType === "gif") return "GIF"
+                                                                    if (clipItem.modelData.fileType === "image") return "IMG"
+                                                                    if (clipItem.modelData.fileType === "video") return "VID"
+                                                                    return "FILE"
+                                                                }
+                                                                return "TEXT"
+                                                            }
                                                             font.pixelSize: 9
                                                             font.bold: true
-                                                            color: Theme.tertiary
+                                                            color: clipItem.modelData.isImage
+                                                                ? Theme.primary
+                                                                : clipItem.modelData.isFile
+                                                                    ? Theme.tertiary
+                                                                    : Theme.secondary
                                                         }
                                                     }
 
                                                     Text {
                                                         Layout.fillWidth: true
-                                                        text: clipItem.modelData.preview
+                                                        text: clipItem.modelData.isImage ? "图片" : clipItem.modelData.preview
                                                         font.pixelSize: Theme.fontSizeS
-                                                        color: Theme.textPrimary
-                                                        elide: Text.ElideMiddle
+                                                        color: clipItem.modelData.isImage ? Theme.textSecondary : Theme.textPrimary
+                                                        elide: clipItem.modelData.isFile ? Text.ElideMiddle : Text.ElideRight
                                                         maximumLineCount: 1
                                                     }
                                                 }
 
-                                                // File path (secondary line)
+                                                // Second line: file path or text wrap
                                                 Text {
                                                     visible: clipItem.modelData.isFile && clipItem.modelData.filePaths.length > 0
                                                     Layout.fillWidth: true
@@ -889,24 +910,16 @@ ShellRoot {
                                                     maximumLineCount: 1
                                                 }
 
-                                                // Plain text content
+                                                // Second line for text: show more content
                                                 Text {
-                                                    visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile
+                                                    visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile && clipItem.modelData.preview.length > 40
                                                     Layout.fillWidth: true
                                                     text: clipItem.modelData.preview
-                                                    font.pixelSize: Theme.fontSizeS
-                                                    color: Theme.textPrimary
+                                                    font.pixelSize: Theme.fontSizeXS
+                                                    color: Theme.textMuted
                                                     elide: Text.ElideRight
-                                                    maximumLineCount: 2
+                                                    maximumLineCount: 1
                                                     wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                                                }
-
-                                                // Binary image label
-                                                Text {
-                                                    visible: clipItem.modelData.isImage
-                                                    text: "图片"
-                                                    font.pixelSize: Theme.fontSizeS
-                                                    color: Theme.textSecondary
                                                 }
                                             }
 
