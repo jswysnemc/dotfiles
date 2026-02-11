@@ -16,6 +16,7 @@
         "custom/weather",
         "custom/separator-line",
         "niri/workspaces",
+        "hyprland/workspaces",
         "custom/separator-line",
         "custom/media",
         "custom/visualizer",
@@ -54,16 +55,16 @@
     "custom/arch": {
         "format": "",
         "tooltip-format": "移动到左上角: 打开预览\n左键: 应用启动器 \n中键: 选择壁纸\n右键:重启waybar",
-        "on-click": "qs-popup launcher --pos top-left",
+        "on-click": "~/.local/bin/qs-popup launcher --pos top-left",
         "on-click-right": "killall waybar ; waybar",
-        "on-click-middle": "qs-popup wallpaper"
+        "on-click-middle": "~/.local/bin/qs-popup wallpaper"
     },
     // --- 天气 ---
     "custom/weather": {
         "exec": "python3 ~/.config/quickshell/scripts/weather_fetch.py --waybar",
         "return-type": "json",
         "interval": 900,
-        "on-click": "qs-popup weather",
+        "on-click": "~/.local/bin/qs-popup weather",
         "on-click-right": "python3 ~/.config/quickshell/scripts/weather_fetch.py --waybar --force",
         "tooltip": true
     },
@@ -81,13 +82,16 @@
         "format": "{index}"
     },
 
+    "hyprland/workspaces": {
+        "format": "{index}"
+    },
     // --- 媒体播放模块 ---
     "custom/media": {
         "format": "{}",
         "return-type": "json",
         "exec": "~/.config/quickshell/scripts/media_status.sh",
         "on-click": "playerctl play-pause",
-        "on-click-right": "qs-popup media",
+        "on-click-right": "~/.local/bin/qs-popup media",
         "on-scroll-up": "playerctl next",
         "on-scroll-down": "playerctl previous",
         "tooltip": true,
@@ -99,7 +103,7 @@
         "return-type": "json",
         "exec": "~/.config/quickshell/scripts/media_visualizer.sh",
         "on-click": "playerctl play-pause",
-        "on-click-right": "qs-popup media",
+        "on-click-right": "~/.local/bin/qs-popup media",
         "escape": true
     },
     // --- 快捷启动组 (Quick Start) ---
@@ -192,7 +196,7 @@
         "tooltip-format": "左键:选区截图并复制到剪贴板\n中间:启用长截图\n右键:截图并使用markpix打开",
         "on-click": "~/.config/waybar/scripts/screenshot.sh",
         "on-click-right": "~/.config/waybar/scripts/power-screenshot.sh",
-        "on-click-middle": "wayscrollshot  -a template"
+        "on-click-middle": "wayscrollshot -a template"
     },
     //wf-recorder
     "custom/wfrec": {
@@ -206,7 +210,7 @@
         // 中键：暂停/恢复
         "on-click-middle": "~/.config/waybar/scripts/wf-recorder.sh pause-toggle",
         // 右键：打开 QML 面板
-        "on-click-right": "qs-popup screen-recorder"
+        "on-click-right": "~/.local/bin/qs-popup screen-recorder"
     },
     "wlr/taskbar": {
         "format": "{icon}",
@@ -214,7 +218,7 @@
         "tooltip-format": "{title}",
         "on-click": "activate",
         "on-click-middle": "close",
-        "on-click-right":"qs-popup windows",
+        "on-click-right":"~/.local/bin/qs-popup windows",
         "ignore-list": [
             "wofi",
             "waybar"
@@ -234,7 +238,7 @@
         // 左键：切换 浮动/平铺 模式
         "on-click": "niri msg action toggle-window-floating",
         // 中键：关闭当前窗口（带确认）
-        "on-click-middle": "qs-popup close-confirm",
+        "on-click-middle": "~/.local/bin/qs-popup close-confirm",
         // 右键：切换预设列宽
         "on-click-right": "niri msg action switch-preset-column-width"
     },
@@ -293,7 +297,7 @@
             "󰤨"
         ],
         "on-click-right": "kitty -e nmtui",
-        "on-click": "qs-popup wifi"
+        "on-click": "~/.local/bin/qs-popup wifi"
     },
     // --- 蓝牙模块 (Bluetooth) ---
     "bluetooth": {
@@ -304,7 +308,7 @@
         "tooltip-format-connected": "{device_enumerate}",
         "tooltip-format-enumerate-connected": " {device_alias} 󰂄{device_battery_percentage}%",
         "on-click-right": "blueman-manager",
-        "on-click": "qs-popup bluetooth"
+        "on-click": "~/.local/bin/qs-popup bluetooth"
     },
     // ==================== 多媒体与控制 (Media & Control) ====================
     // --- 音量控制组 (Audio) ---
@@ -374,7 +378,7 @@
         "tooltip": false,
         "on-scroll-up": "brightnessctl set +5%",
         "on-scroll-down": "brightnessctl set 5%-",
-        "on-click-right": "qs-popup vol"
+        "on-click-right": "~/.local/bin/qs-popup vol"
     },
     "backlight/slider": {
         "min": 5,
@@ -519,7 +523,7 @@
     "custom/clipboard": {
         "format": "󰅍",
         "tooltip-format": "剪贴板管理器",
-        "on-click": "qs-popup clipboard --pos top-right"
+        "on-click": "~/.local/bin/qs-popup clipboard --pos top-right"
     },
     // --- 通知模块 (quickshell notification daemon) ---
     "custom/notification": {
@@ -558,35 +562,35 @@
     "custom/power-icon": {
         "format": "",
         "tooltip": false,
-        "on-click-right": "qs-popup power"
+        "on-click-right": "~/.local/bin/qs-popup power"
     },
     "custom/lock": {
         "format": "",
         "on-click": "loginctl lock-session",
         "tooltip-format": "锁定屏幕 (Lock)",
-        "on-click-right": "qs-popup power"
+        "on-click-right": "~/.local/bin/qs-popup power"
     },
     "custom/sleep": {
         "format": "󰤄",
-        "on-click": "QS_POWER_ACTION=suspend qs-popup power",
+        "on-click": "QS_POWER_ACTION=suspend ~/.local/bin/qs-popup power",
         "tooltip-format": "睡眠 (Sleep)"
     },
     "custom/logout": {
         "format": "",
-        "on-click": "QS_POWER_ACTION=logout qs-popup power",
+        "on-click": "QS_POWER_ACTION=logout ~/.local/bin/qs-popup power",
         "tooltip-format": "注销 (Logout)",
-        "on-click-right": "qs-popup power"
+        "on-click-right": "~/.local/bin/qs-popup power"
     },
     "custom/reboot": {
         "format": "",
-        "on-click": "QS_POWER_ACTION=reboot qs-popup power",
+        "on-click": "QS_POWER_ACTION=reboot ~/.local/bin/qs-popup power",
         "tooltip-format": "重启 (Reboot)",
-        "on-click-right": "qs-popup power"
+        "on-click-right": "~/.local/bin/qs-popup power"
     },
     "custom/shutdown": {
         "format": "",
-        "on-click": "QS_POWER_ACTION=shutdown qs-popup power",
+        "on-click": "QS_POWER_ACTION=shutdown ~/.local/bin/qs-popup power",
         "tooltip-format": "关机 (Shutdown)",
-        "on-click-right": "qs-popup power"
+        "on-click-right": "~/.local/bin/qs-popup power"
     }
 }

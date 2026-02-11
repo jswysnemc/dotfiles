@@ -10,6 +10,13 @@ cursor {
 animations {
     // off
     // slowdown 3.0
+    slowdown 0.9
+    workspace-switch {
+        spring damping-ratio=0.82 stiffness=523 epsilon=0.0001
+    }
+    horizontal-view-movement {
+        spring damping-ratio=0.86 stiffness=423 epsilon=0.0001
+    }
 }
 
 // 禁用 CSD，使用 niri 的窗口装饰
