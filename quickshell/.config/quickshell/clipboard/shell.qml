@@ -63,6 +63,32 @@ ShellRoot {
         }
     }
     
+    // File type classification by extension
+    readonly property var imageExts: ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "tif", "ico", "svg"]
+    readonly property var gifExts: ["gif"]
+    readonly property var videoExts: ["mp4", "mkv", "webm", "avi", "mov", "flv", "wmv", "m4v", "ts", "mpg", "mpeg"]
+
+    function classifyFile(path) {
+        var ext = path.split(".").pop().toLowerCase()
+        if (gifExts.indexOf(ext) !== -1) return "gif"
+        if (imageExts.indexOf(ext) !== -1) return "image"
+        if (videoExts.indexOf(ext) !== -1) return "video"
+        return "other"
+    }
+
+    function extractFilePaths(content) {
+        // file URIs can be multi-line (multiple files copied)
+        var lines = content.trim().split("\n")
+        var paths = []
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (line.startsWith("file://")) {
+                paths.push(decodeURIComponent(line.substring(7)))
+            }
+        }
+        return paths
+    }
+
     function parseClipboardData(data) {
         var lines = data.trim().split("\n")
         var seen = {}
@@ -75,16 +101,40 @@ ShellRoot {
                 var id = line.substring(0, tabIdx)
                 var content = line.substring(tabIdx + 1)
                 var isImage = content.startsWith("[[ binary data")
-                // Skip file URI entries (from file manager copy operations)
-                if (!isImage && content.startsWith("file://")) continue
-                var preview = isImage ? "" : content.substring(0, 200).replace(/\n/g, " ").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                // Deduplicate by content (keep first occurrence which is most recent)
-                var key = isImage ? ("img:" + content) : preview
+                var isFile = !isImage && content.indexOf("file://") !== -1
+
+                var filePaths = []
+                var fileType = ""
+                if (isFile) {
+                    filePaths = extractFilePaths(content)
+                    if (filePaths.length === 0) { isFile = false }
+                    else { fileType = classifyFile(filePaths[0]) }
+                }
+
+                var preview = ""
+                if (isImage) {
+                    preview = ""
+                } else if (isFile) {
+                    // Show file name(s) as preview
+                    preview = filePaths.map(function(p) {
+                        return p.split("/").pop()
+                    }).join(", ")
+                } else {
+                    preview = content.substring(0, 200).replace(/\n/g, " ").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                }
+
+                // Deduplicate
+                var key = isImage ? ("img:" + content) : (isFile ? ("file:" + filePaths.join("|")) : preview)
                 if (seen[key]) continue
                 seen[key] = true
+
                 items.push({
                     id: id,
                     isImage: isImage,
+                    isFile: isFile,
+                    fileType: fileType,
+                    filePaths: filePaths,
+                    rawContent: isFile ? content.trim() : "",
                     imagePath: "",
                     preview: preview
                 })
@@ -92,9 +142,13 @@ ShellRoot {
         }
         root.clipboardItems = items
         root.filterItems()
-        // Decode images in background
-        if (items.some(i => i.isImage)) {
+        // Decode binary images in background
+        if (items.some(function(i) { return i.isImage })) {
             root.startImageDecode()
+        }
+        // Generate video thumbnails
+        if (items.some(function(i) { return i.isFile && i.fileType === "video" })) {
+            root.startVideoThumbGen()
         }
     }
 
@@ -141,6 +195,57 @@ ShellRoot {
         decodeImage.running = true
     }
 
+    // ============ Video Thumbnail Generation ============
+    property var videoQueue: []
+    property int videoIndex: 0
+    property var videoThumbPaths: ({})  // Map of filePath -> thumb path
+
+    Process {
+        id: genVideoThumb
+        property string currentPath: ""
+        command: ["bash", "-c", "echo"]
+        onExited: code => {
+            if (code === 0 && genVideoThumb.currentPath) {
+                var thumbFile = root.cacheDir + "/vthumb_" + Qt.md5(genVideoThumb.currentPath) + ".png"
+                var newPaths = Object.assign({}, root.videoThumbPaths)
+                newPaths[genVideoThumb.currentPath] = thumbFile
+                root.videoThumbPaths = newPaths
+            }
+            root.videoIndex++
+            root.genNextVideoThumb()
+        }
+    }
+
+    function startVideoThumbGen() {
+        var paths = []
+        for (var i = 0; i < clipboardItems.length; i++) {
+            var item = clipboardItems[i]
+            if (item.isFile && item.fileType === "video" && item.filePaths.length > 0) {
+                paths.push(item.filePaths[0])
+            }
+        }
+        videoQueue = paths
+        videoIndex = 0
+        if (paths.length > 0) {
+            mkCacheDir2.running = true
+        }
+    }
+
+    Process {
+        id: mkCacheDir2
+        command: ["mkdir", "-p", cacheDir]
+        onExited: root.genNextVideoThumb()
+    }
+
+    function genNextVideoThumb() {
+        if (videoIndex >= videoQueue.length) return
+        var filePath = videoQueue[videoIndex]
+        genVideoThumb.currentPath = filePath
+        var thumbFile = cacheDir + "/vthumb_" + Qt.md5(filePath) + ".png"
+        genVideoThumb.command = ["ffmpegthumbnailer", "-i", filePath, "-o", thumbFile, "-s", "256", "-q", "8"]
+        genVideoThumb.running = true
+    }
+
     // ============ Fuzzy Search ============
     function fuzzyMatch(pattern, str) {
         if (!pattern) return { match: true, score: 0 }
@@ -169,23 +274,22 @@ ShellRoot {
 
     function filterItems() {
         if (!searchText) {
-            // 使用 slice() 创建数组副本，保持原始时间顺序
             filteredItems = clipboardItems.slice()
         } else {
             var results = []
             for (var i = 0; i < clipboardItems.length; i++) {
                 var item = clipboardItems[i]
                 if (item.isImage) continue
-                var m = fuzzyMatch(searchText, item.preview)
-                // 保存原始索引以便在分数相同时按时间排序
+                // File entries: search against file names
+                var searchTarget = item.isFile ? item.preview : item.preview
+                var m = fuzzyMatch(searchText, searchTarget)
                 if (m.match) results.push({ item: item, score: m.score, originalIndex: i })
             }
-            // 先按分数降序，分数相同时按原始索引升序（保持时间顺序）
-            results.sort((a, b) => {
+            results.sort(function(a, b) {
                 if (b.score !== a.score) return b.score - a.score
                 return a.originalIndex - b.originalIndex
             })
-            filteredItems = results.map(r => r.item)
+            filteredItems = results.map(function(r) { return r.item })
         }
         selectedIndex = 0
     }
@@ -223,7 +327,12 @@ ShellRoot {
     function showPreview(item) {
         previewItem = item
         previewVisible = true
-        if (!item.isImage) {
+        if (item.isFile) {
+            // For file entries, decode the raw content for preview
+            getFullText.targetId = item.id
+            getFullText.command = ["bash", "-c", "cliphist decode '" + item.id + "'"]
+            getFullText.running = true
+        } else if (!item.isImage) {
             getFullText.targetId = item.id
             getFullText.command = ["bash", "-c", "cliphist decode '" + item.id + "'"]
             getFullText.running = true
@@ -237,7 +346,12 @@ ShellRoot {
     }
 
     function selectItem(item) {
-        copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy"]
+        if (item.isFile) {
+            // Restore file URIs with correct MIME type so file managers recognize it
+            copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy --type text/uri-list"]
+        } else {
+            copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy"]
+        }
         copyProcess.running = true
         root.closeWithAnimation()
     }
@@ -524,8 +638,12 @@ ShellRoot {
                                         required property var modelData
                                         required property int index
 
+                                        // Helper properties
+                                        property bool hasVisualPreview: modelData.isImage
+                                            || (modelData.isFile && (modelData.fileType === "image" || modelData.fileType === "gif" || modelData.fileType === "video"))
+
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: modelData.isImage ? 100 : 56
+                                        Layout.preferredHeight: hasVisualPreview ? 100 : 56
                                         radius: Theme.radiusM
                                         color: index === root.selectedIndex
                                             ? Theme.alpha(Theme.primary, 0.1)
@@ -555,7 +673,7 @@ ShellRoot {
                                             anchors.margins: Theme.spacingM
                                             spacing: Theme.spacingM
 
-                                            // Image preview
+                                            // Binary image preview (from cliphist decode)
                                             Rectangle {
                                                 visible: clipItem.modelData.isImage
                                                 Layout.preferredWidth: 84
@@ -582,9 +700,125 @@ ShellRoot {
                                                 }
                                             }
 
-                                            // Text icon
+                                            // File image/gif preview (direct from file path)
                                             Rectangle {
-                                                visible: !clipItem.modelData.isImage
+                                                visible: clipItem.modelData.isFile && (clipItem.modelData.fileType === "image" || clipItem.modelData.fileType === "gif")
+                                                Layout.preferredWidth: 84
+                                                Layout.preferredHeight: 84
+                                                radius: Theme.radiusS
+                                                color: Theme.surfaceVariant
+                                                clip: true
+
+                                                // Static image
+                                                Image {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 2
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "image"
+                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "image" && clipItem.modelData.filePaths.length > 0)
+                                                        ? "file://" + clipItem.modelData.filePaths[0] : ""
+                                                    fillMode: Image.PreserveAspectCrop
+                                                    asynchronous: true
+                                                }
+
+                                                // GIF preview
+                                                AnimatedImage {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 2
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
+                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "gif" && clipItem.modelData.filePaths.length > 0)
+                                                        ? "file://" + clipItem.modelData.filePaths[0] : ""
+                                                    fillMode: Image.PreserveAspectCrop
+                                                    playing: true
+                                                    asynchronous: true
+                                                }
+
+                                                Rectangle {
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
+                                                    anchors.bottom: parent.bottom
+                                                    anchors.right: parent.right
+                                                    anchors.margins: 4
+                                                    width: gifBadgeText.implicitWidth + 8
+                                                    height: gifBadgeText.implicitHeight + 4
+                                                    radius: 3
+                                                    color: Theme.alpha(Qt.black, 0.6)
+
+                                                    Text {
+                                                        id: gifBadgeText
+                                                        anchors.centerIn: parent
+                                                        text: "GIF"
+                                                        font.pixelSize: 9
+                                                        font.bold: true
+                                                        color: "white"
+                                                    }
+                                                }
+                                            }
+
+                                            // File video thumbnail
+                                            Rectangle {
+                                                visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
+                                                Layout.preferredWidth: 84
+                                                Layout.preferredHeight: 84
+                                                radius: Theme.radiusS
+                                                color: Theme.surfaceVariant
+                                                clip: true
+
+                                                Image {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 2
+                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && clipItem.modelData.filePaths.length > 0)
+                                                        ? (root.videoThumbPaths[clipItem.modelData.filePaths[0]]
+                                                            ? "file://" + root.videoThumbPaths[clipItem.modelData.filePaths[0]] : "")
+                                                        : ""
+                                                    fillMode: Image.PreserveAspectCrop
+                                                    asynchronous: true
+
+                                                    Text {
+                                                        visible: parent.status !== Image.Ready
+                                                        anchors.centerIn: parent
+                                                        text: "\uf03d"
+                                                        font.family: "Symbols Nerd Font Mono"
+                                                        font.pixelSize: 24
+                                                        color: Theme.textMuted
+                                                    }
+                                                }
+
+                                                // Play icon overlay
+                                                Rectangle {
+                                                    visible: parent.children[0].status === Image.Ready
+                                                    anchors.centerIn: parent
+                                                    width: 24; height: 24
+                                                    radius: 12
+                                                    color: Theme.alpha(Qt.black, 0.5)
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "\uf04b"
+                                                        font.family: "Symbols Nerd Font Mono"
+                                                        font.pixelSize: 10
+                                                        color: "white"
+                                                    }
+                                                }
+                                            }
+
+                                            // File icon for non-previewable files
+                                            Rectangle {
+                                                visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "other"
+                                                width: 32; height: 32
+                                                radius: Theme.radiusS
+                                                color: Theme.alpha(Theme.tertiary, 0.1)
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "\uf15b"
+                                                    font.family: "Symbols Nerd Font Mono"
+                                                    font.pixelSize: 14
+                                                    color: Theme.tertiary
+                                                }
+                                            }
+
+                                            // Text icon (plain text entries)
+                                            Rectangle {
+                                                visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile
                                                 width: 32; height: 32
                                                 radius: Theme.radiusS
                                                 color: Theme.alpha(Theme.primary, 0.1)
@@ -598,25 +832,82 @@ ShellRoot {
                                                 }
                                             }
 
-                                            // Content
-                                            Text {
-                                                id: itemText
-                                                visible: !clipItem.modelData.isImage
+                                            // Content column
+                                            ColumnLayout {
                                                 Layout.fillWidth: true
-                                                text: clipItem.modelData.preview
-                                                font.pixelSize: Theme.fontSizeS
-                                                color: Theme.textPrimary
-                                                elide: Text.ElideRight
-                                                maximumLineCount: 2
-                                                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                                            }
+                                                spacing: 2
 
-                                            Text {
-                                                visible: clipItem.modelData.isImage
-                                                Layout.fillWidth: true
-                                                text: "图片"
-                                                font.pixelSize: Theme.fontSizeS
-                                                color: Theme.textSecondary
+                                                // File entry: show file badge + path info
+                                                RowLayout {
+                                                    visible: clipItem.modelData.isFile
+                                                    spacing: Theme.spacingS
+
+                                                    Rectangle {
+                                                        width: fileLabel.implicitWidth + 8
+                                                        height: fileLabel.implicitHeight + 4
+                                                        radius: 3
+                                                        color: Theme.alpha(Theme.tertiary, 0.15)
+
+                                                        Text {
+                                                            id: fileLabel
+                                                            anchors.centerIn: parent
+                                                            text: clipItem.modelData.fileType === "gif" ? "GIF"
+                                                                : clipItem.modelData.fileType === "image" ? "IMG"
+                                                                : clipItem.modelData.fileType === "video" ? "VID"
+                                                                : "FILE"
+                                                            font.pixelSize: 9
+                                                            font.bold: true
+                                                            color: Theme.tertiary
+                                                        }
+                                                    }
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: clipItem.modelData.preview
+                                                        font.pixelSize: Theme.fontSizeS
+                                                        color: Theme.textPrimary
+                                                        elide: Text.ElideMiddle
+                                                        maximumLineCount: 1
+                                                    }
+                                                }
+
+                                                // File path (secondary line)
+                                                Text {
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.filePaths.length > 0
+                                                    Layout.fillWidth: true
+                                                    text: {
+                                                        if (!clipItem.modelData.isFile || clipItem.modelData.filePaths.length === 0) return ""
+                                                        var p = clipItem.modelData.filePaths[0]
+                                                        var dir = p.substring(0, p.lastIndexOf("/"))
+                                                        var suffix = clipItem.modelData.filePaths.length > 1
+                                                            ? "  (+" + (clipItem.modelData.filePaths.length - 1) + ")" : ""
+                                                        return dir + suffix
+                                                    }
+                                                    font.pixelSize: Theme.fontSizeXS
+                                                    color: Theme.textMuted
+                                                    elide: Text.ElideMiddle
+                                                    maximumLineCount: 1
+                                                }
+
+                                                // Plain text content
+                                                Text {
+                                                    visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile
+                                                    Layout.fillWidth: true
+                                                    text: clipItem.modelData.preview
+                                                    font.pixelSize: Theme.fontSizeS
+                                                    color: Theme.textPrimary
+                                                    elide: Text.ElideRight
+                                                    maximumLineCount: 2
+                                                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                                                }
+
+                                                // Binary image label
+                                                Text {
+                                                    visible: clipItem.modelData.isImage
+                                                    text: "图片"
+                                                    font.pixelSize: Theme.fontSizeS
+                                                    color: Theme.textSecondary
+                                                }
                                             }
 
                                             // Delete
@@ -707,10 +998,14 @@ ShellRoot {
                     onClicked: root.hidePreview()
                 }
 
+                // Helper properties for preview sizing
+                property bool isVisualPreview: root.previewItem && (root.previewItem.isImage
+                    || (root.previewItem.isFile && root.previewItem.fileType !== "other"))
+
                 Rectangle {
                     anchors.centerIn: parent
-                    width: root.previewItem && root.previewItem.isImage ? Math.min(parent.width - 60, 800) : Math.min(parent.width - 60, 700)
-                    height: root.previewItem && root.previewItem.isImage ? Math.min(parent.height - 60, 650) : Math.min(parent.height - 60, 550)
+                    width: parent.isVisualPreview ? Math.min(parent.width - 60, 800) : Math.min(parent.width - 60, 700)
+                    height: parent.isVisualPreview ? Math.min(parent.height - 60, 650) : Math.min(parent.height - 60, 550)
                     color: Theme.background
                     radius: Theme.radiusXL
                     border.color: Theme.outline
@@ -732,14 +1027,34 @@ ShellRoot {
                             spacing: Theme.spacingM
 
                             Text {
-                                text: root.previewItem && root.previewItem.isImage ? "\uf03e" : "\uf0f6"
+                                text: {
+                                    if (!root.previewItem) return "\uf0f6"
+                                    if (root.previewItem.isImage) return "\uf03e"
+                                    if (root.previewItem.isFile) {
+                                        if (root.previewItem.fileType === "gif") return "\uf03e"
+                                        if (root.previewItem.fileType === "image") return "\uf03e"
+                                        if (root.previewItem.fileType === "video") return "\uf03d"
+                                        return "\uf15b"
+                                    }
+                                    return "\uf0f6"
+                                }
                                 font.family: "Symbols Nerd Font Mono"
                                 font.pixelSize: 18
                                 color: Theme.primary
                             }
 
                             Text {
-                                text: root.previewItem && root.previewItem.isImage ? "图片预览" : "文本预览"
+                                text: {
+                                    if (!root.previewItem) return ""
+                                    if (root.previewItem.isImage) return "图片预览"
+                                    if (root.previewItem.isFile) {
+                                        if (root.previewItem.fileType === "gif") return "GIF 预览"
+                                        if (root.previewItem.fileType === "image") return "图片预览"
+                                        if (root.previewItem.fileType === "video") return "视频预览"
+                                        return "文件信息"
+                                    }
+                                    return "文本预览"
+                                }
                                 font.pixelSize: Theme.fontSizeL
                                 font.bold: true
                                 color: Theme.textPrimary
@@ -776,25 +1091,156 @@ ShellRoot {
                                 id: previewFlickable
                                 anchors.fill: parent
                                 contentWidth: width
-                                contentHeight: root.previewItem && root.previewItem.isImage ? previewImage.height : previewTextEdit.contentHeight
+                                contentHeight: {
+                                    if (!root.previewItem) return 0
+                                    if (root.previewItem.isImage) return previewImage.height
+                                    if (root.previewItem.isFile) {
+                                        if (root.previewItem.fileType === "gif") return previewGif.height
+                                        if (root.previewItem.fileType === "image") return previewFileImage.height
+                                        if (root.previewItem.fileType === "video") return previewVideoThumb.height
+                                        return previewFileInfo.implicitHeight
+                                    }
+                                    return previewTextEdit.contentHeight
+                                }
                                 clip: true
                                 boundsBehavior: Flickable.StopAtBounds
 
-                                // Image preview
+                                // Binary image preview
                                 Image {
                                     id: previewImage
                                     visible: root.previewItem && root.previewItem.isImage
                                     width: parent.width
-                                    source: root.previewItem && root.imagePaths[root.previewItem.id]
+                                    source: root.previewItem && root.previewItem.isImage && root.imagePaths[root.previewItem.id]
                                         ? "file://" + root.imagePaths[root.previewItem.id] : ""
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                 }
 
+                                // File image preview
+                                Image {
+                                    id: previewFileImage
+                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "image"
+                                    width: parent.width
+                                    source: (root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "image" && root.previewItem.filePaths.length > 0)
+                                        ? "file://" + root.previewItem.filePaths[0] : ""
+                                    fillMode: Image.PreserveAspectFit
+                                    asynchronous: true
+                                }
+
+                                // GIF preview
+                                AnimatedImage {
+                                    id: previewGif
+                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "gif"
+                                    width: parent.width
+                                    source: (root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "gif" && root.previewItem.filePaths.length > 0)
+                                        ? "file://" + root.previewItem.filePaths[0] : ""
+                                    fillMode: Image.PreserveAspectFit
+                                    playing: true
+                                    asynchronous: true
+                                }
+
+                                // Video thumbnail preview
+                                Image {
+                                    id: previewVideoThumb
+                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "video"
+                                    width: parent.width
+                                    source: {
+                                        if (!root.previewItem || !root.previewItem.isFile || root.previewItem.fileType !== "video" || root.previewItem.filePaths.length === 0) return ""
+                                        var thumb = root.videoThumbPaths[root.previewItem.filePaths[0]]
+                                        return thumb ? "file://" + thumb : ""
+                                    }
+                                    fillMode: Image.PreserveAspectFit
+                                    asynchronous: true
+
+                                    // Play icon overlay
+                                    Rectangle {
+                                        visible: previewVideoThumb.status === Image.Ready
+                                        anchors.centerIn: parent
+                                        width: 48; height: 48
+                                        radius: 24
+                                        color: Theme.alpha(Qt.black, 0.5)
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\uf04b"
+                                            font.family: "Symbols Nerd Font Mono"
+                                            font.pixelSize: 20
+                                            color: "white"
+                                        }
+                                    }
+                                }
+
+                                // File info for non-previewable files
+                                ColumnLayout {
+                                    id: previewFileInfo
+                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "other"
+                                    width: parent.width
+                                    spacing: Theme.spacingL
+
+                                    // File icon
+                                    Rectangle {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.topMargin: Theme.spacingXL
+                                        width: 64; height: 64
+                                        radius: Theme.radiusL
+                                        color: Theme.alpha(Theme.tertiary, 0.1)
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\uf15b"
+                                            font.family: "Symbols Nerd Font Mono"
+                                            font.pixelSize: 32
+                                            color: Theme.tertiary
+                                        }
+                                    }
+
+                                    // File list
+                                    Repeater {
+                                        model: root.previewItem && root.previewItem.isFile ? root.previewItem.filePaths : []
+
+                                        ColumnLayout {
+                                            required property string modelData
+                                            required property int index
+                                            Layout.fillWidth: true
+                                            spacing: 2
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.split("/").pop()
+                                                font.pixelSize: Theme.fontSizeM
+                                                font.bold: true
+                                                color: Theme.textPrimary
+                                                horizontalAlignment: Text.AlignHCenter
+                                                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                                            }
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData
+                                                font.pixelSize: Theme.fontSizeS
+                                                font.family: "monospace"
+                                                color: Theme.textMuted
+                                                horizontalAlignment: Text.AlignHCenter
+                                                wrapMode: Text.WrapAnywhere
+                                            }
+
+                                            Rectangle {
+                                                visible: index < (root.previewItem ? root.previewItem.filePaths.length - 1 : 0)
+                                                Layout.fillWidth: true
+                                                Layout.topMargin: Theme.spacingS
+                                                Layout.bottomMargin: Theme.spacingS
+                                                height: 1
+                                                color: Theme.outline
+                                                opacity: 0.4
+                                            }
+                                        }
+                                    }
+                                }
+
                                 // Text preview (selectable)
                                 TextEdit {
                                     id: previewTextEdit
-                                    visible: root.previewItem && !root.previewItem.isImage
+                                    visible: root.previewItem && !root.previewItem.isImage && !root.previewItem.isFile
                                     width: parent.width
                                     text: root.previewFullText
                                     font.pixelSize: Theme.fontSizeM
