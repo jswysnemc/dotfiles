@@ -76,6 +76,30 @@ ShellRoot {
         return "other"
     }
 
+    function normalizeBinaryExt(ext) {
+        var e = (ext || "").toLowerCase()
+        if (e === "jpg") return "jpeg"
+        if (e === "tif") return "tiff"
+        if (e === "svg+xml") return "svg"
+        return e
+    }
+
+    function binaryExtFromMeta(content) {
+        var m = content.match(/^\[\[\s*binary data\s+.+?\s+([A-Za-z0-9.+-]+)\s+[0-9]+x[0-9]+\s*\]\]$/)
+        if (!m) return "png"
+        var e = normalizeBinaryExt(m[1])
+        return e || "png"
+    }
+
+    function imagePathById(id) {
+        return root.imagePaths[id] ? root.imagePaths[id] : (cacheDir + "/" + id + ".png")
+    }
+
+    function placeholderImageMime(textValue) {
+        var m = String(textValue === undefined || textValue === null ? "" : textValue).trim().match(/^\[Binary Image:\s*(image\/[A-Za-z0-9.+-]+)\]$/i)
+        return m ? m[1].toLowerCase() : ""
+    }
+
     function extractFilePaths(content) {
         // file URIs can be multi-line (multiple files copied)
         var lines = content.trim().split("\n")
@@ -100,7 +124,11 @@ ShellRoot {
             if (tabIdx > 0) {
                 var id = line.substring(0, tabIdx)
                 var content = line.substring(tabIdx + 1)
-                var isImage = content.startsWith("[[ binary data")
+                var trimmedContent = content.trim()
+                var isImage = trimmedContent.startsWith("[[ binary data")
+                var isPlaceholderImageText = placeholderImageMime(trimmedContent).length > 0
+                if (isPlaceholderImageText) continue
+                var imageExt = isImage ? binaryExtFromMeta(trimmedContent) : ""
                 var isFile = !isImage && content.indexOf("file://") !== -1
 
                 var filePaths = []
@@ -131,6 +159,7 @@ ShellRoot {
                 items.push({
                     id: id,
                     isImage: isImage,
+                    imageExt: imageExt,
                     isFile: isFile,
                     fileType: fileType,
                     filePaths: filePaths,
@@ -159,11 +188,12 @@ ShellRoot {
     Process {
         id: decodeImage
         property string currentId: ""
+        property string currentPath: ""
         command: ["bash", "-c", "echo"]
         onExited: code => {
-            if (code === 0 && decodeImage.currentId) {
+            if (code === 0 && decodeImage.currentId && decodeImage.currentPath) {
                 var newPaths = Object.assign({}, root.imagePaths)
-                newPaths[decodeImage.currentId] = root.cacheDir + "/" + decodeImage.currentId + ".png"
+                newPaths[decodeImage.currentId] = decodeImage.currentPath
                 root.imagePaths = newPaths
             }
             root.imageIndex++
@@ -188,9 +218,18 @@ ShellRoot {
     function decodeNextImage() {
         if (imageIndex >= imageQueue.length) return
         var id = imageQueue[imageIndex]
+        var ext = "png"
+        for (var i = 0; i < clipboardItems.length; i++) {
+            if (clipboardItems[i].id === id && clipboardItems[i].isImage) {
+                ext = clipboardItems[i].imageExt || "png"
+                break
+            }
+        }
+
         decodeImage.currentId = id
+        decodeImage.currentPath = cacheDir + "/" + id + "." + ext
         decodeImage.command = ["bash", "-c",
-            "cliphist decode '" + id + "' > '" + cacheDir + "/" + id + ".png' 2>/dev/null && echo ok"
+            "cliphist decode '" + id + "' > '" + decodeImage.currentPath + "' 2>/dev/null"
         ]
         decodeImage.running = true
     }
@@ -300,6 +339,7 @@ ShellRoot {
     Process {
         id: copyProcess
         command: ["echo"]
+        onExited: root.closeWithAnimation()
     }
 
     Process {
@@ -347,20 +387,56 @@ ShellRoot {
 
     function selectItem(item) {
         if (item.isFile) {
-            // Restore file URIs with correct MIME type so file managers recognize it
-            copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy --type text/uri-list"]
-        } else if (item.isImage) {
-            // Binary image: detect MIME via pipe, then copy with correct type
+            // FILE 条目激活：优先将单个本地图片文件转换为 image/png；否则保持 text/uri-list。
             copyProcess.command = ["bash", "-c",
-                "tmp=$(mktemp); cliphist decode " + item.id + " > \"$tmp\"; " +
-                "mime=$(file -b --mime-type \"$tmp\"); " +
-                "wl-copy --type \"$mime\" < \"$tmp\"; rm -f \"$tmp\""
+                'tmp=$(mktemp); tmp_uris=$(mktemp); tmp_png=""; ' +
+                'cleanup(){ rm -f "$tmp" "$tmp_uris" "$tmp_png"; }; ' +
+                'if ! cliphist decode \'' + item.id + '\' > "$tmp" 2>/dev/null || [ ! -s "$tmp" ]; then cleanup; exit 1; fi; ' +
+                'while IFS= read -r line; do ' +
+                    '[ -z "$line" ] && continue; ' +
+                    '[ "$line" = "copy" ] && continue; ' +
+                    '[ "$line" = "cut" ] && continue; ' +
+                    'if [[ "$line" == /* ]]; then printf "file://%s\n" "$line"; else printf "%s\n" "$line"; fi; ' +
+                'done < "$tmp" > "$tmp_uris"; ' +
+                'first=$(sed -n "1p" "$tmp_uris"); second=$(sed -n "2p" "$tmp_uris"); ' +
+                'if [ -n "$first" ] && [ -z "$second" ]; then ' +
+                    'path=""; ' +
+                    'case "$first" in file://localhost/*) path="/${first#file://localhost/}" ;; file:///*) path="${first#file://}" ;; /*) path="$first" ;; esac; ' +
+                    'if [ -n "$path" ] && [ -f "$path" ]; then ' +
+                        'mime=$(file -b --mime-type "$path" 2>/dev/null || true); ' +
+                        'if [[ "$mime" == image/* ]]; then ' +
+                            'if [ "$mime" = "image/png" ]; then wl-copy --type image/png < "$path"; status=$?; cleanup; exit $status; fi; ' +
+                            'if command -v magick >/dev/null 2>&1; then tmp_png=$(mktemp); if magick "$path" PNG:"$tmp_png" >/dev/null 2>&1 && [ -s "$tmp_png" ]; then wl-copy --type image/png < "$tmp_png"; status=$?; cleanup; exit $status; fi; fi; ' +
+                            'wl-copy --type "$mime" < "$path"; status=$?; cleanup; exit $status; ' +
+                        'fi; ' +
+                    'fi; ' +
+                'fi; ' +
+                'wl-copy --type text/uri-list < "$tmp_uris"; status=$?; cleanup; exit $status'
+            ]
+        } else if (item.isImage) {
+            // Binary image re-activation: prefer PNG for compatibility, fallback to cache candidates.
+            var cacheImagePath = imagePathById(item.id)
+            copyProcess.command = ["bash", "-c",
+                'tmp=$(mktemp); status=1; ' +
+                'copy_image(){ src="$1"; mime=$(file -b --mime-type "$src" 2>/dev/null || true); ' +
+                    'if [[ "$mime" == image/* ]]; then ' +
+                        'if [ "$mime" = "image/png" ]; then wl-copy --type image/png < "$src"; return $?; fi; ' +
+                        'if command -v magick >/dev/null 2>&1; then tmp_png=$(mktemp); if magick "$src" PNG:"$tmp_png" >/dev/null 2>&1 && [ -s "$tmp_png" ]; then wl-copy --type image/png < "$tmp_png"; rc=$?; rm -f "$tmp_png"; return $rc; fi; rm -f "$tmp_png"; fi; ' +
+                        'wl-copy --type "$mime" < "$src"; return $?; ' +
+                    'fi; return 1; }; ' +
+                'if cliphist decode "' + item.id + '" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then copy_image "$tmp"; status=$?; fi; ' +
+                'rm -f "$tmp"; ' +
+                'if [ $status -ne 0 ]; then ' +
+                    'for c in "' + cacheImagePath + '" "' + cacheDir + '/' + item.id + '.png" "' + cacheDir + '/' + item.id + '.gif" "' + cacheDir + '/' + item.id + '.jpeg" "' + cacheDir + '/' + item.id + '.jpg" "' + cacheDir + '/' + item.id + '.webp"; do ' +
+                        'if [ -s "$c" ]; then copy_image "$c"; status=$?; [ $status -eq 0 ] && break; fi; ' +
+                    'done; ' +
+                'fi; ' +
+                'exit $status'
             ]
         } else {
-            copyProcess.command = ["bash", "-c", "cliphist decode " + item.id + " | wl-copy"]
+            copyProcess.command = ["bash", "-c", "cliphist decode '" + item.id + "' | wl-copy"]
         }
         copyProcess.running = true
-        root.closeWithAnimation()
     }
 
     function deleteItem(item) {
@@ -689,11 +765,12 @@ ShellRoot {
                                                 color: Theme.surfaceVariant
                                                 clip: true
 
-                                                Image {
+                                                AnimatedImage {
                                                     anchors.fill: parent
                                                     anchors.margins: 2
                                                     source: root.imagePaths[clipItem.modelData.id] ? "file://" + root.imagePaths[clipItem.modelData.id] : ""
                                                     fillMode: Image.PreserveAspectCrop
+                                                    playing: true
                                                     asynchronous: true
 
                                                     Text {
@@ -1119,13 +1196,14 @@ ShellRoot {
                                 boundsBehavior: Flickable.StopAtBounds
 
                                 // Binary image preview
-                                Image {
+                                AnimatedImage {
                                     id: previewImage
                                     visible: root.previewItem && root.previewItem.isImage
                                     width: parent.width
                                     source: root.previewItem && root.previewItem.isImage && root.imagePaths[root.previewItem.id]
                                         ? "file://" + root.imagePaths[root.previewItem.id] : ""
                                     fillMode: Image.PreserveAspectFit
+                                    playing: true
                                     asynchronous: true
                                 }
 

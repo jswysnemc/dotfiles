@@ -8,8 +8,247 @@
 LOG_FILE="$HOME/.local/share/clipboard-sync/clipboard-sync.log"
 SELF_PATH="$(realpath "$0")"
 export DISPLAY=${DISPLAY:-:0}
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/clipboard-sync"
+RECENT_X_HASH_FILE="$STATE_DIR/recent_x_hash"
+RECENT_W_HASH_FILE="$STATE_DIR/recent_w_hash"
+RECENT_TTL=2
 
 mkdir -p "$(dirname "$LOG_FILE")"
+mkdir -p "$STATE_DIR"
+
+write_recent_hash() {
+    local file="$1"
+    local hash="$2"
+    [[ -z "$hash" ]] && return 0
+    printf '%s %s\n' "$(date +%s)" "$hash" > "$file"
+}
+
+is_recent_hash() {
+    local file="$1"
+    local hash="$2"
+    [[ -z "$hash" || ! -f "$file" ]] && return 1
+
+    local ts saved now
+    read -r ts saved < "$file" || return 1
+    now=$(date +%s)
+    [[ -z "$ts" || -z "$saved" ]] && return 1
+    (( now - ts <= RECENT_TTL )) || return 1
+    [[ "$saved" == "$hash" ]]
+}
+
+copy_wayland_to_x11() {
+    local mime="$1"
+    local tmp
+    tmp=$(mktemp)
+
+    if ! wl-paste --type "$mime" > "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 1
+    fi
+
+    if [[ ! -s "$tmp" ]]; then
+        rm -f "$tmp"
+        return 1
+    fi
+
+    if xclip -selection clipboard -t "$mime" -in < "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 0
+    fi
+
+    rm -f "$tmp"
+    return 1
+}
+
+copy_x11_to_wayland() {
+    local source_mime="$1"
+    local target_mime="${2:-$source_mime}"
+    local tmp
+    tmp=$(mktemp)
+
+    if ! xclip -selection clipboard -t "$source_mime" -o > "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 1
+    fi
+
+    if [[ ! -s "$tmp" ]]; then
+        rm -f "$tmp"
+        return 1
+    fi
+
+    if wl-copy --type "$target_mime" < "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 0
+    fi
+
+    rm -f "$tmp"
+    return 1
+}
+
+copy_x11_image_to_wayland() {
+    local source_mime="$1"
+    local tmp_source tmp_png
+
+    tmp_source=$(mktemp)
+    if ! xclip -selection clipboard -t "$source_mime" -o > "$tmp_source" 2>/dev/null; then
+        rm -f "$tmp_source"
+        return 1
+    fi
+
+    if [[ ! -s "$tmp_source" ]]; then
+        rm -f "$tmp_source"
+        return 1
+    fi
+
+    if [[ "$source_mime" != "image/png" ]] && command -v magick >/dev/null 2>&1; then
+        tmp_png=$(mktemp)
+        if magick "$tmp_source" PNG:"$tmp_png" >/dev/null 2>&1 && [[ -s "$tmp_png" ]]; then
+            if wl-copy --type "image/png" < "$tmp_png" 2>/dev/null; then
+                rm -f "$tmp_source" "$tmp_png"
+                return 0
+            fi
+        fi
+        rm -f "$tmp_png"
+    fi
+
+    if wl-copy --type "$source_mime" < "$tmp_source" 2>/dev/null; then
+        rm -f "$tmp_source"
+        return 0
+    fi
+
+    rm -f "$tmp_source"
+    return 1
+}
+
+normalize_uri_list_file() {
+    local input_file="$1"
+    local output_file="$2"
+
+    : > "$output_file"
+
+    while IFS= read -r line; do
+        line=${line%$'\r'}
+
+        if [[ "$line" == "copy" || "$line" == "cut" || -z "$line" ]]; then
+            continue
+        fi
+
+        if [[ "$line" == /* ]]; then
+            printf 'file://%s\n' "$line" >> "$output_file"
+        else
+            printf '%s\n' "$line" >> "$output_file"
+        fi
+    done < "$input_file"
+
+    [[ -s "$output_file" ]]
+}
+
+first_local_file_from_uri_list() {
+    local uri_file="$1"
+    local first second path
+
+    first=$(sed -n '1p' "$uri_file")
+    second=$(sed -n '2p' "$uri_file")
+
+    [[ -n "$first" && -z "$second" ]] || return 1
+
+    if [[ "$first" == file://localhost/* ]]; then
+        path="/${first#file://localhost/}"
+    elif [[ "$first" == file:///* ]]; then
+        path="${first#file://}"
+    elif [[ "$first" == /* ]]; then
+        path="$first"
+    else
+        return 1
+    fi
+
+    [[ -f "$path" ]] || return 1
+    printf '%s\n' "$path"
+}
+
+copy_x11_files_to_wayland() {
+    local tmp_raw tmp_uris image_path image_mime tmp_png
+
+    tmp_raw=$(mktemp)
+    tmp_uris=$(mktemp)
+
+    if ! xclip -selection clipboard -t "x-special/gnome-copied-files" -o > "$tmp_raw" 2>/dev/null; then
+        if ! xclip -selection clipboard -t "text/uri-list" -o > "$tmp_raw" 2>/dev/null; then
+            rm -f "$tmp_raw" "$tmp_uris"
+            return 1
+        fi
+    fi
+
+    if [[ ! -s "$tmp_raw" ]]; then
+        rm -f "$tmp_raw" "$tmp_uris"
+        return 1
+    fi
+
+    if ! normalize_uri_list_file "$tmp_raw" "$tmp_uris"; then
+        rm -f "$tmp_raw" "$tmp_uris"
+        return 1
+    fi
+
+    image_path=$(first_local_file_from_uri_list "$tmp_uris" 2>/dev/null || true)
+    if [[ -n "$image_path" ]]; then
+        image_mime=$(file -b --mime-type "$image_path" 2>/dev/null || true)
+        if [[ "$image_mime" == image/* ]]; then
+            if [[ "$image_mime" == "image/png" ]]; then
+                if wl-copy --type "image/png" < "$image_path" 2>/dev/null; then
+                    rm -f "$tmp_raw" "$tmp_uris"
+                    return 0
+                fi
+            elif command -v magick >/dev/null 2>&1; then
+                tmp_png=$(mktemp)
+                if magick "$image_path" PNG:"$tmp_png" >/dev/null 2>&1 && [[ -s "$tmp_png" ]]; then
+                    if wl-copy --type "image/png" < "$tmp_png" 2>/dev/null; then
+                        rm -f "$tmp_raw" "$tmp_uris" "$tmp_png"
+                        return 0
+                    fi
+                fi
+                rm -f "$tmp_png"
+            fi
+        fi
+    fi
+
+    if wl-copy --type "text/uri-list" < "$tmp_uris" 2>/dev/null; then
+        rm -f "$tmp_raw" "$tmp_uris"
+        return 0
+    fi
+
+    rm -f "$tmp_raw" "$tmp_uris"
+    return 1
+}
+
+copy_wayland_files_to_x11() {
+    local tmp_raw tmp_uris
+
+    tmp_raw=$(mktemp)
+    tmp_uris=$(mktemp)
+
+    if ! wl-paste --type "text/uri-list" > "$tmp_raw" 2>/dev/null; then
+        rm -f "$tmp_raw" "$tmp_uris"
+        return 1
+    fi
+
+    if [[ ! -s "$tmp_raw" ]]; then
+        rm -f "$tmp_raw" "$tmp_uris"
+        return 1
+    fi
+
+    if ! normalize_uri_list_file "$tmp_raw" "$tmp_uris"; then
+        rm -f "$tmp_raw" "$tmp_uris"
+        return 1
+    fi
+
+    if { echo "copy"; cat "$tmp_uris"; } | xclip -selection clipboard -t "x-special/gnome-copied-files" -in 2>/dev/null; then
+        rm -f "$tmp_raw" "$tmp_uris"
+        return 0
+    fi
+
+    rm -f "$tmp_raw" "$tmp_uris"
+    return 1
+}
 
 # -----------------------------------------------------------------------------
 # 工具函数: 日志与预览
@@ -22,11 +261,31 @@ get_preview() {
         return
     fi
 
+    if [[ -z "$type" ]]; then
+        echo "(empty)"
+        return
+    fi
+
+    if [[ "$type" != text/* && "$type" != "text/uri-list" && "$type" != "x-special/gnome-copied-files" ]]; then
+        echo "[Binary Data: $type]"
+        return
+    fi
+
     local content
     if [[ "$2" == "wayland" ]]; then
-        content=$(timeout 1s wl-paste --no-newline 2>/dev/null)
+        if [[ "$type" == "text/uri-list" || "$type" == "x-special/gnome-copied-files" ]]; then
+            content=$(timeout 1s wl-paste --type text/uri-list 2>/dev/null | tr -d '\n')
+        else
+            content=$(timeout 1s wl-paste --no-newline 2>/dev/null)
+        fi
     else
-        content=$(timeout 1s xclip -selection clipboard -o 2>/dev/null | tr -d '\n')
+        if [[ "$type" == "x-special/gnome-copied-files" ]]; then
+            content=$(timeout 1s xclip -selection clipboard -t x-special/gnome-copied-files -o 2>/dev/null | tail -n +2 | tr -d '\n')
+        elif [[ "$type" == "text/uri-list" ]]; then
+            content=$(timeout 1s xclip -selection clipboard -t text/uri-list -o 2>/dev/null | tr -d '\n')
+        else
+            content=$(timeout 1s xclip -selection clipboard -t UTF8_STRING -o 2>/dev/null | tr -d '\n')
+        fi
     fi
 
     if [[ -z "$content" ]]; then
@@ -59,7 +318,7 @@ log() {
 
 get_x11_hash() {
     local targets
-    targets=$(timeout 0.5s xclip -selection clipboard -t TARGETS -o 2>/dev/null) || return 1
+    targets=$(timeout 0.5s xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\0' '\n') || return 1
 
     if echo "$targets" | grep -q "image/png"; then
         local size=$(timeout 0.5s xclip -selection clipboard -t image/png -o 2>/dev/null | wc -c)
@@ -91,12 +350,12 @@ get_wayland_hash() {
         local img_type=$(echo "$types" | grep "image/" | head -1)
         local size=$(timeout 0.5s wl-paste --type "$img_type" 2>/dev/null | wc -c)
         echo "${size} ${img_type}"
-    elif echo "$types" | grep -q "x-special/gnome-copied-files"; then
-        local hash=$(timeout 0.5s wl-paste --type "x-special/gnome-copied-files" 2>/dev/null | md5sum | cut -d' ' -f1)
-        echo "${hash} x-special/gnome-copied-files"
     elif echo "$types" | grep -q "text/uri-list"; then
         local hash=$(timeout 0.5s wl-paste --type "text/uri-list" 2>/dev/null | md5sum | cut -d' ' -f1)
         echo "${hash} text/uri-list"
+    elif echo "$types" | grep -q "x-special/gnome-copied-files"; then
+        local hash=$(timeout 0.5s wl-paste --type "x-special/gnome-copied-files" 2>/dev/null | md5sum | cut -d' ' -f1)
+        echo "${hash} x-special/gnome-copied-files"
     else
         local hash=$(timeout 0.5s wl-paste 2>/dev/null | md5sum | cut -d' ' -f1)
         echo "${hash} text/plain"
@@ -110,59 +369,113 @@ get_wayland_hash() {
 # 将当前 Wayland 内容同步到 X11
 perform_sync_w2x() {
     local w_sig="$1"
-    local w_type=${w_sig#* }
+    [[ -z "$w_sig" ]] && return 0
 
-    local x_sig=$(get_x11_hash)
+    local w_type=${w_sig#* }
     local w_hash=${w_sig%% *}
+    [[ -z "$w_hash" || -z "$w_type" ]] && return 0
+
+    local x_sig
+    x_sig=$(get_x11_hash || true)
     local x_hash=${x_sig%% *}
+
+    if is_recent_hash "$RECENT_W_HASH_FILE" "$w_hash"; then
+        return 0
+    fi
 
     if [[ "$w_hash" == "$x_hash" && -n "$w_hash" ]]; then
         return 0
     fi
 
+    local synced=1
+
     if [[ "$w_type" == *"image/"* ]]; then
-        wl-paste --type "$w_type" 2>/dev/null | xclip -selection clipboard -t "$w_type" -in 2>/dev/null
+        if copy_wayland_to_x11 "$w_type"; then
+            synced=0
+        fi
     elif [[ "$w_type" == "x-special/gnome-copied-files" || "$w_type" == "text/uri-list" ]]; then
-        wl-paste --type "$w_type" 2>/dev/null | xclip -selection clipboard -t "$w_type" -in 2>/dev/null
+        if copy_wayland_files_to_x11; then
+            synced=0
+        fi
     else
         # 优先使用 UTF-8 编码
         local types=$(wl-paste --list-types 2>/dev/null)
         if echo "$types" | grep -q "text/plain;charset=utf-8"; then
-            wl-paste --type "text/plain;charset=utf-8" 2>/dev/null | xclip -selection clipboard -in 2>/dev/null
+            if copy_wayland_to_x11 "text/plain;charset=utf-8"; then
+                synced=0
+            fi
         else
-            wl-paste 2>/dev/null | xclip -selection clipboard -in 2>/dev/null
+            if copy_wayland_to_x11 "text/plain"; then
+                synced=0
+            fi
         fi
     fi
-    log "Wayland -> X11" "$w_type" "wayland"
+
+    if [[ $synced -eq 0 ]]; then
+        local new_x_sig new_x_hash
+        new_x_sig=$(get_x11_hash)
+        new_x_hash=${new_x_sig%% *}
+        write_recent_hash "$RECENT_X_HASH_FILE" "$new_x_hash"
+        log "Wayland -> X11" "$w_type" "wayland"
+    fi
 }
 
 # 将当前 X11 内容同步到 Wayland
 perform_sync_x2w() {
-    local x_sig=$(get_x11_hash)
-    local w_sig=$(get_wayland_hash)
+    local x_sig w_sig
+    x_sig=$(get_x11_hash || true)
+    w_sig=$(get_wayland_hash || true)
 
     local x_hash=${x_sig%% *}
     local w_hash=${w_sig%% *}
     local x_type=${x_sig#* }
 
+    [[ -z "$x_hash" || -z "$x_type" ]] && return 0
+
+    if is_recent_hash "$RECENT_X_HASH_FILE" "$x_hash"; then
+        return 0
+    fi
+
     if [[ "$x_hash" == "$w_hash" && -n "$x_hash" ]]; then
         return 0
     fi
 
+    local synced=1
+
     if [[ "$x_type" == *"image/"* ]]; then
-        xclip -selection clipboard -t "$x_type" -o 2>/dev/null | wl-copy --type "$x_type" 2>/dev/null
+        if copy_x11_image_to_wayland "$x_type"; then
+            synced=0
+        fi
     elif [[ "$x_type" == "x-special/gnome-copied-files" || "$x_type" == "text/uri-list" ]]; then
-        xclip -selection clipboard -t "$x_type" -o 2>/dev/null | wl-copy --type "$x_type" 2>/dev/null
+        if copy_x11_files_to_wayland; then
+            synced=0
+        fi
     else
         # 优先使用 UTF-8 编码
-        local targets=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null)
+        local targets
+        targets=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\0' '\n')
         if echo "$targets" | grep -q "UTF8_STRING"; then
-            xclip -selection clipboard -t UTF8_STRING -o 2>/dev/null | wl-copy 2>/dev/null
+            if copy_x11_to_wayland "UTF8_STRING" "text/plain;charset=utf-8"; then
+                synced=0
+            fi
+        elif echo "$targets" | grep -q "STRING"; then
+            if copy_x11_to_wayland "STRING" "text/plain;charset=utf-8"; then
+                synced=0
+            fi
         else
-            xclip -selection clipboard -o 2>/dev/null | wl-copy 2>/dev/null
+            if copy_x11_to_wayland "text/plain" "text/plain;charset=utf-8"; then
+                synced=0
+            fi
         fi
     fi
-    log "X11 -> Wayland" "$x_type" "x11"
+
+    if [[ $synced -eq 0 ]]; then
+        local new_w_sig new_w_hash
+        new_w_sig=$(get_wayland_hash)
+        new_w_hash=${new_w_sig%% *}
+        write_recent_hash "$RECENT_W_HASH_FILE" "$new_w_hash"
+        log "X11 -> Wayland" "$x_type" "x11"
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -215,7 +528,8 @@ echo "Starting Clipboard Sync Ultimate..."
 echo "Log: $LOG_FILE"
 
 # 清理旧进程
-pkill -f "clipboard-sync-event --watch" 2>/dev/null
+pkill -f "${SELF_PATH} --watch-wayland" 2>/dev/null || true
+pkill -f "${SELF_PATH} --watch-x11" 2>/dev/null || true
 
 # 启动 Wayland 轮询监听
 "$0" --watch-wayland &
@@ -236,4 +550,3 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 wait
-
