@@ -39,41 +39,514 @@ ShellRoot {
     property bool previewVisible: false
     property var previewItem: null
     property string previewFullText: ""
+    // Re-parsed file paths from decoded content (for preview overlay)
+    property var previewFilePaths: {
+        if (!previewItem || !previewItem.isFile || !previewFullText) return previewItem ? previewItem.filePaths : []
+        var paths = extractFilePaths(previewFullText)
+        return paths.length > 0 ? paths : (previewItem ? previewItem.filePaths : [])
+    }
 
     // ============ Clipboard Loading ============
     property string clipboardBuffer: ""
-    
+    property string asyncDecodeBuffer: ""
+    property string mimeProbeBuffer: ""
+    property bool mimeProbePending: false
+    property var pathMimeCache: ({})
+    property var mimeProbeTasks: ({})
+    property int mimeProbeSeq: 0
+
     Process {
         id: loadClipboard
-        command: ["cliphist", "list"]
+        command: ["bash", "-lc", "cliphist list | head -n 400"]
         stdout: SplitParser {
             splitMarker: ""
             onRead: data => {
-                // 累积数据到缓冲区
                 root.clipboardBuffer += data
             }
         }
         onExited: code => {
-            // 进程结束后一次性解析所有数据
             if (code === 0) {
-                root.parseClipboardData(root.clipboardBuffer)
+                try {
+                    root.parseClipboardData(root.clipboardBuffer)
+                } catch (e) {
+                    console.error("parseClipboardData error:", e)
+                }
             }
             root.clipboardBuffer = ""
             root.loading = false
         }
     }
-    
-    // File type classification by extension
+
+    Process {
+        id: asyncDecodeProcess
+        command: ["echo"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: data => {
+                root.asyncDecodeBuffer += data
+            }
+        }
+        onExited: code => {
+            if (code === 0 && root.asyncDecodeBuffer) {
+                root.updateDecodedEntries(root.asyncDecodeBuffer)
+            }
+            root.asyncDecodeBuffer = ""
+        }
+    }
+
+    Process {
+        id: mimeProbeProcess
+        command: ["echo"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: data => {
+                root.mimeProbeBuffer += data
+            }
+        }
+        onExited: code => {
+            if (code === 0 && root.mimeProbeBuffer) {
+                root.applyMimeProbeData(root.mimeProbeBuffer)
+            }
+            root.mimeProbeBuffer = ""
+            if (root.mimeProbePending) {
+                root.mimeProbePending = false
+                root.startMimeProbe()
+            }
+        }
+    }
+
+    function updateDecodedEntries(data) {
+        var marker = "===CLIP:"
+        var endMarker = "===\n"
+        var pos = 0
+        var updated = false
+        data = sanitizeClipboardText(data)
+        while (true) {
+            var start = data.indexOf(marker, pos)
+            if (start === -1) break
+            var idStart = start + marker.length
+            var idEnd = data.indexOf(endMarker, idStart)
+            if (idEnd === -1) break
+            var id = data.substring(idStart, idEnd)
+            var contentStart = idEnd + endMarker.length
+            var nextMarker = data.indexOf(marker, contentStart)
+            var content = nextMarker === -1 ? data.substring(contentStart) : data.substring(contentStart, nextMarker)
+
+            for (var j = 0; j < clipboardItems.length; j++) {
+                if (clipboardItems[j].id !== id) continue
+
+                var item = clipboardItems[j]
+                if (item.textType === "html") {
+                    var srcs = extractHtmlImageSrcs(content)
+                    if (srcs.length > 0) {
+                        var nextPreview = srcs.map(function(s) {
+                            if (s.startsWith("data:")) return "[base64 image]"
+                            return s.split("/").pop()
+                        }).join(", ")
+                        if (JSON.stringify(item.htmlImageSrcs || []) !== JSON.stringify(srcs)) {
+                            item.htmlImageSrcs = srcs
+                            updated = true
+                        }
+                        if (item.preview !== nextPreview) {
+                            item.preview = nextPreview
+                            updated = true
+                        }
+                        if (item.htmlPlainText) {
+                            item.htmlPlainText = ""
+                            updated = true
+                        }
+                        if (item.htmlPreferPlain) {
+                            item.htmlPreferPlain = false
+                            updated = true
+                        }
+                    } else {
+                        if (item.htmlImageSrcs && item.htmlImageSrcs.length > 0) {
+                            item.htmlImageSrcs = []
+                            updated = true
+                        }
+                        var plain = htmlToPlainText(content)
+                        var preferPlain = shouldTreatHtmlAsPlainText(content, plain)
+                        if (item.htmlPlainText !== plain) {
+                            item.htmlPlainText = plain
+                            updated = true
+                        }
+                        if (item.htmlPreferPlain !== preferPlain) {
+                            item.htmlPreferPlain = preferPlain
+                            updated = true
+                        }
+                        if (preferPlain && plain) {
+                            var plainPreview = previewText(plain)
+                            if (item.preview !== plainPreview) {
+                                item.preview = plainPreview
+                                updated = true
+                            }
+                        }
+                    }
+                } else if (item.isFile) {
+                    var paths = extractFilePaths(content)
+                    if (paths.length > 0) {
+                        item.filePaths = paths
+                        item.fileType = classifyFile(paths[0])
+                        item.preview = paths.map(function(p) {
+                            return p.split("/").pop()
+                        }).join(", ")
+                        updated = true
+                    }
+                }
+                break
+            }
+            pos = nextMarker === -1 ? data.length : nextMarker
+        }
+        if (updated) {
+            clipboardItems = clipboardItems.slice()
+            filterItems()
+            queueMimeProbe()
+        }
+    }
+
+    function shellQuote(str) {
+        return "'" + String(str === undefined || str === null ? "" : str).replace(/'/g, "'\"'\"'") + "'"
+    }
+
+    function normalizeLocalPath(path) {
+        var p = String(path === undefined || path === null ? "" : path)
+        if (!p) return ""
+        if (p.startsWith("file://localhost/")) {
+            p = "/" + p.substring("file://localhost/".length)
+        } else if (p.startsWith("file:///")) {
+            p = p.substring("file://".length)
+        } else if (p.startsWith("file://")) {
+            p = p.substring("file://".length)
+        }
+        try { p = decodeURIComponent(p) } catch (e) {}
+        return p
+    }
+
+    function sanitizeClipboardText(text) {
+        var s = String(text === undefined || text === null ? "" : text)
+        s = s.replace(/\u0000/g, "")
+        s = s.replace(/\r/g, "")
+        return s
+    }
+
+    function previewText(text) {
+        return sanitizeClipboardText(text).substring(0, 200).replace(/\n/g, " ").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    }
+
+    function isLikelyBinaryNoiseText(content) {
+        var raw = String(content === undefined || content === null ? "" : content)
+        if (raw.indexOf("\u0000") !== -1) return true
+        var s = sanitizeClipboardText(raw)
+        if (!s) return false
+        var probe = s
+        if (probe.startsWith("copy ")) probe = probe.substring(5)
+        if (probe.startsWith("cut ")) probe = probe.substring(4)
+
+        if (/IHDR/.test(probe) && /IDAT/.test(probe)) return true
+        if (/^\u001A\s*\u0000{2,}/.test(probe)) return true
+
+        var limit = Math.min(probe.length, 280)
+        var ctrl = 0
+        var repl = 0
+        for (var i = 0; i < limit; i++) {
+            var c = probe.charCodeAt(i)
+            if (probe.charAt(i) === "\uFFFD") repl++
+            if (c === 9 || c === 10 || c === 13) continue
+            if (c < 32 || c === 127) ctrl++
+        }
+
+        if (repl >= 4 && (probe.indexOf("IHDR") !== -1 || probe.indexOf("IDAT") !== -1)) return true
+        return limit > 24 && (ctrl / limit) > 0.08
+    }
+
+    function queueMimeProbe() {
+        if (mimeProbeProcess.running) {
+            mimeProbePending = true
+            return
+        }
+        startMimeProbe()
+    }
+
+    function startMimeProbe() {
+        var tasks = {}
+        var parts = []
+        var taskCount = 0
+        var maxTasks = 512
+        var queuedPaths = {}
+
+        function addTask(kind, id, rawPath) {
+            if (taskCount >= maxTasks) return
+            var path = normalizeLocalPath(rawPath)
+            if (!path || path.charAt(0) !== "/") return
+            if (queuedPaths[path]) return
+            if (root.pathMimeCache[path] !== undefined) return
+            var token = String(++root.mimeProbeSeq)
+            tasks[token] = { kind: kind, id: String(id), path: path }
+            parts.push('printf "===MIME:' + token + '===\\n"; file -Lb --mime-type -- ' + shellQuote(path) + ' 2>/dev/null || true')
+            queuedPaths[path] = true
+            taskCount++
+        }
+
+        for (var i = 0; i < clipboardItems.length; i++) {
+            var item = clipboardItems[i]
+            if (item.isFile && item.filePaths && item.filePaths.length > 0) {
+                for (var f = 0; f < item.filePaths.length; f++) {
+                    addTask("FILE", item.id, item.filePaths[f])
+                }
+            }
+            if (item.textType === "html" && item.htmlImageSrcs && item.htmlImageSrcs.length > 0) {
+                for (var s = 0; s < item.htmlImageSrcs.length; s++) {
+                    addTask("HTML", item.id, item.htmlImageSrcs[s])
+                }
+            }
+        }
+
+        if (parts.length === 0) return
+
+        root.mimeProbeTasks = tasks
+        root.mimeProbeBuffer = ""
+        mimeProbeProcess.command = ["bash", "-c", parts.join("; ")]
+        mimeProbeProcess.running = true
+    }
+
+    function applyMimeProbeData(data) {
+        var marker = "===MIME:"
+        var endMarker = "===\n"
+        var pos = 0
+        var updated = false
+        var newCache = Object.assign({}, root.pathMimeCache)
+
+        while (true) {
+            var start = data.indexOf(marker, pos)
+            if (start === -1) break
+            var tokenStart = start + marker.length
+            var tokenEnd = data.indexOf(endMarker, tokenStart)
+            if (tokenEnd === -1) break
+
+            var token = data.substring(tokenStart, tokenEnd)
+            var contentStart = tokenEnd + endMarker.length
+            var nextMarker = data.indexOf(marker, contentStart)
+            var content = nextMarker === -1 ? data.substring(contentStart) : data.substring(contentStart, nextMarker)
+            var mime = content.trim().split(/\s+/)[0]
+            var task = root.mimeProbeTasks[token]
+
+            if (task && mime) {
+                var prevMime = newCache[task.path] || ""
+                newCache[task.path] = mime
+                if (prevMime !== mime) updated = true
+
+                for (var i = 0; i < clipboardItems.length; i++) {
+                    if (String(clipboardItems[i].id) !== task.id) continue
+                    var item = clipboardItems[i]
+                    if (task.kind === "FILE" && item.isFile && item.filePaths && item.filePaths.length > 0) {
+                        var firstPath = normalizeLocalPath(item.filePaths[0])
+                        var firstMime = firstPath ? (newCache[firstPath] || "") : ""
+                        var nextType = firstMime ? classifyFileByMime(firstMime, firstPath || item.filePaths[0]) : classifyFileByExt(firstPath || item.filePaths[0])
+                        if (item.fileMime !== firstMime) {
+                            item.fileMime = firstMime
+                            updated = true
+                        }
+                        if (item.fileType !== nextType) {
+                            item.fileType = nextType
+                            updated = true
+                        }
+                    } else if (task.kind === "HTML" && item.textType === "html") {
+                        if (item.htmlImageMime !== mime) {
+                            item.htmlImageMime = mime
+                            updated = true
+                        }
+                    }
+                    break
+                }
+            }
+
+            pos = nextMarker === -1 ? data.length : nextMarker
+        }
+
+        root.pathMimeCache = newCache
+        if (updated) {
+            clipboardItems = clipboardItems.slice()
+            filterItems()
+            if (clipboardItems.some(function(i) { return i.isFile && i.fileType === "video" })) {
+                startVideoThumbGen()
+            }
+        }
+    }
+
+    // ============ Type Classification ============
     readonly property var imageExts: ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "tif", "ico", "svg"]
     readonly property var gifExts: ["gif"]
     readonly property var videoExts: ["mp4", "mkv", "webm", "avi", "mov", "flv", "wmv", "m4v", "ts", "mpg", "mpeg"]
+    readonly property var audioExts: ["mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "opus"]
+    readonly property var archiveExts: ["zip", "tar", "gz", "bz2", "xz", "7z", "rar", "zst"]
+    readonly property var docExts: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "txt", "md", "csv"]
 
-    function classifyFile(path) {
+    function classifyFileByExt(path) {
         var ext = path.split(".").pop().toLowerCase()
         if (gifExts.indexOf(ext) !== -1) return "gif"
         if (imageExts.indexOf(ext) !== -1) return "image"
         if (videoExts.indexOf(ext) !== -1) return "video"
+        if (audioExts.indexOf(ext) !== -1) return "audio"
+        if (archiveExts.indexOf(ext) !== -1) return "archive"
+        if (docExts.indexOf(ext) !== -1) return "document"
         return "other"
+    }
+
+    function classifyFileByMime(mime, path) {
+        var m = String(mime === undefined || mime === null ? "" : mime).toLowerCase()
+        if (m === "image/gif") return "gif"
+        if (m.startsWith("image/")) return "image"
+        if (m.startsWith("video/")) return "video"
+        if (m.startsWith("audio/")) return "audio"
+        if (m.indexOf("zip") !== -1 || m.indexOf("compressed") !== -1 || m === "application/x-tar") return "archive"
+        if (m.startsWith("text/") || m === "application/pdf" || m.indexOf("document") !== -1 || m.indexOf("sheet") !== -1 || m.indexOf("presentation") !== -1) return "document"
+        return classifyFileByExt(path)
+    }
+
+    function classifyFile(path) {
+        var normalized = normalizeLocalPath(path)
+        var mime = normalized ? (root.pathMimeCache[normalized] || "") : ""
+        if (mime) return classifyFileByMime(mime, normalized || path)
+        return classifyFileByExt(normalized || path)
+    }
+
+    // Classify text content type
+    function classifyText(content) {
+        var trimmed = content.trim()
+        // HTML (from QQ, browsers, etc.)
+        if (/<\s*(img|html|body|div|span|p|meta|table)\b/i.test(trimmed)) return "html"
+        // URL
+        if (/^https?:\/\/\S+$/i.test(trimmed)) return "url"
+        // Multi-line URL list
+        if (trimmed.split("\n").every(function(l) { return /^https?:\/\/\S+$/i.test(l.trim()) || l.trim() === "" })) {
+            if (trimmed.indexOf("http") !== -1) return "url"
+        }
+        // Path
+        if (/^(\/[\w.\-]+)+\/?$/.test(trimmed)) return "path"
+        // Color hex
+        if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(trimmed)) return "color"
+        // Code-like (has braces, semicolons, function keywords)
+        var codeScore = 0
+        if (trimmed.indexOf("{") !== -1 && trimmed.indexOf("}") !== -1) codeScore++
+        if (/;\s*$/.test(trimmed) || /;\s*\n/.test(trimmed)) codeScore++
+        if (/\b(function|const|let|var|import|def|class|return|if|for|while)\b/.test(trimmed)) codeScore++
+        if (/[=!<>]{2,}/.test(trimmed)) codeScore++
+        if (codeScore >= 2) return "code"
+        return "text"
+    }
+
+    // Extract image sources from HTML content (QQ, browsers, etc.)
+    // Returns array of local file paths or remote URLs
+    function extractHtmlImageSrcs(html) {
+        var srcs = []
+        var re = /<img[^>]+src\s*=\s*["']([^"']+)["']/gi
+        var match
+        while ((match = re.exec(html)) !== null) {
+            var src = match[1]
+            if (src.startsWith("file://")) {
+                srcs.push(src)
+            } else if (src.startsWith("/")) {
+                srcs.push(src)
+            } else if (src.startsWith("data:image/")) {
+                srcs.push(src)  // base64 data URI
+            } else if (/^https?:\/\//i.test(src)) {
+                srcs.push(src)  // remote URL
+            }
+        }
+        return srcs
+    }
+
+    function decodeHtmlEntities(text) {
+        var s = String(text === undefined || text === null ? "" : text)
+        s = s
+            .replace(/&nbsp;/gi, " ")
+            .replace(/&lt;/gi, "<")
+            .replace(/&gt;/gi, ">")
+            .replace(/&amp;/gi, "&")
+            .replace(/&quot;/gi, "\"")
+            .replace(/&apos;/gi, "'")
+            .replace(/&#39;/g, "'")
+
+        s = s.replace(/&#x([0-9a-fA-F]+);/g, function(_, hex) {
+            var code = parseInt(hex, 16)
+            if (!isFinite(code) || code <= 0) return ""
+            if (String.fromCodePoint) return String.fromCodePoint(code)
+            return code <= 0xFFFF ? String.fromCharCode(code) : "\uFFFD"
+        })
+        s = s.replace(/&#([0-9]+);/g, function(_, dec) {
+            var code = parseInt(dec, 10)
+            if (!isFinite(code) || code <= 0) return ""
+            if (String.fromCodePoint) return String.fromCodePoint(code)
+            return code <= 0xFFFF ? String.fromCharCode(code) : "\uFFFD"
+        })
+        return s
+    }
+
+    function htmlToPlainText(html) {
+        var s = sanitizeClipboardText(html)
+        s = s.replace(/<\s*(script|style)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, " ")
+        s = s.replace(/<\s*br\s*\/?>/gi, "\n")
+        s = s.replace(/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/gi, "\n")
+        s = s.replace(/<\s*(p|div|li|tr|h[1-6])\b[^>]*>/gi, "\n")
+        s = s.replace(/<[^>]*>/g, "")
+        s = decodeHtmlEntities(s)
+        s = s.replace(/\u00A0/g, " ")
+        s = s.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n")
+        s = s.replace(/[ \t]{2,}/g, " ")
+        s = s.replace(/\n{3,}/g, "\n\n")
+        return s.trim()
+    }
+
+    function shouldTreatHtmlAsPlainText(html, plainText) {
+        var s = sanitizeClipboardText(html).trim()
+        if (!s) return false
+        if (!/<\s*[a-z!/]/i.test(s)) return false
+        if (/<\s*(img|svg|video|audio|canvas|iframe|object|embed|table|ul|ol|pre|code|blockquote)\b/i.test(s)) return false
+        if (/<\s*a\b[^>]*\bhref\s*=/i.test(s)) return false
+
+        var allowed = {
+            "html": true, "body": true, "span": true, "font": true,
+            "b": true, "strong": true, "i": true, "em": true,
+            "u": true, "s": true, "strike": true, "sub": true, "sup": true,
+            "br": true, "p": true, "div": true
+        }
+        var tagRe = /<\s*\/?\s*([a-zA-Z0-9:-]+)/g
+        var m
+        while ((m = tagRe.exec(s)) !== null) {
+            var tag = String(m[1] || "").toLowerCase()
+            if (!tag || tag.charAt(0) === "!") continue
+            if (!allowed[tag]) return false
+        }
+
+        var plain = String(plainText === undefined || plainText === null ? htmlToPlainText(s) : plainText).trim()
+        if (!plain) return false
+        var visible = decodeHtmlEntities(s.replace(/<[^>]*>/g, "")).replace(/\s+/g, "")
+        if (!visible) return false
+        return true
+    }
+
+    // Check if a path is a local previewable image
+    function isLocalImagePath(path) {
+        var src = String(path === undefined || path === null ? "" : path)
+        if (!src || src.startsWith("data:") || /^https?:\/\//i.test(src)) return false
+        var normalized = normalizeLocalPath(src)
+        if (!normalized || normalized.charAt(0) !== "/") return false
+        var mime = root.pathMimeCache[normalized] || ""
+        if (!mime) return true
+        return mime.startsWith("image/")
+    }
+
+    function isLocalAnimatedImagePath(path) {
+        var normalized = normalizeLocalPath(path)
+        if (!normalized || normalized.charAt(0) !== "/") return false
+        var mime = root.pathMimeCache[normalized] || ""
+        return mime === "image/gif" || mime === "image/apng" || mime === "image/webp"
+    }
+
+    function localFileUrl(path) {
+        var normalized = normalizeLocalPath(path)
+        if (!normalized || normalized.charAt(0) !== "/") return ""
+        return "file://" + normalized
     }
 
     function normalizeBinaryExt(ext) {
@@ -85,10 +558,30 @@ ShellRoot {
     }
 
     function binaryExtFromMeta(content) {
-        var m = content.match(/^\[\[\s*binary data\s+.+?\s+([A-Za-z0-9.+-]+)\s+[0-9]+x[0-9]+\s*\]\]$/)
+        var m = content.match(/^\[\[\s*binary data\s+.+?\s+([A-Za-z0-9.+\/-]+)\s+[0-9]+x[0-9]+\s*\]\]$/)
         if (!m) return "png"
-        var e = normalizeBinaryExt(m[1])
+        var raw = m[1]
+        var slash = raw.indexOf("/")
+        if (slash !== -1) raw = raw.substring(slash + 1)
+        var e = normalizeBinaryExt(raw)
         return e || "png"
+    }
+
+    function binaryDimensionsFromMeta(content) {
+        var m = content.match(/(\d+)x(\d+)\s*\]\]$/)
+        if (m) return m[1] + " x " + m[2]
+        return ""
+    }
+
+    function binarySizeFromMeta(content) {
+        var m = content.match(/binary data\s+(\d+)\s/)
+        if (m) {
+            var bytes = parseInt(m[1])
+            if (bytes > 1048576) return (bytes / 1048576).toFixed(1) + " MB"
+            if (bytes > 1024) return (bytes / 1024).toFixed(1) + " KB"
+            return bytes + " B"
+        }
+        return ""
     }
 
     function imagePathById(id) {
@@ -101,89 +594,197 @@ ShellRoot {
     }
 
     function extractFilePaths(content) {
-        // file URIs can be multi-line (multiple files copied)
-        var lines = content.trim().split("\n")
         var paths = []
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim()
-            if (line.startsWith("file://")) {
-                paths.push(decodeURIComponent(line.substring(7)))
+        var src = sanitizeClipboardText(content)
+        var re = /file:\/\/([^\s]+)/g
+        var match
+        while ((match = re.exec(src)) !== null) {
+            try {
+                var p = decodeURIComponent(match[1])
+            } catch (e) {
+                var p = match[1]
             }
+            p = String(p || "").replace(/\uFFFD/g, "").replace(/[\u0000-\u001F\u007F]/g, "")
+            if (p.startsWith("localhost/")) p = "/" + p.substring("localhost/".length)
+            if (!p || p.charAt(0) !== "/") continue
+            if (paths.indexOf(p) === -1) paths.push(p)
         }
         return paths
     }
 
-    function parseClipboardData(data) {
-        var lines = data.trim().split("\n")
-        var seen = {}
-        var items = []
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i]
-            if (!line) continue
-            var tabIdx = line.indexOf("\t")
-            if (tabIdx > 0) {
-                var id = line.substring(0, tabIdx)
-                var content = line.substring(tabIdx + 1)
-                var trimmedContent = content.trim()
-                var isImage = trimmedContent.startsWith("[[ binary data")
-                var isPlaceholderImageText = placeholderImageMime(trimmedContent).length > 0
-                if (isPlaceholderImageText) continue
-                var imageExt = isImage ? binaryExtFromMeta(trimmedContent) : ""
-                var isFile = !isImage && content.indexOf("file://") !== -1
-
-                var filePaths = []
-                var fileType = ""
-                if (isFile) {
-                    filePaths = extractFilePaths(content)
-                    if (filePaths.length === 0) { isFile = false }
-                    else { fileType = classifyFile(filePaths[0]) }
-                }
-
-                var preview = ""
-                if (isImage) {
-                    preview = ""
-                } else if (isFile) {
-                    // Show file name(s) as preview
-                    preview = filePaths.map(function(p) {
-                        return p.split("/").pop()
-                    }).join(", ")
-                } else {
-                    preview = content.substring(0, 200).replace(/\n/g, " ").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                }
-
-                // Deduplicate
-                var key = isImage ? ("img:" + content) : (isFile ? ("file:" + filePaths.join("|")) : preview)
-                if (seen[key]) continue
-                seen[key] = true
-
-                items.push({
-                    id: id,
-                    isImage: isImage,
-                    imageExt: imageExt,
-                    isFile: isFile,
-                    fileType: fileType,
-                    filePaths: filePaths,
-                    rawContent: isFile ? content.trim() : "",
-                    imagePath: "",
-                    preview: preview
-                })
+    // Type badge info: { label, icon, color }
+    function typeBadgeInfo(item) {
+        if (item.isImage) {
+            var ext = (item.imageExt || "png").toUpperCase()
+            if (ext === "GIF") return { label: "GIF", icon: "\uf03e", color: Theme.primary }
+            return { label: "IMG", icon: "\uf03e", color: Theme.primary }
+        }
+        if (item.isFile) {
+            if (item.filePaths.length > 1) {
+                return { label: item.filePaths.length + "F", icon: "\uf0c5", color: Theme.tertiary }
+            }
+            switch (item.fileType) {
+                case "gif": return { label: "GIF", icon: "\uf03e", color: Theme.primary }
+                case "image": return { label: "IMG", icon: "\uf03e", color: Theme.primary }
+                case "video": return { label: "VID", icon: "\uf03d", color: "#e67e22" }
+                case "audio": return { label: "AUD", icon: "\uf001", color: "#9b59b6" }
+                case "archive": return { label: "ZIP", icon: "\uf1c6", color: "#f39c12" }
+                case "document": return { label: "DOC", icon: "\uf15c", color: Theme.tertiary }
+                default: return { label: "FILE", icon: "\uf15b", color: Theme.tertiary }
             }
         }
-        root.clipboardItems = items
-        root.filterItems()
-        // Decode binary images in background
-        if (items.some(function(i) { return i.isImage })) {
-            root.startImageDecode()
-        }
-        // Generate video thumbnails
-        if (items.some(function(i) { return i.isFile && i.fileType === "video" })) {
-            root.startVideoThumbGen()
+        // Text subtypes
+        switch (item.textType) {
+            case "html":
+                if (item.htmlPreferPlain) return { label: "TEXT", icon: "\uf0f6", color: Theme.secondary }
+                return { label: "HTML", icon: "\uf13b", color: "#e44d26" }
+            case "url": return { label: "URL", icon: "\uf0c1", color: "#2980b9" }
+            case "path": return { label: "PATH", icon: "\uf07b", color: "#27ae60" }
+            case "color": return { label: "CLR", icon: "\uf53f", color: Theme.primary }
+            case "code": return { label: "CODE", icon: "\uf121", color: "#e74c3c" }
+            default: return { label: "TEXT", icon: "\uf0f6", color: Theme.secondary }
         }
     }
 
+    // ============ Parse Clipboard Data ============
+    function parseClipboardData(data) {
+        var rawLines = data.trim().split("\n")
+        // Join multi-line entries: cliphist list outputs ID\tcontent,
+        // but content may span multiple lines. Lines without a numeric ID+tab
+        // prefix are continuation of the previous entry.
+        var entries = []
+        for (var i = 0; i < rawLines.length; i++) {
+            var rl = rawLines[i]
+            if (!rl && entries.length === 0) continue
+            var ti = rl.indexOf("\t")
+            if (ti > 0 && /^\d+$/.test(rl.substring(0, ti))) {
+                entries.push({ id: rl.substring(0, ti), content: rl.substring(ti + 1) })
+            } else if (entries.length > 0) {
+                entries[entries.length - 1].content += "\n" + rl
+            }
+        }
+
+        var seen = {}
+        var items = []
+        for (var i = 0; i < entries.length; i++) {
+            var id = entries[i].id
+            var rawContent = entries[i].content
+            var content = sanitizeClipboardText(rawContent)
+            var trimmedContent = content.trim()
+            var isImage = trimmedContent.startsWith("[[ binary data")
+            var isPlaceholderImageText = placeholderImageMime(trimmedContent).length > 0
+            if (isPlaceholderImageText) continue
+
+            var imageExt = isImage ? binaryExtFromMeta(trimmedContent) : ""
+            var imageDimensions = isImage ? binaryDimensionsFromMeta(trimmedContent) : ""
+            var imageSize = isImage ? binarySizeFromMeta(trimmedContent) : ""
+            var isFile = !isImage && content.indexOf("file://") !== -1 && !/<\s*(img|html|body|div|span|p|meta|table)\b/i.test(content)
+
+            var filePaths = []
+            var fileType = ""
+            if (isFile) {
+                filePaths = extractFilePaths(content)
+                if (filePaths.length === 0) { isFile = false }
+                else { fileType = classifyFile(filePaths[0]) }
+            }
+
+            var textType = ""
+            var htmlImageSrcs = []
+            var htmlPlainText = ""
+            var htmlPreferPlain = false
+            if (!isImage && !isFile) {
+                if (isLikelyBinaryNoiseText(rawContent)) continue
+                textType = classifyText(content)
+                // Extract local image paths from HTML (QQ, browsers, etc.)
+                if (textType === "html") {
+                    htmlImageSrcs = extractHtmlImageSrcs(content)
+                    if (htmlImageSrcs.length === 0) {
+                        htmlPlainText = htmlToPlainText(content)
+                        htmlPreferPlain = shouldTreatHtmlAsPlainText(content, htmlPlainText)
+                    }
+                }
+            }
+
+            var preview = ""
+            if (isImage) {
+                var parts = []
+                if (imageExt) parts.push(imageExt.toUpperCase())
+                if (imageDimensions) parts.push(imageDimensions)
+                if (imageSize) parts.push(imageSize)
+                preview = parts.length > 0 ? parts.join(" | ") : "image"
+            } else if (isFile) {
+                preview = filePaths.map(function(p) {
+                    return p.split("/").pop()
+                }).join(", ")
+            } else if (textType === "html" && htmlImageSrcs.length > 0) {
+                // Show image file names from HTML
+                preview = htmlImageSrcs.map(function(s) {
+                    if (s.startsWith("data:")) return "[base64 image]"
+                    return s.split("/").pop()
+                }).join(", ")
+            } else if (textType === "html" && htmlPreferPlain && htmlPlainText) {
+                preview = previewText(htmlPlainText)
+            } else {
+                preview = previewText(content)
+            }
+
+            // Deduplicate
+            var key = isImage ? ("img:" + content) : (isFile ? ("file:" + filePaths.join("|")) : preview)
+            if (seen[key]) continue
+            seen[key] = true
+
+            items.push({
+                id: id,
+                isImage: isImage,
+                imageExt: imageExt,
+                imageDimensions: imageDimensions,
+                imageSize: imageSize,
+                isFile: isFile,
+                fileType: fileType,
+                fileMime: (isFile && filePaths.length > 0) ? (root.pathMimeCache[normalizeLocalPath(filePaths[0])] || "") : "",
+                filePaths: filePaths,
+                textType: textType,
+                htmlImageSrcs: htmlImageSrcs,
+                htmlImageMime: "",
+                htmlPlainText: htmlPlainText,
+                htmlPreferPlain: htmlPreferPlain,
+                rawContent: isFile ? content.trim() : "",
+                imagePath: "",
+                preview: preview,
+                colorValue: textType === "color" ? trimmedContent : ""
+            })
+        }
+        root.clipboardItems = items
+        root.filterItems()
+        if (items.some(function(i) { return i.isImage })) {
+            root.startImageDecode()
+        }
+        if (items.some(function(i) { return i.isFile && i.fileType === "video" })) {
+            root.startVideoThumbGen()
+        }
+        // Decode full content for truncated entries (HTML and multi-file)
+        var decodeIds = []
+        for (var j = 0; j < items.length; j++) {
+            if (items[j].textType === "html" && items[j].htmlImageSrcs.length === 0) {
+                decodeIds.push(items[j].id)
+            } else if (items[j].isFile) {
+                decodeIds.push(items[j].id)
+            }
+        }
+        if (decodeIds.length > 0) {
+            var cmd = decodeIds.map(function(id) {
+                return "printf '===CLIP:" + id + "===\\n'; cliphist decode '" + id + "'"
+            }).join("; ")
+            asyncDecodeProcess.command = ["bash", "-c", cmd]
+            asyncDecodeProcess.running = true
+        }
+        queueMimeProbe()
+    }
+
+    // ============ Image Decode ============
     property var imageQueue: []
     property int imageIndex: 0
-    property var imagePaths: ({})  // Map of id -> path
+    property var imagePaths: ({})
 
     Process {
         id: decodeImage
@@ -225,7 +826,6 @@ ShellRoot {
                 break
             }
         }
-
         decodeImage.currentId = id
         decodeImage.currentPath = cacheDir + "/" + id + "." + ext
         decodeImage.command = ["bash", "-c",
@@ -237,7 +837,7 @@ ShellRoot {
     // ============ Video Thumbnail Generation ============
     property var videoQueue: []
     property int videoIndex: 0
-    property var videoThumbPaths: ({})  // Map of filePath -> thumb path
+    property var videoThumbPaths: ({})
 
     Process {
         id: genVideoThumb
@@ -290,9 +890,7 @@ ShellRoot {
         if (!pattern) return { match: true, score: 0 }
         pattern = pattern.toLowerCase()
         str = str.toLowerCase()
-
         var pIdx = 0, sIdx = 0, score = 0, consecutive = 0, lastIdx = -1
-
         while (pIdx < pattern.length && sIdx < str.length) {
             if (pattern[pIdx] === str[sIdx]) {
                 if (lastIdx === sIdx - 1) { consecutive++; score += consecutive * 2 }
@@ -303,7 +901,6 @@ ShellRoot {
             }
             sIdx++
         }
-
         if (pIdx === pattern.length) {
             score += Math.max(0, 50 - str.length)
             return { match: true, score: score }
@@ -319,8 +916,7 @@ ShellRoot {
             for (var i = 0; i < clipboardItems.length; i++) {
                 var item = clipboardItems[i]
                 if (item.isImage) continue
-                // File entries: search against file names
-                var searchTarget = item.isFile ? item.preview : item.preview
+                var searchTarget = item.preview
                 var m = fuzzyMatch(searchText, searchTarget)
                 if (m.match) results.push({ item: item, score: m.score, originalIndex: i })
             }
@@ -339,7 +935,12 @@ ShellRoot {
     Process {
         id: copyProcess
         command: ["echo"]
-        onExited: root.closeWithAnimation()
+        onExited: code => {
+            if (code !== 0) {
+                console.error("clipboard re-activate failed, exit code:", code)
+            }
+            root.closeWithAnimation()
+        }
     }
 
     Process {
@@ -368,7 +969,6 @@ ShellRoot {
         previewItem = item
         previewVisible = true
         if (item.isFile) {
-            // For file entries, decode the raw content for preview
             getFullText.targetId = item.id
             getFullText.command = ["bash", "-c", "cliphist decode '" + item.id + "'"]
             getFullText.running = true
@@ -385,45 +985,81 @@ ShellRoot {
         previewFullText = ""
     }
 
+    // ============ Re-activation (二次激活) ============
+    // 1. Hash BEFORE wl-copy to prevent sync daemon race condition
+    // 2. Dual clipboard: wl-copy (Wayland) + xclip (X11), keep original MIME type
     function selectItem(item) {
+        var x11Helper =
+            'xclip_try(){ ' +
+                'if [ -n "${DISPLAY:-}" ]; then xclip "$@" 2>/dev/null && return 0; fi; ' +
+                'for d in :0 :1 :2 :3; do DISPLAY="$d" xclip "$@" 2>/dev/null && return 0; done; ' +
+                'return 1; }; ' +
+            'prefer_uri_for_image(){ local p="$1"; local mode="${QS_IMAGE_FILE_MODE:-auto}"; ' +
+                'case "$mode" in ' +
+                    'uri) return 0 ;; ' +
+                    'image) return 1 ;; ' +
+                'esac; ' +
+                'case "$p" in ' +
+                    '*/.config/QQ/*/nt_data/Pic/*/Thumb/*|*/.config/QQ/*/nt_data/Pic/*/Thumb/*.*) return 0 ;; ' +
+                'esac; ' +
+                'return 1; }; ' +
+            'x11_set_file(){ local f="$1"; shift; xclip_try "$@" -i < "$f" || return 1; sleep 0.06; xclip_try "$@" -i < "$f" || true; }; '
         if (item.isFile) {
-            // FILE 条目激活：优先将单个本地图片文件转换为 image/png；否则保持 text/uri-list。
             copyProcess.command = ["bash", "-c",
-                'tmp=$(mktemp); tmp_uris=$(mktemp); tmp_png=""; ' +
-                'cleanup(){ rm -f "$tmp" "$tmp_uris" "$tmp_png"; }; ' +
+                x11Helper +
+                'HF_DIR="${XDG_RUNTIME_DIR:-/tmp}/clipboard-sync"; mkdir -p "$HF_DIR" 2>/dev/null || true; HF="$HF_DIR/last_hash"; ' +
+                'tmp=$(mktemp); tmp_uris=$(mktemp); ' +
+                'cleanup(){ rm -f "$tmp" "$tmp_uris"; }; ' +
                 'if ! cliphist decode \'' + item.id + '\' > "$tmp" 2>/dev/null || [ ! -s "$tmp" ]; then cleanup; exit 1; fi; ' +
-                'while IFS= read -r line; do ' +
+                'while IFS= read -r line || [ -n "$line" ]; do ' +
+                    'line="${line%$\'\\r\'}"; ' +
                     '[ -z "$line" ] && continue; ' +
+                    'if [[ "$line" == copy\\ * ]]; then line="${line#copy }"; fi; ' +
+                    'if [[ "$line" == cut\\ * ]]; then line="${line#cut }"; fi; ' +
                     '[ "$line" = "copy" ] && continue; ' +
                     '[ "$line" = "cut" ] && continue; ' +
-                    'if [[ "$line" == /* ]]; then printf "file://%s\n" "$line"; else printf "%s\n" "$line"; fi; ' +
+                    'for token in $line; do ' +
+                        '[ -z "$token" ] && continue; ' +
+                        'if [[ "$token" == /* ]]; then printf "file://%s\\n" "$token"; else printf "%s\\n" "$token"; fi; ' +
+                    'done; ' +
                 'done < "$tmp" > "$tmp_uris"; ' +
+                'if [ ! -s "$tmp_uris" ]; then cleanup; exit 1; fi; ' +
                 'first=$(sed -n "1p" "$tmp_uris"); second=$(sed -n "2p" "$tmp_uris"); ' +
+                'path=""; ' +
                 'if [ -n "$first" ] && [ -z "$second" ]; then ' +
-                    'path=""; ' +
                     'case "$first" in file://localhost/*) path="/${first#file://localhost/}" ;; file:///*) path="${first#file://}" ;; /*) path="$first" ;; esac; ' +
-                    'if [ -n "$path" ] && [ -f "$path" ]; then ' +
-                        'mime=$(file -b --mime-type "$path" 2>/dev/null || true); ' +
-                        'if [[ "$mime" == image/* ]]; then ' +
-                            'if [ "$mime" = "image/png" ]; then wl-copy --type image/png < "$path"; status=$?; cleanup; exit $status; fi; ' +
-                            'if command -v magick >/dev/null 2>&1; then tmp_png=$(mktemp); if magick "$path" PNG:"$tmp_png" >/dev/null 2>&1 && [ -s "$tmp_png" ]; then wl-copy --type image/png < "$tmp_png"; status=$?; cleanup; exit $status; fi; fi; ' +
-                            'wl-copy --type "$mime" < "$path"; status=$?; cleanup; exit $status; ' +
-                        'fi; ' +
+                'fi; ' +
+                'if [ -n "$path" ] && [ -f "$path" ]; then ' +
+                    'mime=$(file -Lb --mime-type -- "$path" 2>/dev/null || true); ' +
+                    'if [[ "$mime" == image/* ]] && [ "$mime" != "image/gif" ] && ! prefer_uri_for_image "$path"; then ' +
+                        'sha256sum "$path" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                        'wl-copy --type "$mime" < "$path"; ' +
+                        'x11_set_file "$path" -selection clipboard -t "$mime"; ' +
+                        'cleanup; exit 0; ' +
                     'fi; ' +
                 'fi; ' +
-                'wl-copy --type text/uri-list < "$tmp_uris"; status=$?; cleanup; exit $status'
+                'sha256sum "$tmp_uris" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                'wl-copy --type text/uri-list < "$tmp_uris"; ' +
+                'x11_set_file "$tmp_uris" -selection clipboard -t text/uri-list; ' +
+                'cleanup; exit 0'
             ]
         } else if (item.isImage) {
-            // Binary image re-activation: prefer PNG for compatibility, fallback to cache candidates.
             var cacheImagePath = imagePathById(item.id)
             copyProcess.command = ["bash", "-c",
+                x11Helper +
+                'HF_DIR="${XDG_RUNTIME_DIR:-/tmp}/clipboard-sync"; mkdir -p "$HF_DIR" 2>/dev/null || true; HF="$HF_DIR/last_hash"; ' +
                 'tmp=$(mktemp); status=1; ' +
-                'copy_image(){ src="$1"; mime=$(file -b --mime-type "$src" 2>/dev/null || true); ' +
-                    'if [[ "$mime" == image/* ]]; then ' +
-                        'if [ "$mime" = "image/png" ]; then wl-copy --type image/png < "$src"; return $?; fi; ' +
-                        'if command -v magick >/dev/null 2>&1; then tmp_png=$(mktemp); if magick "$src" PNG:"$tmp_png" >/dev/null 2>&1 && [ -s "$tmp_png" ]; then wl-copy --type image/png < "$tmp_png"; rc=$?; rm -f "$tmp_png"; return $rc; fi; rm -f "$tmp_png"; fi; ' +
-                        'wl-copy --type "$mime" < "$src"; return $?; ' +
-                    'fi; return 1; }; ' +
+                'copy_image(){ local src="$1"; local mime; mime=$(file -b --mime-type "$src" 2>/dev/null || true); ' +
+                    'if [[ "$mime" != image/* ]]; then return 1; fi; ' +
+                    'if [ "$mime" = "image/png" ]; then ' +
+                        'sha256sum "$src" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                        'wl-copy --type image/png < "$src"; x11_set_file "$src" -selection clipboard -t image/png; return 0; fi; ' +
+                    'if [ "$mime" = "image/gif" ]; then ' +
+                        'sha256sum "$src" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                        'wl-copy --type image/gif < "$src"; ' +
+                        'x11_set_file "$src" -selection clipboard -t image/gif; return 0; fi; ' +
+                    'sha256sum "$src" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                    'wl-copy --type "$mime" < "$src"; x11_set_file "$src" -selection clipboard -t "$mime"; return 0; }; ' +
                 'if cliphist decode "' + item.id + '" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then copy_image "$tmp"; status=$?; fi; ' +
                 'rm -f "$tmp"; ' +
                 'if [ $status -ne 0 ]; then ' +
@@ -434,7 +1070,56 @@ ShellRoot {
                 'exit $status'
             ]
         } else {
-            copyProcess.command = ["bash", "-c", "cliphist decode '" + item.id + "' | wl-copy"]
+            var htmlLocalPath = ""
+            if (item.textType === "html" && item.htmlImageSrcs && item.htmlImageSrcs.length > 0) {
+                htmlLocalPath = normalizeLocalPath(item.htmlImageSrcs[0])
+                if (!htmlLocalPath || htmlLocalPath.charAt(0) !== "/") htmlLocalPath = ""
+            }
+
+            if (htmlLocalPath) {
+                copyProcess.command = ["bash", "-c",
+                    x11Helper +
+                    'HF_DIR="${XDG_RUNTIME_DIR:-/tmp}/clipboard-sync"; mkdir -p "$HF_DIR" 2>/dev/null || true; HF="$HF_DIR/last_hash"; ' +
+                    'tmp_uris=$(mktemp); cleanup(){ rm -f "$tmp_uris"; }; ' +
+                    'path=' + shellQuote(htmlLocalPath) + '; ' +
+                    'mime=$(file -Lb --mime-type -- "$path" 2>/dev/null || true); ' +
+                    'if [[ "$mime" == image/* ]] && [ "$mime" != "image/gif" ] && ! prefer_uri_for_image "$path"; then ' +
+                        'sha256sum "$path" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                        'wl-copy --type "$mime" < "$path"; ' +
+                        'x11_set_file "$path" -selection clipboard -t "$mime"; ' +
+                        'cleanup; exit 0; ' +
+                    'fi; ' +
+                    'printf "file://%s\\n" "$path" > "$tmp_uris"; ' +
+                    'sha256sum "$tmp_uris" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                    'wl-copy --type text/uri-list < "$tmp_uris"; ' +
+                    'x11_set_file "$tmp_uris" -selection clipboard -t text/uri-list; ' +
+                    'cleanup; exit 0'
+                ]
+            } else if (item.textType === "html" && item.htmlPreferPlain && item.htmlPlainText && item.htmlPlainText.length > 0) {
+                copyProcess.command = ["bash", "-c",
+                    x11Helper +
+                    'HF_DIR="${XDG_RUNTIME_DIR:-/tmp}/clipboard-sync"; mkdir -p "$HF_DIR" 2>/dev/null || true; HF="$HF_DIR/last_hash"; ' +
+                    'tmp=$(mktemp); ' +
+                    'printf "%s" ' + shellQuote(item.htmlPlainText) + ' > "$tmp"; ' +
+                    'sha256sum "$tmp" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                    'wl-copy --type text/plain;charset=utf-8 < "$tmp"; ' +
+                    'x11_set_file "$tmp" -selection clipboard -t UTF8_STRING || x11_set_file "$tmp" -selection clipboard -t text/plain; ' +
+                    'rm -f "$tmp"'
+                ]
+            } else {
+            var mimeFlag = item.textType === "html" ? '--type text/html ' : ''
+            var xclipTypeFlag = '-t UTF8_STRING '
+            copyProcess.command = ["bash", "-c",
+                x11Helper +
+                'HF_DIR="${XDG_RUNTIME_DIR:-/tmp}/clipboard-sync"; mkdir -p "$HF_DIR" 2>/dev/null || true; HF="$HF_DIR/last_hash"; ' +
+                'tmp=$(mktemp); ' +
+                'cliphist decode \'' + item.id + '\' > "$tmp" 2>/dev/null; ' +
+                'sha256sum "$tmp" 2>/dev/null | cut -d" " -f1 > "$HF" 2>/dev/null; ' +
+                'wl-copy ' + mimeFlag + '< "$tmp"; ' +
+                'x11_set_file "$tmp" -selection clipboard ' + xclipTypeFlag + ' || x11_set_file "$tmp" -selection clipboard -t text/plain; ' +
+                'rm -f "$tmp"'
+            ]
+            }
         }
         copyProcess.running = true
     }
@@ -502,8 +1187,7 @@ ShellRoot {
             anchors.left: true
             anchors.right: true
 
-
-            Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
+            Shortcut { sequence: "Escape"; onActivated: root.previewVisible ? root.hidePreview() : root.closeWithAnimation() }
             Shortcut { sequence: "Return"; onActivated: root.selectCurrent() }
             Shortcut { sequence: "Enter"; onActivated: root.selectCurrent() }
             Shortcut {
@@ -679,7 +1363,7 @@ ShellRoot {
                                 width: parent.width
                                 spacing: Theme.spacingS
 
-                                // Empty
+                                // Empty state
                                 ColumnLayout {
                                     visible: root.filteredItems.length === 0 && !root.loading
                                     Layout.fillWidth: true
@@ -721,12 +1405,13 @@ ShellRoot {
                                         required property var modelData
                                         required property int index
 
-                                        // Helper properties
+                                        property var badge: root.typeBadgeInfo(modelData)
                                         property bool hasVisualPreview: modelData.isImage
                                             || (modelData.isFile && (modelData.fileType === "image" || modelData.fileType === "gif" || modelData.fileType === "video"))
+                                            || (modelData.textType === "html" && modelData.htmlImageSrcs && modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(modelData.htmlImageSrcs[0]))
 
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: hasVisualPreview ? 100 : 56
+                                        Layout.preferredHeight: hasVisualPreview ? 80 : 48
                                         radius: Theme.radiusM
                                         color: index === root.selectedIndex
                                             ? Theme.alpha(Theme.primary, 0.1)
@@ -756,220 +1441,181 @@ ShellRoot {
                                             anchors.margins: Theme.spacingM
                                             spacing: Theme.spacingM
 
-                                            // Binary image preview (from cliphist decode)
+                                            // Column 1: Type icon (always visible)
                                             Rectangle {
-                                                visible: clipItem.modelData.isImage
-                                                Layout.preferredWidth: 84
-                                                Layout.preferredHeight: 84
+                                                Layout.preferredWidth: 28; Layout.preferredHeight: 28
+                                                Layout.alignment: Qt.AlignVCenter
                                                 radius: Theme.radiusS
-                                                color: Theme.surfaceVariant
-                                                clip: true
+                                                color: Theme.alpha(clipItem.badge.color, 0.1)
 
-                                                AnimatedImage {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 2
-                                                    source: root.imagePaths[clipItem.modelData.id] ? "file://" + root.imagePaths[clipItem.modelData.id] : ""
-                                                    fillMode: Image.PreserveAspectCrop
-                                                    playing: true
-                                                    asynchronous: true
-
-                                                    Text {
-                                                        visible: parent.status !== Image.Ready
-                                                        anchors.centerIn: parent
-                                                        text: "\uf03e"
-                                                        font.family: "Symbols Nerd Font Mono"
-                                                        font.pixelSize: 24
-                                                        color: Theme.textMuted
-                                                    }
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: clipItem.badge.icon
+                                                    font.family: "Symbols Nerd Font Mono"
+                                                    font.pixelSize: 14
+                                                    color: clipItem.badge.color
                                                 }
                                             }
 
-                                            // File image/gif preview (direct from file path)
+                                            // Column 2: Type badge label (always visible)
                                             Rectangle {
-                                                visible: clipItem.modelData.isFile && (clipItem.modelData.fileType === "image" || clipItem.modelData.fileType === "gif")
-                                                Layout.preferredWidth: 84
-                                                Layout.preferredHeight: 84
+                                                Layout.alignment: Qt.AlignVCenter
+                                                width: 38
+                                                height: typeBadgeLabel.implicitHeight + 6
+                                                radius: 4
+                                                color: Theme.alpha(clipItem.badge.color, 0.15)
+
+                                                Text {
+                                                    id: typeBadgeLabel
+                                                    anchors.centerIn: parent
+                                                    text: clipItem.badge.label
+                                                    font.pixelSize: 9
+                                                    font.bold: true
+                                                    color: clipItem.badge.color
+                                                }
+                                            }
+
+                                            // Column 3: Visual preview (conditional)
+                                            Rectangle {
+                                                visible: clipItem.hasVisualPreview
+                                                Layout.preferredWidth: 64; Layout.preferredHeight: 64
+                                                Layout.alignment: Qt.AlignVCenter
                                                 radius: Theme.radiusS
                                                 color: Theme.surfaceVariant
                                                 clip: true
 
-                                                // Static image
+                                                // Binary image (from cliphist decode)
+                                                AnimatedImage {
+                                                    id: previewBinaryImg
+                                                    anchors.fill: parent; anchors.margins: 2
+                                                    visible: clipItem.modelData.isImage
+                                                    source: (clipItem.modelData.isImage && root.imagePaths[clipItem.modelData.id])
+                                                        ? "file://" + root.imagePaths[clipItem.modelData.id] : ""
+                                                    fillMode: Image.PreserveAspectCrop
+                                                    playing: true; asynchronous: true
+                                                }
+
+                                                // File image (static)
                                                 Image {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 2
+                                                    id: previewFileImg
+                                                    anchors.fill: parent; anchors.margins: 2
                                                     visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "image"
                                                     source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "image" && clipItem.modelData.filePaths.length > 0)
                                                         ? "file://" + clipItem.modelData.filePaths[0] : ""
-                                                    fillMode: Image.PreserveAspectCrop
-                                                    asynchronous: true
+                                                    fillMode: Image.PreserveAspectCrop; asynchronous: true
                                                 }
 
-                                                // GIF preview
+                                                // File GIF (animated)
                                                 AnimatedImage {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 2
+                                                    id: previewFileGif
+                                                    anchors.fill: parent; anchors.margins: 2
                                                     visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
                                                     source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "gif" && clipItem.modelData.filePaths.length > 0)
                                                         ? "file://" + clipItem.modelData.filePaths[0] : ""
                                                     fillMode: Image.PreserveAspectCrop
-                                                    playing: true
-                                                    asynchronous: true
+                                                    playing: true; asynchronous: true
                                                 }
 
-                                                Rectangle {
-                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
-                                                    anchors.bottom: parent.bottom
-                                                    anchors.right: parent.right
-                                                    anchors.margins: 4
-                                                    width: gifBadgeText.implicitWidth + 8
-                                                    height: gifBadgeText.implicitHeight + 4
-                                                    radius: 3
-                                                    color: Theme.alpha(Qt.black, 0.6)
-
-                                                    Text {
-                                                        id: gifBadgeText
-                                                        anchors.centerIn: parent
-                                                        text: "GIF"
-                                                        font.pixelSize: 9
-                                                        font.bold: true
-                                                        color: "white"
-                                                    }
-                                                }
-                                            }
-
-                                            // File video thumbnail
-                                            Rectangle {
-                                                visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
-                                                Layout.preferredWidth: 84
-                                                Layout.preferredHeight: 84
-                                                radius: Theme.radiusS
-                                                color: Theme.surfaceVariant
-                                                clip: true
-
+                                                // File video thumbnail
                                                 Image {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 2
+                                                    id: previewVideoThumb
+                                                    anchors.fill: parent; anchors.margins: 2
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
                                                     source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && clipItem.modelData.filePaths.length > 0)
                                                         ? (root.videoThumbPaths[clipItem.modelData.filePaths[0]]
-                                                            ? "file://" + root.videoThumbPaths[clipItem.modelData.filePaths[0]] : "")
-                                                        : ""
-                                                    fillMode: Image.PreserveAspectCrop
-                                                    asynchronous: true
-
-                                                    Text {
-                                                        visible: parent.status !== Image.Ready
-                                                        anchors.centerIn: parent
-                                                        text: "\uf03d"
-                                                        font.family: "Symbols Nerd Font Mono"
-                                                        font.pixelSize: 24
-                                                        color: Theme.textMuted
-                                                    }
+                                                            ? "file://" + root.videoThumbPaths[clipItem.modelData.filePaths[0]] : "") : ""
+                                                    fillMode: Image.PreserveAspectCrop; asynchronous: true
                                                 }
 
-                                                // Play icon overlay
-                                                Rectangle {
-                                                    visible: parent.children[0].status === Image.Ready
+                                                // HTML embedded image
+                                                AnimatedImage {
+                                                    id: previewHtmlImg
+                                                    anchors.fill: parent; anchors.margins: 2
+                                                    visible: clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0])
+                                                    source: (clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0]))
+                                                        ? root.localFileUrl(clipItem.modelData.htmlImageSrcs[0]) : ""
+                                                    fillMode: Image.PreserveAspectCrop
+                                                    playing: true; asynchronous: true
+                                                }
+
+                                                // Fallback icon when no image loaded
+                                                Text {
+                                                    visible: clipItem.hasVisualPreview && previewBinaryImg.status !== Image.Ready && previewFileImg.status !== Image.Ready && previewFileGif.status !== Image.Ready && previewVideoThumb.status !== Image.Ready && previewHtmlImg.status !== Image.Ready
                                                     anchors.centerIn: parent
-                                                    width: 24; height: 24
-                                                    radius: 12
+                                                    text: "\uf03e"
+                                                    font.family: "Symbols Nerd Font Mono"
+                                                    font.pixelSize: 20
+                                                    color: Theme.textMuted
+                                                }
+
+                                                // Video play overlay
+                                                Rectangle {
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && previewVideoThumb.status === Image.Ready
+                                                    anchors.centerIn: parent
+                                                    width: 20; height: 20; radius: 10
                                                     color: Theme.alpha(Qt.black, 0.5)
 
                                                     Text {
                                                         anchors.centerIn: parent
                                                         text: "\uf04b"
                                                         font.family: "Symbols Nerd Font Mono"
-                                                        font.pixelSize: 10
-                                                        color: "white"
+                                                        font.pixelSize: 8; color: "white"
                                                     }
                                                 }
-                                            }
 
-                                            // File icon for non-previewable files
-                                            Rectangle {
-                                                visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "other"
-                                                width: 32; height: 32
-                                                radius: Theme.radiusS
-                                                color: Theme.alpha(Theme.tertiary, 0.1)
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "\uf15b"
-                                                    font.family: "Symbols Nerd Font Mono"
-                                                    font.pixelSize: 14
-                                                    color: Theme.tertiary
-                                                }
-                                            }
-
-                                            // Text icon (plain text entries)
-                                            Rectangle {
-                                                visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile
-                                                width: 32; height: 32
-                                                radius: Theme.radiusS
-                                                color: Theme.alpha(Theme.primary, 0.1)
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "\uf0f6"
-                                                    font.family: "Symbols Nerd Font Mono"
-                                                    font.pixelSize: 14
-                                                    color: Theme.primary
-                                                }
-                                            }
-
-                                            // Content column
-                                            ColumnLayout {
-                                                Layout.fillWidth: true
-                                                spacing: 2
-
-                                                // First line: type badge + content
-                                                RowLayout {
-                                                    spacing: Theme.spacingS
-
-                                                    // Universal type badge
-                                                    Rectangle {
-                                                        width: typeBadgeText.implicitWidth + 8
-                                                        height: typeBadgeText.implicitHeight + 4
-                                                        radius: 3
-                                                        color: clipItem.modelData.isImage
-                                                            ? Theme.alpha(Theme.primary, 0.15)
-                                                            : clipItem.modelData.isFile
-                                                                ? Theme.alpha(Theme.tertiary, 0.15)
-                                                                : Theme.alpha(Theme.secondary, 0.15)
-
-                                                        Text {
-                                                            id: typeBadgeText
-                                                            anchors.centerIn: parent
-                                                            text: {
-                                                                if (clipItem.modelData.isImage) return "IMG"
-                                                                if (clipItem.modelData.isFile) {
-                                                                    if (clipItem.modelData.fileType === "gif") return "GIF"
-                                                                    if (clipItem.modelData.fileType === "image") return "IMG"
-                                                                    if (clipItem.modelData.fileType === "video") return "VID"
-                                                                    return "FILE"
-                                                                }
-                                                                return "TEXT"
-                                                            }
-                                                            font.pixelSize: 9
-                                                            font.bold: true
-                                                            color: clipItem.modelData.isImage
-                                                                ? Theme.primary
-                                                                : clipItem.modelData.isFile
-                                                                    ? Theme.tertiary
-                                                                    : Theme.secondary
-                                                        }
-                                                    }
+                                                // GIF badge overlay
+                                                Rectangle {
+                                                    visible: (clipItem.modelData.isFile && clipItem.modelData.fileType === "gif") || (clipItem.modelData.isImage && clipItem.modelData.preview.toLowerCase().indexOf("gif") >= 0)
+                                                    anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.margins: 3
+                                                    width: gifOvLabel.implicitWidth + 6; height: gifOvLabel.implicitHeight + 3
+                                                    radius: 3; color: Theme.alpha(Qt.black, 0.6)
 
                                                     Text {
-                                                        Layout.fillWidth: true
-                                                        text: clipItem.modelData.isImage ? "图片" : clipItem.modelData.preview
-                                                        font.pixelSize: Theme.fontSizeS
-                                                        color: clipItem.modelData.isImage ? Theme.textSecondary : Theme.textPrimary
-                                                        elide: clipItem.modelData.isFile ? Text.ElideMiddle : Text.ElideRight
-                                                        maximumLineCount: 1
+                                                        id: gifOvLabel; anchors.centerIn: parent
+                                                        text: "GIF"; font.pixelSize: 8; font.bold: true; color: "white"
                                                     }
                                                 }
 
-                                                // Second line: file path or text wrap
+                                                // HTML badge overlay
+                                                Rectangle {
+                                                    visible: clipItem.modelData.textType === "html" && previewHtmlImg.visible
+                                                    anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 3
+                                                    width: htmlOvLabel.implicitWidth + 6; height: htmlOvLabel.implicitHeight + 3
+                                                    radius: 3; color: Theme.alpha(Qt.black, 0.6)
+
+                                                    Text {
+                                                        id: htmlOvLabel; anchors.centerIn: parent
+                                                        text: "HTML"; font.pixelSize: 7; font.bold: true; color: "white"
+                                                    }
+                                                }
+                                            }
+
+                                            // Color swatch (inline, only for color type)
+                                            Rectangle {
+                                                visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile && clipItem.modelData.textType === "color"
+                                                Layout.preferredWidth: 28; Layout.preferredHeight: 28
+                                                Layout.alignment: Qt.AlignVCenter
+                                                radius: Theme.radiusS
+                                                color: clipItem.modelData.colorValue || "transparent"
+                                                border.color: Theme.outline; border.width: 1
+                                            }
+
+                                            // Column 4: Content info
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                Layout.alignment: Qt.AlignVCenter
+                                                spacing: 2
+
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: clipItem.modelData.preview
+                                                    font.pixelSize: Theme.fontSizeS
+                                                    color: clipItem.modelData.isImage ? Theme.textSecondary : Theme.textPrimary
+                                                    elide: clipItem.modelData.isFile ? Text.ElideMiddle : Text.ElideRight
+                                                    maximumLineCount: 1
+                                                }
+
+                                                // File path info
                                                 Text {
                                                     visible: clipItem.modelData.isFile && clipItem.modelData.filePaths.length > 0
                                                     Layout.fillWidth: true
@@ -978,7 +1624,7 @@ ShellRoot {
                                                         var p = clipItem.modelData.filePaths[0]
                                                         var dir = p.substring(0, p.lastIndexOf("/"))
                                                         var suffix = clipItem.modelData.filePaths.length > 1
-                                                            ? "  (+" + (clipItem.modelData.filePaths.length - 1) + ")" : ""
+                                                            ? "  (+" + (clipItem.modelData.filePaths.length - 1) + " 文件)" : ""
                                                         return dir + suffix
                                                     }
                                                     font.pixelSize: Theme.fontSizeXS
@@ -987,7 +1633,7 @@ ShellRoot {
                                                     maximumLineCount: 1
                                                 }
 
-                                                // Second line for text: show more content
+                                                // Long text second line
                                                 Text {
                                                     visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile && clipItem.modelData.preview.length > 40
                                                     Layout.fillWidth: true
@@ -1000,10 +1646,11 @@ ShellRoot {
                                                 }
                                             }
 
-                                            // Delete
+                                            // Delete button
                                             Rectangle {
                                                 width: 24; height: 24
                                                 radius: 12
+                                                Layout.alignment: Qt.AlignVCenter
                                                 color: delHover.hovered ? Theme.alpha(Theme.error, 0.2) : "transparent"
                                                 visible: itemHover.hovered || delHover.hovered
 
@@ -1077,7 +1724,7 @@ ShellRoot {
                 }
             }
 
-            // Preview overlay
+            // ============ Preview Overlay ============
             Rectangle {
                 visible: root.previewVisible
                 anchors.fill: parent
@@ -1088,9 +1735,9 @@ ShellRoot {
                     onClicked: root.hidePreview()
                 }
 
-                // Helper properties for preview sizing
                 property bool isVisualPreview: root.previewItem && (root.previewItem.isImage
-                    || (root.previewItem.isFile && root.previewItem.fileType !== "other"))
+                    || (root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType !== "other")
+                    || (root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0))
 
                 Rectangle {
                     anchors.centerIn: parent
@@ -1111,7 +1758,7 @@ ShellRoot {
                         anchors.margins: Theme.spacingXL
                         spacing: Theme.spacingL
 
-                        // Header
+                        // Preview Header
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: Theme.spacingM
@@ -1121,6 +1768,7 @@ ShellRoot {
                                     if (!root.previewItem) return "\uf0f6"
                                     if (root.previewItem.isImage) return "\uf03e"
                                     if (root.previewItem.isFile) {
+                                        if (root.previewItem.filePaths.length > 1) return "\uf0c5"
                                         if (root.previewItem.fileType === "gif") return "\uf03e"
                                         if (root.previewItem.fileType === "image") return "\uf03e"
                                         if (root.previewItem.fileType === "video") return "\uf03d"
@@ -1136,18 +1784,27 @@ ShellRoot {
                             Text {
                                 text: {
                                     if (!root.previewItem) return ""
-                                    if (root.previewItem.isImage) return "图片预览"
+                                    if (root.previewItem.isImage) return "\u56fe\u7247\u9884\u89c8"
                                     if (root.previewItem.isFile) {
-                                        if (root.previewItem.fileType === "gif") return "GIF 预览"
-                                        if (root.previewItem.fileType === "image") return "图片预览"
-                                        if (root.previewItem.fileType === "video") return "视频预览"
-                                        return "文件信息"
+                                        if (root.previewItem.filePaths.length > 1) return "\u6587\u4ef6\u5217\u8868"
+                                        if (root.previewItem.fileType === "gif") return "GIF \u9884\u89c8"
+                                        if (root.previewItem.fileType === "image") return "\u56fe\u7247\u9884\u89c8"
+                                        if (root.previewItem.fileType === "video") return "\u89c6\u9891\u9884\u89c8"
+                                        return "\u6587\u4ef6\u4fe1\u606f"
                                     }
-                                    return "文本预览"
+                                    return "\u6587\u672c\u9884\u89c8"
                                 }
                                 font.pixelSize: Theme.fontSizeL
                                 font.bold: true
                                 color: Theme.textPrimary
+                            }
+
+                            // Image metadata in preview header
+                            Text {
+                                visible: root.previewItem && root.previewItem.isImage && root.previewItem.imageDimensions
+                                text: root.previewItem ? (root.previewItem.imageDimensions || "") + (root.previewItem.imageSize ? " | " + root.previewItem.imageSize : "") : ""
+                                font.pixelSize: Theme.fontSizeXS
+                                color: Theme.textMuted
                             }
 
                             Item { Layout.fillWidth: true }
@@ -1172,7 +1829,7 @@ ShellRoot {
 
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
 
-                        // Content
+                        // Preview Content
                         Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -1185,11 +1842,14 @@ ShellRoot {
                                     if (!root.previewItem) return 0
                                     if (root.previewItem.isImage) return previewImage.height
                                     if (root.previewItem.isFile) {
+                                        if (root.previewItem.filePaths.length > 1) return previewFileInfo.implicitHeight
                                         if (root.previewItem.fileType === "gif") return previewGif.height
                                         if (root.previewItem.fileType === "image") return previewFileImage.height
                                         if (root.previewItem.fileType === "video") return previewVideoThumb.height
                                         return previewFileInfo.implicitHeight
                                     }
+                                    if (root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0 && root.isLocalImagePath(root.previewItem.htmlImageSrcs[0]))
+                                        return previewHtmlImage.height
                                     return previewTextEdit.contentHeight
                                 }
                                 clip: true
@@ -1210,9 +1870,9 @@ ShellRoot {
                                 // File image preview
                                 Image {
                                     id: previewFileImage
-                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "image"
+                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "image"
                                     width: parent.width
-                                    source: (root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "image" && root.previewItem.filePaths.length > 0)
+                                    source: (root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "image" && root.previewItem.filePaths.length > 0)
                                         ? "file://" + root.previewItem.filePaths[0] : ""
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
@@ -1221,9 +1881,9 @@ ShellRoot {
                                 // GIF preview
                                 AnimatedImage {
                                     id: previewGif
-                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "gif"
+                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "gif"
                                     width: parent.width
-                                    source: (root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "gif" && root.previewItem.filePaths.length > 0)
+                                    source: (root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "gif" && root.previewItem.filePaths.length > 0)
                                         ? "file://" + root.previewItem.filePaths[0] : ""
                                     fillMode: Image.PreserveAspectFit
                                     playing: true
@@ -1233,17 +1893,16 @@ ShellRoot {
                                 // Video thumbnail preview
                                 Image {
                                     id: previewVideoThumb
-                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "video"
+                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "video"
                                     width: parent.width
                                     source: {
-                                        if (!root.previewItem || !root.previewItem.isFile || root.previewItem.fileType !== "video" || root.previewItem.filePaths.length === 0) return ""
+                                        if (!root.previewItem || !root.previewItem.isFile || root.previewItem.filePaths.length > 1 || root.previewItem.fileType !== "video" || root.previewItem.filePaths.length === 0) return ""
                                         var thumb = root.videoThumbPaths[root.previewItem.filePaths[0]]
                                         return thumb ? "file://" + thumb : ""
                                     }
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
 
-                                    // Play icon overlay
                                     Rectangle {
                                         visible: previewVideoThumb.status === Image.Ready
                                         anchors.centerIn: parent
@@ -1261,68 +1920,130 @@ ShellRoot {
                                     }
                                 }
 
+                                // HTML embedded image preview
+                                AnimatedImage {
+                                    id: previewHtmlImage
+                                    visible: root.previewItem && root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0 && root.isLocalImagePath(root.previewItem.htmlImageSrcs[0])
+                                    width: parent.width
+                                    source: (root.previewItem && root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0 && root.isLocalImagePath(root.previewItem.htmlImageSrcs[0]))
+                                        ? root.localFileUrl(root.previewItem.htmlImageSrcs[0]) : ""
+                                    fillMode: Image.PreserveAspectFit
+                                    playing: true
+                                    asynchronous: true
+                                }
+
                                 // File info for non-previewable files
                                 ColumnLayout {
                                     id: previewFileInfo
-                                    visible: root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "other"
+                                    visible: root.previewItem && root.previewItem.isFile && (root.previewItem.filePaths.length > 1 || (root.previewItem.fileType !== "image" && root.previewItem.fileType !== "gif" && root.previewItem.fileType !== "video"))
                                     width: parent.width
-                                    spacing: Theme.spacingL
+                                    spacing: Theme.spacingM
 
-                                    // File icon
-                                    Rectangle {
+                                    Text {
                                         Layout.alignment: Qt.AlignHCenter
-                                        Layout.topMargin: Theme.spacingXL
-                                        width: 64; height: 64
-                                        radius: Theme.radiusL
-                                        color: Theme.alpha(Theme.tertiary, 0.1)
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "\uf15b"
-                                            font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: 32
-                                            color: Theme.tertiary
-                                        }
+                                        Layout.topMargin: Theme.spacingM
+                                        text: root.previewFilePaths.length + " 个文件"
+                                        font.pixelSize: Theme.fontSizeL
+                                        font.bold: true
+                                        color: Theme.textPrimary
+                                        visible: root.previewFilePaths.length > 1
                                     }
 
-                                    // File list
                                     Repeater {
-                                        model: root.previewItem && root.previewItem.isFile ? root.previewItem.filePaths : []
+                                        model: root.previewFilePaths
 
-                                        ColumnLayout {
+                                        Rectangle {
                                             required property string modelData
                                             required property int index
                                             Layout.fillWidth: true
-                                            spacing: 2
+                                            Layout.preferredHeight: fileEntryRow.implicitHeight + Theme.spacingM * 2
+                                            radius: Theme.radiusM
+                                            color: Theme.surface
+                                            border.color: Theme.outline
+                                            border.width: 1
 
-                                            Text {
-                                                Layout.fillWidth: true
-                                                text: modelData.split("/").pop()
-                                                font.pixelSize: Theme.fontSizeM
-                                                font.bold: true
-                                                color: Theme.textPrimary
-                                                horizontalAlignment: Text.AlignHCenter
-                                                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                                            }
+                                            property string normalizedPath: root.normalizeLocalPath(modelData)
+                                            property string fileMime: root.pathMimeCache[normalizedPath] || ""
+                                            property string fileExt: modelData.split(".").pop().toLowerCase()
+                                            property bool isImageFile: fileMime ? fileMime.startsWith("image/") : (root.imageExts.indexOf(fileExt) !== -1 || root.gifExts.indexOf(fileExt) !== -1)
+                                            property bool isGifFile: fileMime ? fileMime === "image/gif" : (fileExt === "gif")
 
-                                            Text {
-                                                Layout.fillWidth: true
-                                                text: modelData
-                                                font.pixelSize: Theme.fontSizeS
-                                                font.family: "monospace"
-                                                color: Theme.textMuted
-                                                horizontalAlignment: Text.AlignHCenter
-                                                wrapMode: Text.WrapAnywhere
-                                            }
+                                            RowLayout {
+                                                id: fileEntryRow
+                                                anchors.fill: parent
+                                                anchors.margins: Theme.spacingM
+                                                spacing: Theme.spacingM
 
-                                            Rectangle {
-                                                visible: index < (root.previewItem ? root.previewItem.filePaths.length - 1 : 0)
-                                                Layout.fillWidth: true
-                                                Layout.topMargin: Theme.spacingS
-                                                Layout.bottomMargin: Theme.spacingS
-                                                height: 1
-                                                color: Theme.outline
-                                                opacity: 0.4
+                                                // File thumbnail or icon
+                                                Rectangle {
+                                                    Layout.preferredWidth: 48; Layout.preferredHeight: 48
+                                                    Layout.alignment: Qt.AlignVCenter
+                                                    radius: Theme.radiusS
+                                                    color: Theme.surfaceVariant
+                                                    clip: true
+
+                                                    AnimatedImage {
+                                                        anchors.fill: parent; anchors.margins: 2
+                                                        visible: parent.parent.parent.isGifFile
+                                                        source: parent.parent.parent.isGifFile ? "file://" + parent.parent.parent.modelData : ""
+                                                        fillMode: Image.PreserveAspectCrop
+                                                        playing: true
+                                                        asynchronous: true
+                                                    }
+
+                                                    Image {
+                                                        anchors.fill: parent; anchors.margins: 2
+                                                        visible: parent.parent.parent.isImageFile && !parent.parent.parent.isGifFile
+                                                        source: (parent.parent.parent.isImageFile && !parent.parent.parent.isGifFile) ? "file://" + parent.parent.parent.modelData : ""
+                                                        fillMode: Image.PreserveAspectCrop
+                                                        asynchronous: true
+                                                    }
+
+                                                    Text {
+                                                        visible: !parent.parent.parent.isImageFile
+                                                        anchors.centerIn: parent
+                                                        text: {
+                                                            var ext = parent.parent.parent.fileExt
+                                                            var mime = parent.parent.parent.fileMime
+                                                            if (mime.startsWith("video/")) return "\uf03d"
+                                                            if (mime.startsWith("audio/")) return "\uf001"
+                                                            if (root.videoExts.indexOf(ext) !== -1) return "\uf03d"
+                                                            if (root.audioExts.indexOf(ext) !== -1) return "\uf001"
+                                                            if (root.archiveExts.indexOf(ext) !== -1) return "\uf1c6"
+                                                            if (root.docExts.indexOf(ext) !== -1) return "\uf15c"
+                                                            return "\uf15b"
+                                                        }
+                                                        font.family: "Symbols Nerd Font Mono"
+                                                        font.pixelSize: 20
+                                                        color: Theme.textMuted
+                                                    }
+                                                }
+
+                                                // File name and path
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    Layout.alignment: Qt.AlignVCenter
+                                                    spacing: 2
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: modelData.split("/").pop()
+                                                        font.pixelSize: Theme.fontSizeM
+                                                        font.bold: true
+                                                        color: Theme.textPrimary
+                                                        elide: Text.ElideMiddle
+                                                        maximumLineCount: 1
+                                                    }
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: modelData.substring(0, modelData.lastIndexOf("/"))
+                                                        font.pixelSize: Theme.fontSizeXS
+                                                        color: Theme.textMuted
+                                                        elide: Text.ElideMiddle
+                                                        maximumLineCount: 1
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1332,6 +2053,7 @@ ShellRoot {
                                 TextEdit {
                                     id: previewTextEdit
                                     visible: root.previewItem && !root.previewItem.isImage && !root.previewItem.isFile
+                                        && !(root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0 && root.isLocalImagePath(root.previewItem.htmlImageSrcs[0]))
                                     width: parent.width
                                     text: root.previewFullText
                                     font.pixelSize: Theme.fontSizeM
@@ -1345,19 +2067,20 @@ ShellRoot {
                                 }
                             }
 
-                            // Scrollbar (outside Flickable)
+                            // Preview scrollbar
                             Rectangle {
                                 visible: previewFlickable.contentHeight > previewFlickable.height
+                                anchors.right: parent.right
                                 y: (previewFlickable.contentHeight > previewFlickable.height)
                                     ? previewFlickable.contentY / (previewFlickable.contentHeight - previewFlickable.height) * (parent.height - height)
                                     : 0
                                 width: 6
                                 height: Math.max(30, parent.height * parent.height / previewFlickable.contentHeight)
                                 radius: 3
-                                color: scrollbarArea.pressed ? Theme.textMuted : Theme.alpha(Theme.textMuted, 0.5)
+                                color: pvScrollArea.pressed ? Theme.textMuted : Theme.alpha(Theme.textMuted, 0.5)
 
                                 MouseArea {
-                                    id: scrollbarArea
+                                    id: pvScrollArea
                                     anchors.fill: parent
                                     drag.target: parent
                                     drag.axis: Drag.YAxis

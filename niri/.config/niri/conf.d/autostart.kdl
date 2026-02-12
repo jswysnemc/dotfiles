@@ -23,17 +23,20 @@ spawn-sh-at-startup "/usr/lib/hyprpolkitagent/hyprpolkitagent"
 
 spawn-at-startup "sh" "-c" "cd ~/.config/quickshell && uv run python notifications/main.py"
 
-spawn-sh-at-startup "sticky-notes start-server"
+// spawn-sh-at-startup "sticky-notes start-server"
 
-spawn-at-startup "doubaoime-voice-start"
+// spawn-at-startup "doubaoime-voice-start"
 
 
 // --- 剪贴板 ---
 spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
 spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
+spawn-sh-at-startup "systemctl --user start clipsync"
+// spawn-at-startup "wl-paste" "--watch" "cliphist" "store"
+// spawn-sh-at-startup "~/.local/bin/clipboard-sync.sh"
 // spawn-sh-at-startup "wl-paste --watch cliphist store"
 // spawn-sh-at-startup "clipse --listen"
-spawn-sh-at-startup "~/.config/niri/scripts/clipboard-sync"
+
 
 // --- 自定义脚本 ---
 spawn-at-startup "~/.config/niri/scripts/swayidle.sh"
