@@ -31,9 +31,57 @@ ShellRoot {
     property var clipboardItems: []
     property var filteredItems: []
     property string searchText: ""
+    property var activeTagFilters: []
+    property bool showTagFilters: false
+    property var tagCounts: ({})
+    property var itemIndexById: ({})
     property int selectedIndex: 0
     property bool loading: false
     readonly property string cacheDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/qs-clipboard"
+    readonly property int clipboardListLimit: parseInt(Quickshell.env("QS_CLIPBOARD_LIST_LIMIT")) || 220
+    readonly property int decodeChunkSize: parseInt(Quickshell.env("QS_CLIPBOARD_DECODE_CHUNK")) || 24
+    readonly property var tagFilterOptions: [
+        ({ id: "text", label: "文本", icon: "\uf0f6" }),
+        ({ id: "code", label: "代码", icon: "\uf121" }),
+        ({ id: "url", label: "链接", icon: "\uf0c1" }),
+        ({ id: "image", label: "图片", icon: "\uf03e" }),
+        ({ id: "file", label: "文件", icon: "\uf15b" }),
+        ({ id: "video", label: "视频", icon: "\uf03d" }),
+        ({ id: "html", label: "HTML", icon: "\uf13b" }),
+        ({ id: "color", label: "颜色", icon: "\uf53f" })
+    ]
+    readonly property var tagAliasMap: ({
+        "text": "text",
+        "文本": "text",
+        "code": "code",
+        "代码": "code",
+        "url": "url",
+        "链接": "url",
+        "link": "url",
+        "path": "path",
+        "路径": "path",
+        "image": "image",
+        "img": "image",
+        "图片": "image",
+        "图像": "image",
+        "gif": "gif",
+        "video": "video",
+        "视频": "video",
+        "audio": "audio",
+        "音频": "audio",
+        "file": "file",
+        "文件": "file",
+        "document": "document",
+        "doc": "document",
+        "文档": "document",
+        "archive": "archive",
+        "压缩包": "archive",
+        "压缩": "archive",
+        "html": "html",
+        "网页": "html",
+        "color": "color",
+        "颜色": "color"
+    })
 
     // Preview state
     property bool previewVisible: false
@@ -54,10 +102,12 @@ ShellRoot {
     property var pathMimeCache: ({})
     property var mimeProbeTasks: ({})
     property int mimeProbeSeq: 0
+    property var pendingDecodeIds: []
+    property int pendingDecodeCursor: 0
 
     Process {
         id: loadClipboard
-        command: ["bash", "-lc", "cliphist list | head -n 400"]
+        command: ["bash", "-lc", "cliphist list | head -n " + root.clipboardListLimit]
         stdout: SplitParser {
             splitMarker: ""
             onRead: data => {
@@ -91,6 +141,9 @@ ShellRoot {
                 root.updateDecodedEntries(root.asyncDecodeBuffer)
             }
             root.asyncDecodeBuffer = ""
+            if (root.pendingDecodeCursor < root.pendingDecodeIds.length) {
+                decodeChunkTimer.restart()
+            }
         }
     }
 
@@ -132,10 +185,11 @@ ShellRoot {
             var nextMarker = data.indexOf(marker, contentStart)
             var content = nextMarker === -1 ? data.substring(contentStart) : data.substring(contentStart, nextMarker)
 
-            for (var j = 0; j < clipboardItems.length; j++) {
-                if (clipboardItems[j].id !== id) continue
+            var idx = root.itemIndexById[String(id)]
+            if (idx !== undefined) {
+                var item = clipboardItems[idx]
+                var itemChanged = false
 
-                var item = clipboardItems[j]
                 if (item.textType === "html") {
                     var srcs = extractHtmlImageSrcs(content)
                     if (srcs.length > 0) {
@@ -146,59 +200,84 @@ ShellRoot {
                         if (JSON.stringify(item.htmlImageSrcs || []) !== JSON.stringify(srcs)) {
                             item.htmlImageSrcs = srcs
                             updated = true
+                            itemChanged = true
                         }
                         if (item.preview !== nextPreview) {
                             item.preview = nextPreview
                             updated = true
+                            itemChanged = true
                         }
                         if (item.htmlPlainText) {
                             item.htmlPlainText = ""
                             updated = true
+                            itemChanged = true
                         }
                         if (item.htmlPreferPlain) {
                             item.htmlPreferPlain = false
                             updated = true
+                            itemChanged = true
                         }
                     } else {
                         if (item.htmlImageSrcs && item.htmlImageSrcs.length > 0) {
                             item.htmlImageSrcs = []
                             updated = true
+                            itemChanged = true
                         }
                         var plain = htmlToPlainText(content)
                         var preferPlain = shouldTreatHtmlAsPlainText(content, plain)
                         if (item.htmlPlainText !== plain) {
                             item.htmlPlainText = plain
                             updated = true
+                            itemChanged = true
                         }
                         if (item.htmlPreferPlain !== preferPlain) {
                             item.htmlPreferPlain = preferPlain
                             updated = true
+                            itemChanged = true
                         }
                         if (preferPlain && plain) {
                             var plainPreview = previewText(plain)
                             if (item.preview !== plainPreview) {
                                 item.preview = plainPreview
                                 updated = true
+                                itemChanged = true
                             }
                         }
                     }
                 } else if (item.isFile) {
                     var paths = extractFilePaths(content)
                     if (paths.length > 0) {
-                        item.filePaths = paths
-                        item.fileType = classifyFile(paths[0])
-                        item.preview = paths.map(function(p) {
+                        var nextType = classifyFile(paths[0])
+                        var nextPreview2 = paths.map(function(p) {
                             return p.split("/").pop()
                         }).join(", ")
-                        updated = true
+                        if (JSON.stringify(item.filePaths || []) !== JSON.stringify(paths)) {
+                            item.filePaths = paths
+                            updated = true
+                            itemChanged = true
+                        }
+                        if (item.fileType !== nextType) {
+                            item.fileType = nextType
+                            updated = true
+                            itemChanged = true
+                        }
+                        if (item.preview !== nextPreview2) {
+                            item.preview = nextPreview2
+                            updated = true
+                            itemChanged = true
+                        }
                     }
                 }
-                break
+
+                if (itemChanged) {
+                    rebuildItemDerivedFields(item)
+                }
             }
             pos = nextMarker === -1 ? data.length : nextMarker
         }
         if (updated) {
             clipboardItems = clipboardItems.slice()
+            rebuildTagCounts()
             filterItems()
             queueMimeProbe()
         }
@@ -231,6 +310,157 @@ ShellRoot {
 
     function previewText(text) {
         return sanitizeClipboardText(text).substring(0, 200).replace(/\n/g, " ").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    }
+
+    function pushUnique(list, value) {
+        if (!value) return
+        if (list.indexOf(value) === -1) list.push(value)
+    }
+
+    function normalizeTag(tag) {
+        var normalized = String(tag === undefined || tag === null ? "" : tag).trim().toLowerCase()
+        normalized = normalized.replace(/^#+/, "")
+        if (!normalized) return ""
+        return root.tagAliasMap[normalized] || normalized
+    }
+
+    function parseSearchQuery(text) {
+        var src = String(text === undefined || text === null ? "" : text)
+        var tagTokens = src.match(/#([^\s#]+)/g) || []
+        var tags = []
+        for (var i = 0; i < tagTokens.length; i++) {
+            var nextTag = normalizeTag(tagTokens[i].substring(1))
+            if (nextTag) pushUnique(tags, nextTag)
+        }
+        var keyword = src.replace(/#([^\s#]+)/g, " ").replace(/\s+/g, " ").trim().toLowerCase()
+        return {
+            keyword: keyword,
+            tags: tags
+        }
+    }
+
+    function mergeFilterTags(searchTags) {
+        var merged = activeTagFilters.slice()
+        for (var i = 0; i < searchTags.length; i++) {
+            pushUnique(merged, searchTags[i])
+        }
+        return merged
+    }
+
+    function hasAllTags(item, requiredTags) {
+        if (!requiredTags || requiredTags.length === 0) return true
+        var set = item.tagSet || {}
+        for (var i = 0; i < requiredTags.length; i++) {
+            if (!set[requiredTags[i]]) return false
+        }
+        return true
+    }
+
+    function buildItemTags(item) {
+        var tags = []
+
+        if (item.isImage) {
+            pushUnique(tags, "image")
+            if (String(item.imageExt || "").toLowerCase() === "gif") pushUnique(tags, "gif")
+        } else if (item.isFile) {
+            pushUnique(tags, "file")
+            if (item.fileType) pushUnique(tags, item.fileType)
+            if (item.filePaths && item.filePaths.length > 1) pushUnique(tags, "multi")
+        } else {
+            pushUnique(tags, "text")
+            if (item.textType) pushUnique(tags, item.textType)
+        }
+
+        if (item.textType === "html" && item.htmlImageSrcs && item.htmlImageSrcs.length > 0) {
+            pushUnique(tags, "image")
+            pushUnique(tags, "html")
+        }
+
+        return tags
+    }
+
+    function rebuildItemDerivedFields(item) {
+        var tags = buildItemTags(item)
+        var tagSet = {}
+        for (var i = 0; i < tags.length; i++) {
+            tagSet[tags[i]] = true
+        }
+
+        var searchParts = []
+        searchParts.push(item.preview || "")
+        if (item.filePaths && item.filePaths.length > 0) searchParts.push(item.filePaths.join(" "))
+        if (item.textType === "html" && item.htmlPlainText) searchParts.push(item.htmlPlainText)
+        searchParts.push(tags.join(" "))
+        if (item.isImage && item.imageExt) searchParts.push(item.imageExt)
+
+        item.tags = tags
+        item.tagSet = tagSet
+        item.searchBlobLower = sanitizeClipboardText(searchParts.join(" ")).toLowerCase()
+        item.hasVisualPreview = item.isImage
+            || (item.isFile && (item.fileType === "image" || item.fileType === "gif" || item.fileType === "video"))
+            || (item.textType === "html" && item.htmlImageSrcs && item.htmlImageSrcs.length > 0 && isLocalImagePath(item.htmlImageSrcs[0]))
+    }
+
+    function rebuildItemIndexMap() {
+        var map = {}
+        for (var i = 0; i < clipboardItems.length; i++) {
+            map[String(clipboardItems[i].id)] = i
+        }
+        itemIndexById = map
+    }
+
+    function rebuildTagCounts() {
+        var counts = {}
+        for (var i = 0; i < clipboardItems.length; i++) {
+            var tags = clipboardItems[i].tags || []
+            for (var j = 0; j < tags.length; j++) {
+                var tag = tags[j]
+                counts[tag] = (counts[tag] || 0) + 1
+            }
+        }
+        tagCounts = counts
+    }
+
+    function tagCount(tag) {
+        return tagCounts[tag] || 0
+    }
+
+    function toggleTagFilter(tag) {
+        var normalized = normalizeTag(tag)
+        if (!normalized) return
+        var next = activeTagFilters.slice()
+        var idx = next.indexOf(normalized)
+        if (idx !== -1) next.splice(idx, 1)
+        else next.push(normalized)
+        activeTagFilters = next
+    }
+
+    function clearTagFilters() {
+        activeTagFilters = []
+    }
+
+    function queueAsyncDecode(ids) {
+        pendingDecodeIds = ids ? ids.slice() : []
+        pendingDecodeCursor = 0
+        if (pendingDecodeIds.length > 0) {
+            decodeChunkTimer.restart()
+        }
+    }
+
+    function runNextDecodeChunk() {
+        if (asyncDecodeProcess.running) return
+        if (!pendingDecodeIds || pendingDecodeCursor >= pendingDecodeIds.length) return
+
+        var end = Math.min(pendingDecodeCursor + decodeChunkSize, pendingDecodeIds.length)
+        var chunk = pendingDecodeIds.slice(pendingDecodeCursor, end)
+        pendingDecodeCursor = end
+
+        if (chunk.length === 0) return
+        var cmd = chunk.map(function(id) {
+            return "printf '===CLIP:" + id + "===\\n'; cliphist decode '" + id + "'"
+        }).join("; ")
+        asyncDecodeProcess.command = ["bash", "-c", cmd]
+        asyncDecodeProcess.running = true
     }
 
     function isLikelyBinaryNoiseText(content) {
@@ -335,9 +565,10 @@ ShellRoot {
                 newCache[task.path] = mime
                 if (prevMime !== mime) updated = true
 
-                for (var i = 0; i < clipboardItems.length; i++) {
-                    if (String(clipboardItems[i].id) !== task.id) continue
-                    var item = clipboardItems[i]
+                var idx = root.itemIndexById[task.id]
+                if (idx !== undefined) {
+                    var item = clipboardItems[idx]
+                    var itemChanged = false
                     if (task.kind === "FILE" && item.isFile && item.filePaths && item.filePaths.length > 0) {
                         var firstPath = normalizeLocalPath(item.filePaths[0])
                         var firstMime = firstPath ? (newCache[firstPath] || "") : ""
@@ -345,10 +576,12 @@ ShellRoot {
                         if (item.fileMime !== firstMime) {
                             item.fileMime = firstMime
                             updated = true
+                            itemChanged = true
                         }
                         if (item.fileType !== nextType) {
                             item.fileType = nextType
                             updated = true
+                            itemChanged = true
                         }
                     } else if (task.kind === "HTML" && item.textType === "html") {
                         if (item.htmlImageMime !== mime) {
@@ -356,7 +589,7 @@ ShellRoot {
                             updated = true
                         }
                     }
-                    break
+                    if (itemChanged) rebuildItemDerivedFields(item)
                 }
             }
 
@@ -366,6 +599,7 @@ ShellRoot {
         root.pathMimeCache = newCache
         if (updated) {
             clipboardItems = clipboardItems.slice()
+            rebuildTagCounts()
             filterItems()
             if (clipboardItems.some(function(i) { return i.isFile && i.fileType === "video" })) {
                 startVideoThumbGen()
@@ -733,7 +967,7 @@ ShellRoot {
             if (seen[key]) continue
             seen[key] = true
 
-            items.push({
+            var item = {
                 id: id,
                 isImage: isImage,
                 imageExt: imageExt,
@@ -752,16 +986,14 @@ ShellRoot {
                 imagePath: "",
                 preview: preview,
                 colorValue: textType === "color" ? trimmedContent : ""
-            })
+            }
+            rebuildItemDerivedFields(item)
+            items.push(item)
         }
         root.clipboardItems = items
+        root.rebuildItemIndexMap()
+        root.rebuildTagCounts()
         root.filterItems()
-        if (items.some(function(i) { return i.isImage })) {
-            root.startImageDecode()
-        }
-        if (items.some(function(i) { return i.isFile && i.fileType === "video" })) {
-            root.startVideoThumbGen()
-        }
         // Decode full content for truncated entries (HTML and multi-file)
         var decodeIds = []
         for (var j = 0; j < items.length; j++) {
@@ -771,14 +1003,15 @@ ShellRoot {
                 decodeIds.push(items[j].id)
             }
         }
-        if (decodeIds.length > 0) {
-            var cmd = decodeIds.map(function(id) {
-                return "printf '===CLIP:" + id + "===\\n'; cliphist decode '" + id + "'"
-            }).join("; ")
-            asyncDecodeProcess.command = ["bash", "-c", cmd]
-            asyncDecodeProcess.running = true
+        root.queueAsyncDecode(decodeIds)
+
+        if (items.some(function(i) { return i.isImage })) {
+            imageDecodeStartTimer.restart()
         }
-        queueMimeProbe()
+        if (items.some(function(i) { return i.isFile && i.fileType === "video" })) {
+            videoThumbStartTimer.restart()
+        }
+        mimeProbeStartTimer.restart()
     }
 
     // ============ Image Decode ============
@@ -803,7 +1036,14 @@ ShellRoot {
     }
 
     function startImageDecode() {
-        imageQueue = clipboardItems.filter(i => i.isImage).map(i => i.id)
+        var ids = []
+        for (var i = 0; i < clipboardItems.length; i++) {
+            var item = clipboardItems[i]
+            if (!item.isImage) continue
+            if (root.imagePaths[item.id]) continue
+            ids.push(item.id)
+        }
+        imageQueue = ids
         imageIndex = 0
         if (imageQueue.length > 0) {
             mkCacheDir.running = true
@@ -820,11 +1060,10 @@ ShellRoot {
         if (imageIndex >= imageQueue.length) return
         var id = imageQueue[imageIndex]
         var ext = "png"
-        for (var i = 0; i < clipboardItems.length; i++) {
-            if (clipboardItems[i].id === id && clipboardItems[i].isImage) {
-                ext = clipboardItems[i].imageExt || "png"
-                break
-            }
+        var idx = root.itemIndexById[String(id)]
+        if (idx !== undefined) {
+            var item = clipboardItems[idx]
+            if (item && item.isImage) ext = item.imageExt || "png"
         }
         decodeImage.currentId = id
         decodeImage.currentPath = cacheDir + "/" + id + "." + ext
@@ -857,10 +1096,15 @@ ShellRoot {
 
     function startVideoThumbGen() {
         var paths = []
+        var seen = {}
         for (var i = 0; i < clipboardItems.length; i++) {
             var item = clipboardItems[i]
             if (item.isFile && item.fileType === "video" && item.filePaths.length > 0) {
-                paths.push(item.filePaths[0])
+                var path = item.filePaths[0]
+                if (seen[path]) continue
+                if (root.videoThumbPaths[path]) continue
+                seen[path] = true
+                paths.push(path)
             }
         }
         videoQueue = paths
@@ -886,10 +1130,8 @@ ShellRoot {
     }
 
     // ============ Fuzzy Search ============
-    function fuzzyMatch(pattern, str) {
+    function fuzzyMatchLower(pattern, str) {
         if (!pattern) return { match: true, score: 0 }
-        pattern = pattern.toLowerCase()
-        str = str.toLowerCase()
         var pIdx = 0, sIdx = 0, score = 0, consecutive = 0, lastIdx = -1
         while (pIdx < pattern.length && sIdx < str.length) {
             if (pattern[pIdx] === str[sIdx]) {
@@ -908,28 +1150,95 @@ ShellRoot {
         return { match: false, score: 0 }
     }
 
+    function fuzzyMatch(pattern, str) {
+        var p = String(pattern === undefined || pattern === null ? "" : pattern).toLowerCase()
+        var s = String(str === undefined || str === null ? "" : str).toLowerCase()
+        return fuzzyMatchLower(p, s)
+    }
+
     function filterItems() {
-        if (!searchText) {
+        var parsed = parseSearchQuery(searchText)
+        var keyword = parsed.keyword
+        var requiredTags = mergeFilterTags(parsed.tags)
+        var hasKeyword = keyword.length > 0
+
+        if (!hasKeyword && requiredTags.length === 0) {
             filteredItems = clipboardItems.slice()
         } else {
             var results = []
             for (var i = 0; i < clipboardItems.length; i++) {
                 var item = clipboardItems[i]
-                if (item.isImage) continue
-                var searchTarget = item.preview
-                var m = fuzzyMatch(searchText, searchTarget)
+                if (!hasAllTags(item, requiredTags)) continue
+
+                if (!hasKeyword) {
+                    results.push({ item: item, score: 0, originalIndex: i })
+                    continue
+                }
+
+                var searchTarget = item.searchBlobLower || ""
+                var directIdx = searchTarget.indexOf(keyword)
+                if (directIdx !== -1) {
+                    results.push({ item: item, score: 2000 - directIdx, originalIndex: i })
+                    continue
+                }
+
+                var m = fuzzyMatchLower(keyword, searchTarget)
                 if (m.match) results.push({ item: item, score: m.score, originalIndex: i })
             }
-            results.sort(function(a, b) {
-                if (b.score !== a.score) return b.score - a.score
-                return a.originalIndex - b.originalIndex
-            })
+
+            if (hasKeyword) {
+                results.sort(function(a, b) {
+                    if (b.score !== a.score) return b.score - a.score
+                    return a.originalIndex - b.originalIndex
+                })
+            }
+
             filteredItems = results.map(function(r) { return r.item })
         }
-        selectedIndex = 0
+        if (filteredItems.length === 0) {
+            selectedIndex = 0
+        } else if (selectedIndex >= filteredItems.length || selectedIndex < 0) {
+            selectedIndex = 0
+        }
     }
 
-    onSearchTextChanged: filterItems()
+    Timer {
+        id: searchDebounce
+        interval: 120
+        repeat: false
+        onTriggered: root.filterItems()
+    }
+
+    Timer {
+        id: decodeChunkTimer
+        interval: 60
+        repeat: false
+        onTriggered: root.runNextDecodeChunk()
+    }
+
+    Timer {
+        id: mimeProbeStartTimer
+        interval: 260
+        repeat: false
+        onTriggered: root.queueMimeProbe()
+    }
+
+    Timer {
+        id: imageDecodeStartTimer
+        interval: 360
+        repeat: false
+        onTriggered: root.startImageDecode()
+    }
+
+    Timer {
+        id: videoThumbStartTimer
+        interval: 520
+        repeat: false
+        onTriggered: root.startVideoThumbGen()
+    }
+
+    onSearchTextChanged: searchDebounce.restart()
+    onActiveTagFiltersChanged: filterItems()
 
     // ============ Actions ============
     Process {
@@ -1128,6 +1437,8 @@ ShellRoot {
         deleteProcess.command = ["bash", "-c", "cliphist list | grep -m1 '^" + item.id + "\t' | cliphist delete"]
         deleteProcess.running = true
         clipboardItems = clipboardItems.filter(i => i.id !== item.id)
+        rebuildItemIndexMap()
+        rebuildTagCounts()
         filterItems()
     }
 
@@ -1135,6 +1446,14 @@ ShellRoot {
         clearProcess.running = true
         clipboardItems = []
         filteredItems = []
+        itemIndexById = ({})
+        tagCounts = ({})
+        pendingDecodeIds = []
+        pendingDecodeCursor = 0
+        decodeChunkTimer.running = false
+        mimeProbeStartTimer.running = false
+        imageDecodeStartTimer.running = false
+        videoThumbStartTimer.running = false
     }
 
     function selectCurrent() {
@@ -1321,24 +1640,128 @@ ShellRoot {
                                 font.family: "Symbols Nerd Font Mono"
                                 font.pixelSize: 14
                                 color: Theme.textMuted
+                                Layout.alignment: Qt.AlignVCenter
                             }
 
                             TextInput {
                                 id: searchInput
                                 Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignVCenter
                                 font.pixelSize: Theme.fontSizeM
                                 color: Theme.textPrimary
                                 clip: true
                                 focus: true
+                                verticalAlignment: TextInput.AlignVCenter
                                 onTextChanged: root.searchText = text
 
                                 Text {
-                                    anchors.fill: parent
-                                    text: "搜索文本..."
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "搜索内容或 #标签（如 #image #代码）..."
                                     font.pixelSize: Theme.fontSizeM
                                     color: Theme.textMuted
                                     visible: !searchInput.text
                                 }
+                            }
+
+                            Rectangle {
+                                width: 28
+                                height: 28
+                                Layout.alignment: Qt.AlignVCenter
+                                radius: Theme.radiusM
+                                color: root.showTagFilters
+                                    ? Theme.alpha(Theme.primary, 0.14)
+                                    : (tagToggleHover.hovered ? Theme.surfaceVariant : "transparent")
+                                border.color: root.showTagFilters ? Theme.primary : "transparent"
+                                border.width: root.showTagFilters ? 1 : 0
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\uf0b0"
+                                    font.family: "Symbols Nerd Font Mono"
+                                    font.pixelSize: 13
+                                    color: root.showTagFilters ? Theme.primary : Theme.textMuted
+                                }
+
+                                HoverHandler { id: tagToggleHover }
+                                TapHandler { onTapped: root.showTagFilters = !root.showTagFilters }
+                            }
+                        }
+                    }
+
+                    // Tag filters
+                    Flickable {
+                        visible: root.showTagFilters || root.activeTagFilters.length > 0
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: visible ? 30 : 0
+                        contentWidth: tagFilterRow.implicitWidth
+                        contentHeight: height
+                        clip: true
+                        interactive: contentWidth > width
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        Row {
+                            id: tagFilterRow
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.spacingS
+
+                            Repeater {
+                                model: root.tagFilterOptions
+
+                                Rectangle {
+                                    required property var modelData
+                                    property string tagId: modelData.id
+                                    property bool active: root.activeTagFilters.indexOf(tagId) !== -1
+                                    property int count: root.tagCount(tagId)
+                                    visible: count > 0 || active
+                                    height: 28
+                                    width: tagChipContent.implicitWidth + Theme.spacingM * 2
+                                    radius: 14
+                                    color: active ? Theme.alpha(Theme.primary, 0.14) : Theme.surface
+                                    border.color: active ? Theme.primary : Theme.outline
+                                    border.width: active ? 2 : 1
+
+                                    Row {
+                                        id: tagChipContent
+                                        anchors.centerIn: parent
+                                        spacing: 4
+
+                                        Text {
+                                            text: modelData.icon || "\uf02b"
+                                            font.family: "Symbols Nerd Font Mono"
+                                            font.pixelSize: 10
+                                            color: active ? Theme.primary : Theme.textSecondary
+                                        }
+
+                                        Text {
+                                            text: modelData.label + " " + count
+                                            font.pixelSize: Theme.fontSizeXS
+                                            color: active ? Theme.primary : Theme.textSecondary
+                                        }
+                                    }
+
+                                    TapHandler { onTapped: root.toggleTagFilter(tagId) }
+                                }
+                            }
+
+                            Rectangle {
+                                visible: root.activeTagFilters.length > 0
+                                height: 28
+                                width: clearTagLabel.implicitWidth + Theme.spacingM * 2
+                                radius: 14
+                                color: Theme.alpha(Theme.error, 0.1)
+                                border.color: Theme.error
+                                border.width: 1
+
+                                Text {
+                                    id: clearTagLabel
+                                    anchors.centerIn: parent
+                                    text: "清除标签"
+                                    font.pixelSize: Theme.fontSizeXS
+                                    color: Theme.error
+                                }
+
+                                TapHandler { onTapped: root.clearTagFilters() }
                             }
                         }
                     }
@@ -1380,7 +1803,7 @@ ShellRoot {
 
                                     Text {
                                         Layout.alignment: Qt.AlignHCenter
-                                        text: root.searchText ? "没有匹配" : "剪贴板为空"
+                                        text: (root.searchText || root.activeTagFilters.length > 0) ? "没有匹配" : "剪贴板为空"
                                         font.pixelSize: Theme.fontSizeM
                                         color: Theme.textMuted
                                     }
@@ -1406,12 +1829,12 @@ ShellRoot {
                                         required property int index
 
                                         property var badge: root.typeBadgeInfo(modelData)
-                                        property bool hasVisualPreview: modelData.isImage
-                                            || (modelData.isFile && (modelData.fileType === "image" || modelData.fileType === "gif" || modelData.fileType === "video"))
-                                            || (modelData.textType === "html" && modelData.htmlImageSrcs && modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(modelData.htmlImageSrcs[0]))
+                                        property bool hasVisualPreview: !!modelData.hasVisualPreview
+                                        property bool inViewport: (y + height) >= (listFlickable.contentY - 120)
+                                            && y <= (listFlickable.contentY + listFlickable.height + 120)
 
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: hasVisualPreview ? 80 : 48
+                                        Layout.preferredHeight: hasVisualPreview ? 80 : 56
                                         radius: Theme.radiusM
                                         color: index === root.selectedIndex
                                             ? Theme.alpha(Theme.primary, 0.1)
@@ -1488,19 +1911,19 @@ ShellRoot {
                                                 AnimatedImage {
                                                     id: previewBinaryImg
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.modelData.isImage
-                                                    source: (clipItem.modelData.isImage && root.imagePaths[clipItem.modelData.id])
+                                                    visible: clipItem.inViewport && clipItem.modelData.isImage
+                                                    source: (clipItem.inViewport && clipItem.modelData.isImage && root.imagePaths[clipItem.modelData.id])
                                                         ? "file://" + root.imagePaths[clipItem.modelData.id] : ""
                                                     fillMode: Image.PreserveAspectCrop
-                                                    playing: true; asynchronous: true
+                                                    playing: clipItem.inViewport; asynchronous: true
                                                 }
 
                                                 // File image (static)
                                                 Image {
                                                     id: previewFileImg
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "image"
-                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "image" && clipItem.modelData.filePaths.length > 0)
+                                                    visible: clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "image"
+                                                    source: (clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "image" && clipItem.modelData.filePaths.length > 0)
                                                         ? "file://" + clipItem.modelData.filePaths[0] : ""
                                                     fillMode: Image.PreserveAspectCrop; asynchronous: true
                                                 }
@@ -1509,19 +1932,19 @@ ShellRoot {
                                                 AnimatedImage {
                                                     id: previewFileGif
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
-                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "gif" && clipItem.modelData.filePaths.length > 0)
+                                                    visible: clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
+                                                    source: (clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "gif" && clipItem.modelData.filePaths.length > 0)
                                                         ? "file://" + clipItem.modelData.filePaths[0] : ""
                                                     fillMode: Image.PreserveAspectCrop
-                                                    playing: true; asynchronous: true
+                                                    playing: clipItem.inViewport; asynchronous: true
                                                 }
 
                                                 // File video thumbnail
                                                 Image {
                                                     id: previewVideoThumb
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
-                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && clipItem.modelData.filePaths.length > 0)
+                                                    visible: clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
+                                                    source: (clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && clipItem.modelData.filePaths.length > 0)
                                                         ? (root.videoThumbPaths[clipItem.modelData.filePaths[0]]
                                                             ? "file://" + root.videoThumbPaths[clipItem.modelData.filePaths[0]] : "") : ""
                                                     fillMode: Image.PreserveAspectCrop; asynchronous: true
@@ -1531,16 +1954,16 @@ ShellRoot {
                                                 AnimatedImage {
                                                     id: previewHtmlImg
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0])
-                                                    source: (clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0]))
+                                                    visible: clipItem.inViewport && clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0])
+                                                    source: (clipItem.inViewport && clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0]))
                                                         ? root.localFileUrl(clipItem.modelData.htmlImageSrcs[0]) : ""
                                                     fillMode: Image.PreserveAspectCrop
-                                                    playing: true; asynchronous: true
+                                                    playing: clipItem.inViewport; asynchronous: true
                                                 }
 
                                                 // Fallback icon when no image loaded
                                                 Text {
-                                                    visible: clipItem.hasVisualPreview && previewBinaryImg.status !== Image.Ready && previewFileImg.status !== Image.Ready && previewFileGif.status !== Image.Ready && previewVideoThumb.status !== Image.Ready && previewHtmlImg.status !== Image.Ready
+                                                    visible: clipItem.inViewport && clipItem.hasVisualPreview && previewBinaryImg.status !== Image.Ready && previewFileImg.status !== Image.Ready && previewFileGif.status !== Image.Ready && previewVideoThumb.status !== Image.Ready && previewHtmlImg.status !== Image.Ready
                                                     anchors.centerIn: parent
                                                     text: "\uf03e"
                                                     font.family: "Symbols Nerd Font Mono"
@@ -1604,6 +2027,7 @@ ShellRoot {
                                             ColumnLayout {
                                                 Layout.fillWidth: true
                                                 Layout.alignment: Qt.AlignVCenter
+                                                Layout.fillHeight: true
                                                 spacing: 2
 
                                                 Text {
@@ -1633,17 +2057,6 @@ ShellRoot {
                                                     maximumLineCount: 1
                                                 }
 
-                                                // Long text second line
-                                                Text {
-                                                    visible: !clipItem.modelData.isImage && !clipItem.modelData.isFile && clipItem.modelData.preview.length > 40
-                                                    Layout.fillWidth: true
-                                                    text: clipItem.modelData.preview
-                                                    font.pixelSize: Theme.fontSizeXS
-                                                    color: Theme.textMuted
-                                                    elide: Text.ElideRight
-                                                    maximumLineCount: 1
-                                                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                                                }
                                             }
 
                                             // Delete button
@@ -1717,7 +2130,7 @@ ShellRoot {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "Enter 粘贴 | 右键 预览 | 方向键 导航 | Esc 关闭"
+                        text: "Enter 粘贴 | 右键 预览 | 方向键 导航 | #tag 过滤 | Esc 关闭"
                         font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
                     }
