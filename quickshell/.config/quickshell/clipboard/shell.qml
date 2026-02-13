@@ -104,10 +104,14 @@ ShellRoot {
     property int mimeProbeSeq: 0
     property var pendingDecodeIds: []
     property int pendingDecodeCursor: 0
+    // Chunked parse state
+    property var pendingParseEntries: []
+    property var parseSeen: ({})
+    readonly property int parseFirstBatch: 15
 
     Process {
         id: loadClipboard
-        command: ["bash", "-lc", "cliphist list | head -n " + root.clipboardListLimit]
+        command: ["bash", "-c", "cliphist list | head -n " + root.clipboardListLimit]
         stdout: SplitParser {
             splitMarker: ""
             onRead: data => {
@@ -881,120 +885,95 @@ ShellRoot {
     }
 
     // ============ Parse Clipboard Data ============
-    function parseClipboardData(data) {
-        var rawLines = data.trim().split("\n")
-        // Join multi-line entries: cliphist list outputs ID\tcontent,
-        // but content may span multiple lines. Lines without a numeric ID+tab
-        // prefix are continuation of the previous entry.
-        var entries = []
-        for (var i = 0; i < rawLines.length; i++) {
-            var rl = rawLines[i]
-            if (!rl && entries.length === 0) continue
-            var ti = rl.indexOf("\t")
-            if (ti > 0 && /^\d+$/.test(rl.substring(0, ti))) {
-                entries.push({ id: rl.substring(0, ti), content: rl.substring(ti + 1) })
-            } else if (entries.length > 0) {
-                entries[entries.length - 1].content += "\n" + rl
-            }
+    function parseOneEntry(entry, seen) {
+        var id = entry.id
+        var rawContent = entry.content
+        var content = sanitizeClipboardText(rawContent)
+        var trimmedContent = content.trim()
+        var isImage = trimmedContent.startsWith("[[ binary data")
+        var isPlaceholderImageText = placeholderImageMime(trimmedContent).length > 0
+        if (isPlaceholderImageText) return null
+
+        var imageExt = isImage ? binaryExtFromMeta(trimmedContent) : ""
+        var imageDimensions = isImage ? binaryDimensionsFromMeta(trimmedContent) : ""
+        var imageSize = isImage ? binarySizeFromMeta(trimmedContent) : ""
+        var isFile = !isImage && content.indexOf("file://") !== -1 && !/<\s*(img|html|body|div|span|p|meta|table)\b/i.test(content)
+
+        var filePaths = []
+        var fileType = ""
+        if (isFile) {
+            filePaths = extractFilePaths(content)
+            if (filePaths.length === 0) { isFile = false }
+            else { fileType = classifyFile(filePaths[0]) }
         }
 
-        var seen = {}
-        var items = []
-        for (var i = 0; i < entries.length; i++) {
-            var id = entries[i].id
-            var rawContent = entries[i].content
-            var content = sanitizeClipboardText(rawContent)
-            var trimmedContent = content.trim()
-            var isImage = trimmedContent.startsWith("[[ binary data")
-            var isPlaceholderImageText = placeholderImageMime(trimmedContent).length > 0
-            if (isPlaceholderImageText) continue
-
-            var imageExt = isImage ? binaryExtFromMeta(trimmedContent) : ""
-            var imageDimensions = isImage ? binaryDimensionsFromMeta(trimmedContent) : ""
-            var imageSize = isImage ? binarySizeFromMeta(trimmedContent) : ""
-            var isFile = !isImage && content.indexOf("file://") !== -1 && !/<\s*(img|html|body|div|span|p|meta|table)\b/i.test(content)
-
-            var filePaths = []
-            var fileType = ""
-            if (isFile) {
-                filePaths = extractFilePaths(content)
-                if (filePaths.length === 0) { isFile = false }
-                else { fileType = classifyFile(filePaths[0]) }
-            }
-
-            var textType = ""
-            var htmlImageSrcs = []
-            var htmlPlainText = ""
-            var htmlPreferPlain = false
-            if (!isImage && !isFile) {
-                if (isLikelyBinaryNoiseText(rawContent)) continue
-                textType = classifyText(content)
-                // Extract local image paths from HTML (QQ, browsers, etc.)
-                if (textType === "html") {
-                    htmlImageSrcs = extractHtmlImageSrcs(content)
-                    if (htmlImageSrcs.length === 0) {
-                        htmlPlainText = htmlToPlainText(content)
-                        htmlPreferPlain = shouldTreatHtmlAsPlainText(content, htmlPlainText)
-                    }
+        var textType = ""
+        var htmlImageSrcs = []
+        var htmlPlainText = ""
+        var htmlPreferPlain = false
+        if (!isImage && !isFile) {
+            if (isLikelyBinaryNoiseText(rawContent)) return null
+            textType = classifyText(content)
+            if (textType === "html") {
+                htmlImageSrcs = extractHtmlImageSrcs(content)
+                if (htmlImageSrcs.length === 0) {
+                    htmlPlainText = htmlToPlainText(content)
+                    htmlPreferPlain = shouldTreatHtmlAsPlainText(content, htmlPlainText)
                 }
             }
-
-            var preview = ""
-            if (isImage) {
-                var parts = []
-                if (imageExt) parts.push(imageExt.toUpperCase())
-                if (imageDimensions) parts.push(imageDimensions)
-                if (imageSize) parts.push(imageSize)
-                preview = parts.length > 0 ? parts.join(" | ") : "image"
-            } else if (isFile) {
-                preview = filePaths.map(function(p) {
-                    return p.split("/").pop()
-                }).join(", ")
-            } else if (textType === "html" && htmlImageSrcs.length > 0) {
-                // Show image file names from HTML
-                preview = htmlImageSrcs.map(function(s) {
-                    if (s.startsWith("data:")) return "[base64 image]"
-                    return s.split("/").pop()
-                }).join(", ")
-            } else if (textType === "html" && htmlPreferPlain && htmlPlainText) {
-                preview = previewText(htmlPlainText)
-            } else {
-                preview = previewText(content)
-            }
-
-            // Deduplicate
-            var key = isImage ? ("img:" + content) : (isFile ? ("file:" + filePaths.join("|")) : preview)
-            if (seen[key]) continue
-            seen[key] = true
-
-            var item = {
-                id: id,
-                isImage: isImage,
-                imageExt: imageExt,
-                imageDimensions: imageDimensions,
-                imageSize: imageSize,
-                isFile: isFile,
-                fileType: fileType,
-                fileMime: (isFile && filePaths.length > 0) ? (root.pathMimeCache[normalizeLocalPath(filePaths[0])] || "") : "",
-                filePaths: filePaths,
-                textType: textType,
-                htmlImageSrcs: htmlImageSrcs,
-                htmlImageMime: "",
-                htmlPlainText: htmlPlainText,
-                htmlPreferPlain: htmlPreferPlain,
-                rawContent: isFile ? content.trim() : "",
-                imagePath: "",
-                preview: preview,
-                colorValue: textType === "color" ? trimmedContent : ""
-            }
-            rebuildItemDerivedFields(item)
-            items.push(item)
         }
-        root.clipboardItems = items
-        root.rebuildItemIndexMap()
-        root.rebuildTagCounts()
-        root.filterItems()
-        // Decode full content for truncated entries (HTML and multi-file)
+
+        var preview = ""
+        if (isImage) {
+            var parts = []
+            if (imageExt) parts.push(imageExt.toUpperCase())
+            if (imageDimensions) parts.push(imageDimensions)
+            if (imageSize) parts.push(imageSize)
+            preview = parts.length > 0 ? parts.join(" | ") : "image"
+        } else if (isFile) {
+            preview = filePaths.map(function(p) {
+                return p.split("/").pop()
+            }).join(", ")
+        } else if (textType === "html" && htmlImageSrcs.length > 0) {
+            preview = htmlImageSrcs.map(function(s) {
+                if (s.startsWith("data:")) return "[base64 image]"
+                return s.split("/").pop()
+            }).join(", ")
+        } else if (textType === "html" && htmlPreferPlain && htmlPlainText) {
+            preview = previewText(htmlPlainText)
+        } else {
+            preview = previewText(content)
+        }
+
+        var key = isImage ? ("img:" + content) : (isFile ? ("file:" + filePaths.join("|")) : preview)
+        if (seen[key]) return null
+        seen[key] = true
+
+        var item = {
+            id: id,
+            isImage: isImage,
+            imageExt: imageExt,
+            imageDimensions: imageDimensions,
+            imageSize: imageSize,
+            isFile: isFile,
+            fileType: fileType,
+            fileMime: (isFile && filePaths.length > 0) ? (root.pathMimeCache[normalizeLocalPath(filePaths[0])] || "") : "",
+            filePaths: filePaths,
+            textType: textType,
+            htmlImageSrcs: htmlImageSrcs,
+            htmlImageMime: "",
+            htmlPlainText: htmlPlainText,
+            htmlPreferPlain: htmlPreferPlain,
+            rawContent: isFile ? content.trim() : "",
+            imagePath: "",
+            preview: preview,
+            colorValue: textType === "color" ? trimmedContent : ""
+        }
+        rebuildItemDerivedFields(item)
+        return item
+    }
+
+    function scheduleBackgroundTasks(items) {
         var decodeIds = []
         for (var j = 0; j < items.length; j++) {
             if (items[j].textType === "html" && items[j].htmlImageSrcs.length === 0) {
@@ -1012,6 +991,60 @@ ShellRoot {
             videoThumbStartTimer.restart()
         }
         mimeProbeStartTimer.restart()
+    }
+
+    function parseClipboardData(data) {
+        var rawLines = data.trim().split("\n")
+        var entries = []
+        for (var i = 0; i < rawLines.length; i++) {
+            var rl = rawLines[i]
+            if (!rl && entries.length === 0) continue
+            var ti = rl.indexOf("\t")
+            if (ti > 0 && /^\d+$/.test(rl.substring(0, ti))) {
+                entries.push({ id: rl.substring(0, ti), content: rl.substring(ti + 1) })
+            } else if (entries.length > 0) {
+                entries[entries.length - 1].content += "\n" + rl
+            }
+        }
+
+        // Phase 1: parse first batch for immediate rendering
+        var seen = {}
+        var items = []
+        var batchEnd = Math.min(entries.length, root.parseFirstBatch)
+        for (var i = 0; i < batchEnd; i++) {
+            var item = parseOneEntry(entries[i], seen)
+            if (item) items.push(item)
+        }
+        root.clipboardItems = items
+        root.rebuildItemIndexMap()
+        root.rebuildTagCounts()
+        root.filterItems()
+
+        // Phase 2: schedule remaining entries for next frame
+        if (batchEnd < entries.length) {
+            root.pendingParseEntries = entries.slice(batchEnd)
+            root.parseSeen = seen
+            parseRestTimer.restart()
+        } else {
+            root.pendingParseEntries = []
+            scheduleBackgroundTasks(items)
+        }
+    }
+
+    function parseRemainingEntries() {
+        var seen = root.parseSeen
+        var items = root.clipboardItems.slice()
+        for (var i = 0; i < root.pendingParseEntries.length; i++) {
+            var item = parseOneEntry(root.pendingParseEntries[i], seen)
+            if (item) items.push(item)
+        }
+        root.pendingParseEntries = []
+        root.parseSeen = ({})
+        root.clipboardItems = items
+        root.rebuildItemIndexMap()
+        root.rebuildTagCounts()
+        root.filterItems()
+        scheduleBackgroundTasks(items)
     }
 
     // ============ Image Decode ============
@@ -1163,7 +1196,7 @@ ShellRoot {
         var hasKeyword = keyword.length > 0
 
         if (!hasKeyword && requiredTags.length === 0) {
-            filteredItems = clipboardItems.slice()
+            filteredItems = clipboardItems
         } else {
             var results = []
             for (var i = 0; i < clipboardItems.length; i++) {
@@ -1207,6 +1240,13 @@ ShellRoot {
         interval: 120
         repeat: false
         onTriggered: root.filterItems()
+    }
+
+    Timer {
+        id: parseRestTimer
+        interval: 1
+        repeat: false
+        onTriggered: root.parseRemainingEntries()
     }
 
     Timer {
@@ -1773,68 +1813,65 @@ ShellRoot {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
 
-                        Flickable {
+                        // Empty state
+                        ColumnLayout {
+                            visible: root.filteredItems.length === 0 && !root.loading
+                            anchors.centerIn: parent
+                            spacing: Theme.spacingM
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "\uf0ea"
+                                font.family: "Symbols Nerd Font Mono"
+                                font.pixelSize: 48
+                                color: Theme.outline
+                            }
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: (root.searchText || root.activeTagFilters.length > 0) ? "没有匹配" : "剪贴板为空"
+                                font.pixelSize: Theme.fontSizeM
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        // Loading
+                        Text {
+                            visible: root.loading
+                            anchors.centerIn: parent
+                            text: "加载中..."
+                            font.pixelSize: Theme.fontSizeM
+                            color: Theme.textMuted
+                        }
+
+                        ListView {
                             id: listFlickable
                             anchors.fill: parent
                             anchors.rightMargin: listScrollbar.visible ? 10 : 0
-                            contentHeight: itemsCol.implicitHeight
                             clip: true
                             boundsBehavior: Flickable.StopAtBounds
+                            spacing: Theme.spacingS
+                            model: root.filteredItems
+                            cacheBuffer: 240
 
-                            ColumnLayout {
-                                id: itemsCol
-                                width: parent.width
-                                spacing: Theme.spacingS
-
-                                // Empty state
-                                ColumnLayout {
-                                    visible: root.filteredItems.length === 0 && !root.loading
-                                    Layout.fillWidth: true
-                                    Layout.topMargin: Theme.spacingXL * 2
-                                    spacing: Theme.spacingM
-
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: "\uf0ea"
-                                        font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: 48
-                                        color: Theme.outline
-                                    }
-
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: (root.searchText || root.activeTagFilters.length > 0) ? "没有匹配" : "剪贴板为空"
-                                        font.pixelSize: Theme.fontSizeM
-                                        color: Theme.textMuted
-                                    }
+                            Connections {
+                                target: root
+                                function onSelectedIndexChanged() {
+                                    if (root.selectedIndex >= 0 && root.selectedIndex < listFlickable.count)
+                                        listFlickable.positionViewAtIndex(root.selectedIndex, ListView.Contain)
                                 }
+                            }
 
-                                // Loading
-                                Text {
-                                    visible: root.loading
-                                    Layout.alignment: Qt.AlignHCenter
-                                    Layout.topMargin: Theme.spacingXL * 2
-                                    text: "加载中..."
-                                    font.pixelSize: Theme.fontSizeM
-                                    color: Theme.textMuted
-                                }
+                            delegate: Rectangle {
+                                id: clipItem
+                                required property var modelData
+                                required property int index
 
-                                // Items
-                                Repeater {
-                                    model: root.filteredItems
+                                property var badge: root.typeBadgeInfo(modelData)
+                                property bool hasVisualPreview: !!modelData.hasVisualPreview
 
-                                    Rectangle {
-                                        id: clipItem
-                                        required property var modelData
-                                        required property int index
-
-                                        property var badge: root.typeBadgeInfo(modelData)
-                                        property bool hasVisualPreview: !!modelData.hasVisualPreview
-                                        property bool inViewport: (y + height) >= (listFlickable.contentY - 120)
-                                            && y <= (listFlickable.contentY + listFlickable.height + 120)
-
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: hasVisualPreview ? 80 : 56
+                                width: listFlickable.width
+                                height: hasVisualPreview ? 80 : 56
                                         radius: Theme.radiusM
                                         color: index === root.selectedIndex
                                             ? Theme.alpha(Theme.primary, 0.1)
@@ -1911,19 +1948,19 @@ ShellRoot {
                                                 AnimatedImage {
                                                     id: previewBinaryImg
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.inViewport && clipItem.modelData.isImage
-                                                    source: (clipItem.inViewport && clipItem.modelData.isImage && root.imagePaths[clipItem.modelData.id])
+                                                    visible: clipItem.modelData.isImage
+                                                    source: (clipItem.modelData.isImage && root.imagePaths[clipItem.modelData.id])
                                                         ? "file://" + root.imagePaths[clipItem.modelData.id] : ""
                                                     fillMode: Image.PreserveAspectCrop
-                                                    playing: clipItem.inViewport; asynchronous: true
+                                                    playing: true; asynchronous: true
                                                 }
 
                                                 // File image (static)
                                                 Image {
                                                     id: previewFileImg
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "image"
-                                                    source: (clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "image" && clipItem.modelData.filePaths.length > 0)
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "image"
+                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "image" && clipItem.modelData.filePaths.length > 0)
                                                         ? "file://" + clipItem.modelData.filePaths[0] : ""
                                                     fillMode: Image.PreserveAspectCrop; asynchronous: true
                                                 }
@@ -1932,19 +1969,19 @@ ShellRoot {
                                                 AnimatedImage {
                                                     id: previewFileGif
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
-                                                    source: (clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "gif" && clipItem.modelData.filePaths.length > 0)
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "gif"
+                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "gif" && clipItem.modelData.filePaths.length > 0)
                                                         ? "file://" + clipItem.modelData.filePaths[0] : ""
                                                     fillMode: Image.PreserveAspectCrop
-                                                    playing: clipItem.inViewport; asynchronous: true
+                                                    playing: true; asynchronous: true
                                                 }
 
                                                 // File video thumbnail
                                                 Image {
                                                     id: previewVideoThumb
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
-                                                    source: (clipItem.inViewport && clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && clipItem.modelData.filePaths.length > 0)
+                                                    visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
+                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && clipItem.modelData.filePaths.length > 0)
                                                         ? (root.videoThumbPaths[clipItem.modelData.filePaths[0]]
                                                             ? "file://" + root.videoThumbPaths[clipItem.modelData.filePaths[0]] : "") : ""
                                                     fillMode: Image.PreserveAspectCrop; asynchronous: true
@@ -1954,16 +1991,16 @@ ShellRoot {
                                                 AnimatedImage {
                                                     id: previewHtmlImg
                                                     anchors.fill: parent; anchors.margins: 2
-                                                    visible: clipItem.inViewport && clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0])
-                                                    source: (clipItem.inViewport && clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0]))
+                                                    visible: clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0])
+                                                    source: (clipItem.modelData.textType === "html" && clipItem.modelData.htmlImageSrcs && clipItem.modelData.htmlImageSrcs.length > 0 && root.isLocalImagePath(clipItem.modelData.htmlImageSrcs[0]))
                                                         ? root.localFileUrl(clipItem.modelData.htmlImageSrcs[0]) : ""
                                                     fillMode: Image.PreserveAspectCrop
-                                                    playing: clipItem.inViewport; asynchronous: true
+                                                    playing: true; asynchronous: true
                                                 }
 
                                                 // Fallback icon when no image loaded
                                                 Text {
-                                                    visible: clipItem.inViewport && clipItem.hasVisualPreview && previewBinaryImg.status !== Image.Ready && previewFileImg.status !== Image.Ready && previewFileGif.status !== Image.Ready && previewVideoThumb.status !== Image.Ready && previewHtmlImg.status !== Image.Ready
+                                                    visible: clipItem.hasVisualPreview && previewBinaryImg.status !== Image.Ready && previewFileImg.status !== Image.Ready && previewFileGif.status !== Image.Ready && previewVideoThumb.status !== Image.Ready && previewHtmlImg.status !== Image.Ready
                                                     anchors.centerIn: parent
                                                     text: "\uf03e"
                                                     font.family: "Symbols Nerd Font Mono"
@@ -2080,8 +2117,6 @@ ShellRoot {
                                             }
                                         }
                                     }
-                                }
-                            }
                         }
 
                         // Scrollbar
