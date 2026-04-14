@@ -19,9 +19,9 @@ alias yay=paru
 alias k="ps aux | fzf --height 40% --reverse | awk '{print $2}' | xargs kill -9"
 alias gc="git clone"
 alias lg="lazygit"
-alias cl="claude"
-alias cc="ccr code"
-alias cu="ccr ui"
+alias ca="chat ask --stream"
+alias cn="chat ask --stream --new-session"
+alias ct="chat ask --stream --new-session --temp"
 
 # systemctl 相关短别名
 alias ssta="systemctl status"

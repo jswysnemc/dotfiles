@@ -106,11 +106,12 @@ if [[ -n "$SELECTED_INDEX" ]]; then
     ln -sf "$SELECTED" "${LINK_PATH}.${EXT}"
     ln -sf "$SELECTED" "${LINK_PATH}"
 
-    if ! pgrep -x "swww-daemon" > /dev/null; then
-        swww init; sleep 0.5
+    if ! pgrep -x "awww-daemon" > /dev/null; then
+        awww-daemon >/dev/null 2>&1 &
+        sleep 0.5
     fi
 
-    swww img "$SELECTED" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
+    awww img "$SELECTED" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
 
     # 使用 theme-gen 生成主题
     if command -v theme-gen &> /dev/null; then

@@ -465,6 +465,7 @@ scale slider {
 #custom-sleep,
 #custom-logout,
 #custom-reboot,
+#custom-off-screen,
 #custom-shutdown {
     background: transparent;
     padding: 0 8px;
@@ -492,6 +493,11 @@ scale slider {
     color: @secondary;
 }
 
+/* 关闭屏幕 - 次要文字色 */
+#custom-off-screen {
+    color: @text-sub;
+}
+
 /* 关机 - 红色 */
 #custom-shutdown {
     color: @accent-red;
@@ -502,6 +508,7 @@ scale slider {
 #custom-sleep:hover,
 #custom-logout:hover,
 #custom-reboot:hover,
+#custom-off-screen:hover,
 #custom-shutdown:hover {
     background-color: @hover-bg;
 }

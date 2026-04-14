@@ -553,6 +553,7 @@
         "modules": [
             // "custom/power-icon", // 主图标
             "custom/shutdown",
+            "custom/off-screen",
             "custom/lock",
             "custom/sleep",
             "custom/logout",
@@ -562,6 +563,12 @@
     "custom/power-icon": {
         "format": "",
         "tooltip": false,
+        "on-click-right": "~/.local/bin/qs-popup power"
+    },
+    "custom/off-screen": {
+        "format": "󰹑",
+        "on-click": "niri msg action power-off-monitors",
+        "tooltip-format": "关闭屏幕 (power-off-monitors)",
         "on-click-right": "~/.local/bin/qs-popup power"
     },
     "custom/lock": {

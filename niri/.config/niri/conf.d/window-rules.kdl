@@ -6,6 +6,7 @@ layer-rule {
     // 匹配常见的壁纸工具，确保其中有一个是你正在用的
     match namespace="^swaybg$"
     match namespace="^swww-daemon$"
+    match namespace="^awww-daemon$"
     match namespace="^wbg$"
     match namespace="^hyprpaper$"
 

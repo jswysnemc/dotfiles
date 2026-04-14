@@ -69,5 +69,8 @@ cmdh-expand-widget() {
 # 注册zle widget
 zle -N cmdh-expand-widget
 
-# 绑定快捷键到 Ctrl+g
-bindkey '^g' cmdh-expand-widget
+# zsh-vi-mode 下需要显式绑定到各个 keymap，否则在 vicmd 中会失效
+bindkey -M main  '^g' cmdh-expand-widget
+bindkey -M viins '^g' cmdh-expand-widget
+bindkey -M vicmd '^g' cmdh-expand-widget
+bindkey -M emacs '^g' cmdh-expand-widget

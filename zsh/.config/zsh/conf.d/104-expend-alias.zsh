@@ -76,4 +76,8 @@ expand-alias-widget() {
 
 zle -N expand-alias-widget
 
-bindkey '^b' expand-alias-widget
+# zsh-vi-mode 下需要显式绑定到各个 keymap，否则在 vicmd 中会失效
+bindkey -M main  '^X' expand-alias-widget
+bindkey -M viins '^X' expand-alias-widget
+bindkey -M vicmd '^X' expand-alias-widget
+bindkey -M emacs '^X' expand-alias-widget

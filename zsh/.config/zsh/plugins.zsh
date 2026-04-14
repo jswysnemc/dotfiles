@@ -44,8 +44,12 @@ zi light atuinsh/atuin
 zi ice wait"0c" lucid \
     atload'
         _zsh_autosuggest_start
-        bindkey "\`" autosuggest-accept
+        bindkey "^[;" autosuggest-accept
     '
+    # atload'
+    #     _zsh_autosuggest_start
+    #     bindkey "\`" autosuggest-accept
+    # '
 zi light zsh-users/zsh-autosuggestions
 
 # 高亮

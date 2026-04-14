@@ -75,10 +75,9 @@ kitty --version
 - 支持显示命令状态
 
 ### Neovim 滚动回退
-- 集成 [kitty-scrollback.nvim](https://github.com/mikesmithgh/kitty-scrollback.nvim)
-- `kitty_mod+h` - 打开 nvim scrollback 查看器
-- `kitty_mod+g` - 查看最后一个命令的输出
-- `Ctrl+Shift+右键` - 选择命令输出并用 nvim 查看
+- 保留 [kitty-scrollback.nvim](https://github.com/mikesmithgh/kitty-scrollback.nvim) 脚本
+- 默认不再绑定快捷键，优先使用 kitty 自带滚动条和 scrollback
+- `Ctrl+Shift+G` - 跳到上一条 shell 命令/提示符位置
 
 ### 鼠标操作
 - 中键点击 - 复制选区到系统剪贴板
@@ -118,9 +117,11 @@ kitty --version
 
 | 快捷键 | 功能 |
 |--------|------|
-| `kitty_mod+h` | 打开 nvim scrollback 查看器 |
-| `kitty_mod+g` | 查看最后一个命令的输出 |
-| `Ctrl+Shift+右键` | 选择命令输出并用 nvim 查看 |
+| `Ctrl+Shift+H` | 切换到左侧标签页 |
+| `Ctrl+Shift+L` | 切换到右侧标签页 |
+| `Ctrl+Shift+G` | 跳到上一条 shell 命令/提示符位置 |
+| `Ctrl+Shift+Enter` | 打开新窗口 |
+| `Ctrl+Shift+D` | 以当前目录水平分割新窗口 |
 | `中键` | 复制选区到系统剪贴板 |
 | `右键` | 从系统剪贴板粘贴 |
 
