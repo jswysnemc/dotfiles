@@ -42,8 +42,7 @@ zinit ice compinit-opts'-d "${zsh_cache_dir}/zcompdump"'
 #(( ${+_comps} )) && _comps[zi]=_zi
 
 export EDITOR=nvim
-autoload -z edit-command-line
-zle -N edit-command-line
-bindkey '^v' edit-command-line
+# Ctrl+V 的自定义编辑器 widget 放到 conf.d/02-optins.zsh，
+# 在 zsh-vi-mode 加载后统一设置
 
 source $HOME/.config/zsh/plugins.zsh

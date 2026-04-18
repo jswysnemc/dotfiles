@@ -11,11 +11,168 @@ setopt INTERACTIVE_COMMENTS   # 允许在交互式 shell 中使用 # 注释
 REPORTTIME=2                  # 超过2s的命令统计耗时
 
 # ------------------- 快捷键配置 -------------------
-# 使用 ctrl + v 进入 vim 行编辑模式
-# [修复] 必须先加载模块，否则快捷键无效
-autoload -Uz edit-command-line
+# 使用 ctrl + v 进入编辑器编辑当前命令，并在返回后同步光标位置
+__edit_command_line_cursor_to_line_col() {
+  emulate -L zsh
+
+  local text="$1"
+  local cursor="${2:-0}"
+  local line=1
+  local col=1
+  local i
+  local char
+
+  (( cursor < 0 )) && cursor=0
+  (( cursor > ${#text} )) && cursor=${#text}
+
+  for (( i = 1; i <= cursor; ++i )); do
+    char="${text[i]}"
+    if [[ "$char" == $'\n' ]]; then
+      (( line++ ))
+      col=1
+    else
+      (( col++ ))
+    fi
+  done
+
+  REPLY="${line}:${col}"
+}
+
+__edit_command_line_line_col_to_cursor() {
+  emulate -L zsh
+
+  local text="$1"
+  local target_line="${2:-1}"
+  local target_col="${3:-1}"
+  local line=1
+  local col=1
+  local i
+  local pos
+  local char
+  local last_same_line_pos=''
+
+  (( target_line < 1 )) && target_line=1
+  (( target_col < 1 )) && target_col=1
+
+  for (( i = 1; i <= ${#text}; ++i )); do
+    pos=$(( i - 1 ))
+
+    if (( line == target_line )); then
+      last_same_line_pos=$pos
+      if (( col == target_col )); then
+        REPLY=$pos
+        return 0
+      fi
+    elif (( line > target_line )); then
+      REPLY=${last_same_line_pos:-$pos}
+      return 0
+    fi
+
+    char="${text[i]}"
+    if [[ "$char" == $'\n' ]]; then
+      (( line++ ))
+      col=1
+    else
+      (( col++ ))
+    fi
+  done
+
+  pos=${#text}
+  if (( line == target_line )); then
+    last_same_line_pos=$pos
+    if (( col == target_col )); then
+      REPLY=$pos
+      return 0
+    fi
+  fi
+
+  REPLY=${last_same_line_pos:-$pos}
+}
+
+edit-command-line() {
+  emulate -L zsh
+  setopt localoptions noaliases noshwordsplit
+
+  local editor="${VISUAL:-${EDITOR:-vi}}"
+  local -a editor_argv
+  local editor_base
+  local tmp_file
+  local cursor_file
+  local editor_exit
+  local updated_buffer
+  local cursor_state
+  local line
+  local col
+
+  editor_argv=(${(z)editor})
+  if (( ! ${#editor_argv} )); then
+    zle -M 'EDITOR is empty'
+    return 1
+  fi
+
+  tmp_file="$(mktemp -t zsh-edit-buffer.XXXXXX)" || {
+    zle -M 'mktemp failed'
+    return 1
+  }
+  cursor_file="${tmp_file}.cursor"
+  print -rn -- "$BUFFER" >| "$tmp_file"
+
+  __edit_command_line_cursor_to_line_col "$BUFFER" "$CURSOR"
+  line="${REPLY%%:*}"
+  col="${REPLY##*:}"
+  editor_base="${editor_argv[1]:t}"
+
+  zle -I
+
+  case "$editor_base" in
+    nvim|vim|vi)
+      "${editor_argv[@]}" \
+        -c "call setcharpos('.', [0, ${line}, ${col}, 0])" \
+        -c "let g:zsh_edit_cursor_file='${cursor_file}'" \
+        -c "augroup ZshEditCursor" \
+        -c "autocmd! * <buffer>" \
+        -c "autocmd CursorMoved,CursorMovedI,TextChanged,TextChangedI,BufEnter <buffer> call writefile([getcurpos()[1] . ':' . getcurpos()[2]], g:zsh_edit_cursor_file)" \
+        -c "augroup END" \
+        -c "call writefile([getcurpos()[1] . ':' . getcurpos()[2]], g:zsh_edit_cursor_file)" \
+        "$tmp_file"
+      editor_exit=$?
+      ;;
+    *)
+      "${editor_argv[@]}" "$tmp_file"
+      editor_exit=$?
+      ;;
+  esac
+
+  if (( editor_exit == 0 )) && [[ -r "$tmp_file" ]]; then
+    updated_buffer="$(<"$tmp_file")"
+    BUFFER="$updated_buffer"
+
+    if [[ -r "$cursor_file" ]]; then
+      cursor_state="$(<"$cursor_file")"
+      line="${cursor_state%%:*}"
+      col="${cursor_state##*:}"
+      if [[ "$line" == <-> && "$col" == <-> ]]; then
+        __edit_command_line_line_col_to_cursor "$BUFFER" "$line" "$col"
+        CURSOR="$REPLY"
+      else
+        CURSOR=${#BUFFER}
+      fi
+    else
+      CURSOR=${#BUFFER}
+    fi
+  fi
+
+  rm -f -- "$tmp_file" "$cursor_file"
+  zle reset-prompt
+}
+
 zle -N edit-command-line
-bindkey '^v' edit-command-line
+
+# zsh-vi-mode 下需要显式绑定到各个 keymap，否则在 vicmd 中会失效
+bindkey -M main  '^V' edit-command-line
+bindkey -M viins '^V' edit-command-line
+bindkey -M vicmd '^V' edit-command-line
+bindkey -M emacs '^V' edit-command-line
 alias vl=edit-command-line
 
 # 粘贴高亮修复

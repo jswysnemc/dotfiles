@@ -1,14 +1,30 @@
 return {
-  "stevearc/oil.nvim",
-  ---@module 'oil'
-  ---@type oil.SetupOpts
-  opts = {},
-  -- Optional dependencies
-  dependencies = { { "echasnovski/mini.icons", opts = {} } },
-  --dependencies = { "nvim-tree/nvim-web-devicons" }, -- use if you prefer nvim-web-devicons
-  -- Lazy loading is not recommended because it is very tricky to make it work correctly in all situations.
-  lazy = false,
-  keys = {
-    { "-", "<cmd>Oil<cr>", desc = "Open parent directory" },
+  {
+    "stevearc/oil.nvim",
+    dependencies = { "echasnovski/mini.icons" },
+    lazy = false,
+    opts = {
+      default_file_explorer = true,
+      columns = { "icon" },
+      view_options = {
+        show_hidden = true,
+      },
+      skip_confirm_for_simple_edits = true,
+      delete_to_trash = true,
+      lsp_file_methods = {
+        enabled = true,
+        timeout_ms = 1000,
+      },
+      float = {
+        padding = 2,
+        max_width = 0.5,
+        max_height = 0.8,
+        border = "rounded",
+      },
+    },
+    keys = {
+      { "-", "<cmd>Oil<cr>", desc = "󰉋 打开上级目录" },
+      { "<leader>fe", "<cmd>Oil<cr>", desc = "󰈔 文件管理器" },
+    },
   },
 }

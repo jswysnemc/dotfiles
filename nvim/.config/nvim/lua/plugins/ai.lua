@@ -1,158 +1,143 @@
 return {
-
+  {
+    "yetone/avante.nvim",
+    event = "VeryLazy",
+    version = false,
+    build = "make",
+    ---@module 'avante'
+    ---@type avante.Config
+    opts = {
+      provider = "wishub",
+      input = {
+        provider = "snacks",
+      },
+      selector = {
+        provider = "fzf_lua",
+      },
+      mode = "agentic",
+      providers = {
+        wishub = {
+          __inherited_from = "openai",
+          endpoint = "https://wishub-x6.ctyun.cn/coding/v1",
+          model = "GLM-5.1",
+          api_key_name = "WISHUB_API_KEY",
+          timeout = 30000,
+          extra_request_body = {
+            temperature = 0.75,
+            max_tokens = 20480,
+          },
+        },
+        claude = {
+          endpoint = "https://api.anthropic.com",
+          model = "claude-sonnet-4-20250514",
+          timeout = 30000,
+          extra_request_body = {
+            temperature = 0.75,
+            max_tokens = 20480,
+          },
+        },
+      },
+      behaviour = {
+        auto_suggestions = false,
+        auto_set_keymaps = true,
+        auto_apply_diff_after_generation = false,
+        minimize_diff = true,
+        auto_add_current_file = true,
+      },
+      mappings = {
+        ask = "<leader>aa",
+        edit = "<leader>ae",
+        refresh = "<leader>ar",
+        toggle = {
+          default = "<leader>at",
+          debug = "<leader>ad",
+          hint = "<leader>ah",
+          suggestion = "<leader>as",
+        },
+      },
+    },
+    keys = function(_, keys)
+      local opts =
+        require("lazy.core.plugin").values(require("lazy.core.config").spec.plugins["avante.nvim"], "opts", false)
+      local mappings = {
+        {
+          opts.mappings.ask,
+          function() require("avante.api").ask() end,
+          desc = "󰊕 AI 助手：提问",
+          mode = { "n", "v" },
+        },
+        {
+          opts.mappings.refresh,
+          function() require("avante.api").refresh() end,
+          desc = "󰊕 AI 助手：刷新",
+          mode = "v",
+        },
+        {
+          opts.mappings.edit,
+          function() require("avante.api").edit() end,
+          desc = "󰊕 AI 助手：编辑",
+          mode = { "n", "v" },
+        },
+      }
+      mappings = vim.tbl_filter(function(m) return m[1] and #m[1] > 0 end, mappings)
+      return vim.list_extend(mappings, keys)
+    end,
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "MunifTanjim/nui.nvim",
+      "ibhagwan/fzf-lua",
+      "nvim-mini/mini.pick",
+      {
+        "stevearc/dressing.nvim",
+        opts = {
+          select = { enabled = false },
+          input = { enabled = false },
+        },
+      },
+      "folke/snacks.nvim",
+      "echasnovski/mini.icons",
+      "HakonHarnes/img-clip.nvim",
+      {
+        "MeanderingProgrammer/render-markdown.nvim",
+        opts = { file_types = { "markdown", "Avante" } },
+        ft = { "markdown", "Avante" },
+      },
+    },
+  },
   {
     "zbirenbaum/copilot.lua",
+    lazy = false,
     cmd = "Copilot",
-    event = "VeryLazy",
     opts = {
-      suggestion = { enabled = false },
+      suggestion = {
+        enabled = true,
+        auto_trigger = true,
+        debounce = 30,
+        hide_during_completion = false,
+        trigger_on_accept = true,
+        keymap = {
+          accept = "<C-l>",
+          dismiss = "<C-]>",
+          next = "<M-]>",
+          prev = "<M-[>",
+        },
+      },
       panel = { enabled = false },
       filetypes = {
-        ["*"] = true,
-        -- markdown = true,
-        -- help = true,
+        markdown = true,
+        help = false,
       },
     },
     config = function(_, opts)
       require("copilot").setup(opts)
-      require("copilot.command").disable()
+      vim.keymap.set("n", "<leader>tc", function()
+        local client = require("copilot.client")
+        if client.is_disabled() then
+          vim.cmd("Copilot enable")
+        else
+          vim.cmd("Copilot disable")
+        end
+      end, { desc = " 切换 Copilot" })
     end,
-    keys = {
-      {
-        "<leader>at",
-        function()
-          if require("copilot.client").is_disabled() then
-            require("copilot.command").enable()
-          else
-            require("copilot.command").disable()
-          end
-        end,
-        desc = "Toggle (Copilot)",
-      },
-    },
-  },
-
-  {
-    "olimorris/codecompanion.nvim",
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      "nvim-treesitter/nvim-treesitter",
-      "echasnovski/mini.diff",
-      "j-hui/fidget.nvim",
-    },
-
-    init = function()
-      require("utils.codecompanion_fidget_spinner"):init()
-    end,
-
-    -- -- stylua: ignore
-    -- keys = {
-    --   {"<leader>cca", "<CMD>CodeCompanionActions<CR>",     mode = {"n", "v"}, noremap = true, silent = true, desc = "CodeCompanion actions"      },
-    --   {"<leader>cci", "<CMD>CodeCompanion<CR>",            mode = {"n", "v"}, noremap = true, silent = true, desc = "CodeCompanion inline"       },
-    --   {"<leader>ccc", "<CMD>CodeCompanionChat Toggle<CR>", mode = {"n", "v"}, noremap = true, silent = true, desc = "CodeCompanion chat (toggle)"},
-    --   {"<leader>ccp", "<CMD>CodeCompanionChat Add<CR>",    mode = {"v"}     , noremap = true, silent = true, desc = "CodeCompanion chat add code"},
-    -- },
-    config = function()
-      local default_model = "deepseek/deepseek-chat-v3.1:free"
-      local available_models = {
-        "qwen/qwen3-coder:free",
-        "z-ai/glm-4.5-air:free",
-        "deepseek/deepseek-r1-0528:free",
-        "moonshotai/kimi-k2:free",
-        "deepseek/deepseek-chat-v3.1:free",
-      }
-      local current_model = default_model
-
-      local function select_model()
-        vim.ui.select(available_models, {
-          prompt = "Select  Model:",
-        }, function(choice)
-          if choice then
-            current_model = choice
-            vim.notify("Selected model: " .. current_model)
-          end
-        end)
-      end
-      require("codecompanion").setup({
-        strategies = {
-          chat = {
-            adapter = "openrouter",
-          },
-          inline = {
-            adapter = "copilot",
-          },
-        },
-        adapters = {
-          http = {
-
-            openrouter = function()
-              return require("codecompanion.adapters").extend("openai_compatible", {
-                env = {
-                  url = "https://openrouter.ai/api",
-                  api_key = function()
-                    return os.getenv("OPENROUTER_API_KEY")
-                  end,
-                  chat_url = "/v1/chat/completions",
-                },
-                schema = {
-                  model = {
-                    default = current_model,
-                  },
-                },
-              })
-            end,
-          },
-        },
-      })
-      vim.keymap.set(
-        { "n", "v" },
-        "<leader>cca",
-        "<CMD>CodeCompanionActions<CR>",
-        { noremap = true, silent = true, desc = "CodeCompanion actions" }
-      )
-      vim.keymap.set(
-        { "n", "v" },
-        "<leader>cci",
-        "<CMD>CodeCompanion<CR>",
-        { noremap = true, silent = true, desc = "CodeCompanion inline" }
-      )
-      vim.keymap.set(
-        { "n", "v" },
-        "<leader>ccc",
-        "<CMD>CodeCompanionChat Toggle<CR>",
-        { noremap = true, silent = true, desc = "CodeCompanion chat (toggle)" }
-      )
-      vim.keymap.set(
-        "v",
-        "<leader>ccp",
-        "<CMD>CodeCompanionChat Add<CR>",
-        { noremap = true, silent = true, desc = "CodeCompanion chat add code" }
-      )
-      -- 您需要的新快捷键
-      vim.keymap.set(
-        "n",
-        "<leader>ccs",
-        select_model,
-        { noremap = true, silent = true, desc = "CodeCompanion select model" }
-      )
-    end,
-
-    opts = {
-      display = {
-        diff = {
-          enabled = true,
-          provider = "mini_diff",
-        },
-      },
-
-      strategies = {
-        chat = { adapter = "copilot" },
-        inline = { adapter = "copilot" },
-      },
-
-      opts = {
-        language = "Chinese", -- "English"|"Chinese"
-      },
-    },
   },
 }
