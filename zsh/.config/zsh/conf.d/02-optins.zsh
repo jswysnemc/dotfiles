@@ -225,6 +225,9 @@ ZSH_AUTOSUGGEST_HISTORY_IGNORE='?(#c50,)'
 
 # ------------------- fzf-tab 快捷键与图标 -------------------
 # zstyle ':fzf-tab:*' fzf-bindings '`:accept'
+# Tab/Shift-Tab 只移动，Ctrl-Space 负责多选
+zstyle ':fzf-tab:*' fzf-bindings-default 'tab:down,btab:up,change:top'
+zstyle ':fzf-tab:*' fzf-bindings 'ctrl-space:toggle'
 # 替换默认的 < > 为更漂亮的 Nerd Font 箭头
 zstyle ':fzf-tab:*' switch-group '' ''
 # ------------------- fzf 界面配置 (Nerd Font 版) -------------------
@@ -239,6 +242,7 @@ export FZF_DEFAULT_OPTS="
 --height=50%
 --multi
 --cycle
+--bind=tab:down,btab:up,ctrl-space:toggle
 --preview-window=right:50%
 --preview-window=cycle
 --prompt='  '

@@ -23,7 +23,6 @@ zi light zsh-users/zsh-completions
 
 
 
-
 # fzf 补全
 zi ice wait"0d" lucid \
     atload'

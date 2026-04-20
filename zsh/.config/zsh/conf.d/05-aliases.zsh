@@ -22,6 +22,17 @@ alias lg="lazygit"
 alias ca="chat ask --stream"
 alias cn="chat ask --stream --new-session"
 alias ct="chat ask --stream --new-session --temp"
+alias cgt="chat ask --stream --new-session --temp --model grok-4-20-beta --provider grok2api"
+alias cga="chat ask --stream --model grok-4-20-beta --provider grok2api"
+alias cgn="chat ask --stream --new-session --model grok-4-20-beta --provider grok2api"
+alias ccm="chat config model use \`chat config model list| fzf\`"
+
+css() {
+    chat session switch "$(chat --no-color session list | fzf | awk '{print ($1=="*" ? $2 : $1)}')"
+}
+
+# 如果你在仓库中看到这个别名,别学我
+alias claude="claude --dangerously-skip-permissions"
 
 # systemctl 相关短别名
 alias ssta="systemctl status"
