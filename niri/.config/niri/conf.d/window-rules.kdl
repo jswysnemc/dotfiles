@@ -25,6 +25,13 @@ window-rule {
     clip-to-geometry true
     opacity 1.0
     draw-border-with-background false
+
+    background-effect {
+        xray true
+        blur true
+        noise 0.05
+        saturation 3
+    }
 }
 
 window-rule {
@@ -84,14 +91,15 @@ window-rule {
     max-height 600
 }
 
-window-rule{
-    match app-id="(?i)waybar"
-    // blur{
-    //     on
-    //     passes 2 // number of times to apply the blur effect
-    //     radius 4 // radius of the blur effect
-    //     noise 0.1//add grain to the blur
-    // }
+layer-rule {
+    match namespace="^waybar$"
+
+    background-effect {
+        xray true
+        blur true
+        noise 0.05
+        saturation 3
+    }
 }
 
 window-rule {
