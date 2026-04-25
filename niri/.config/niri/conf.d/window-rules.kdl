@@ -138,6 +138,8 @@ window-rule {
     match app-id="imv"
     match app-id="mpv"
     match app-id="clipse-gui"
+    match app-id="snemc.local.qt-notes"
+    match app-id="qt-notes"
     match app-id="img-viewer"
     match app-id="pot"
     match app-id="mihomo-zashboard-nativefier-5a68a2"

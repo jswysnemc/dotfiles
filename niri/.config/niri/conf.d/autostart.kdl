@@ -54,6 +54,9 @@ spawn-sh-at-startup "systemctl --user import-environment QT_QPA_PLATFORMTHEME"
 spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=niri & /usr/lib/xdg-desktop-portal &"
 spawn-sh-at-startup "systemctl --user restart plasma-xdg-desktop-portal-kde"
 
+// --- 密钥环 ---
+spawn-at-startup "gnome-keyring-daemon" "--start" "--foreground" "--components=pkcs11,secrets,ssh"
+
 // --- X11 兼容 ---
 // spawn-sh-at-startup "xrdb -merge ~/.config/X11/Xresources"
 

@@ -34,4 +34,10 @@ environment {
     GTK_IM_MODULE null
     SDL_IM_MODULE null
     GLFW_IM_MODULE null
+
+    //  密钥环
+    GNOME_KEYRING_CONTROL "/run/user/1000/keyring"
+    SSH_AUTH_SOCK "/run/user/1000/keyring/ssh"
+
+
 }
