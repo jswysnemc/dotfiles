@@ -81,7 +81,6 @@
     "niri/workspaces": {
         "format": "{index}"
     },
-
     "hyprland/workspaces": {
         "format": "{index}"
     },
@@ -129,7 +128,7 @@
         "format": "",
         "tooltip-format": "左键:终端 (Kitty)\n右键:以浮动方式打开终端",
         "on-click": "kitty",
-        "on-click-right" : "kitty --class kitty-float"
+        "on-click-right": "kitty --class kitty-float"
     },
     // --- 快捷方式抽屉 ---
     "group/shortcuts": {
@@ -193,10 +192,10 @@
     },
     "custom/screenshot": {
         "format": "",
-        "tooltip-format": "左键:选区截图并复制到剪贴板\n中间:启用长截图\n右键:截图并使用markpix打开",
+        "tooltip-format": "左键:选区截图并复制到剪贴板\n中键:启用长截图\n右键:截图并使用markpix打开",
         "on-click": "~/.config/waybar/scripts/screenshot.sh",
         "on-click-right": "~/.config/waybar/scripts/power-screenshot.sh",
-        "on-click-middle": "wayscrollshot -a template"
+        "on-click-middle": "wayscrollshot"
     },
     //wf-recorder
     "custom/wfrec": {
@@ -218,7 +217,7 @@
         "tooltip-format": "{title}",
         "on-click": "activate",
         "on-click-middle": "close",
-        "on-click-right":"~/.local/bin/qs-popup windows",
+        "on-click-right": "~/.local/bin/qs-popup windows",
         "ignore-list": [
             "wofi",
             "waybar"

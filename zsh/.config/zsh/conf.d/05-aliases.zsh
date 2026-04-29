@@ -22,9 +22,9 @@ alias lg="lazygit"
 alias ca="chat ask --stream"
 alias cn="chat ask --stream --new-session"
 alias ct="chat ask --stream --new-session --temp"
-alias cgt="chat ask --stream --new-session --temp --model grok-4-20-beta --provider grok2api"
-alias cga="chat ask --stream --model grok-4-20-beta --provider grok2api"
-alias cgn="chat ask --stream --new-session --model grok-4-20-beta --provider grok2api"
+alias cgt="chat ask --stream --new-session --temp --model grok-4-20-fast --provider grok2api"
+alias cga="chat ask --stream --model grok-4-20-fast --provider grok2api"
+alias cgn="chat ask --stream --new-session --model grok-4-20-fast --provider grok2api"
 alias ccm="chat config model use \`chat config model list| fzf\`"
 
 css() {
