@@ -191,7 +191,7 @@ cd ~/.dotfiles
 paru -S --needed \
     niri waybar quickshell \
     kitty zsh starship tmux neovim yazi dolphin \
-    matugen kvantum qt5ct qt6ct swww swayidle \
+    matugen kvantum qt5ct qt6ct awww swayidle \
     fcitx5 fcitx5-im fcitx5-chinese-addons \
     wl-clipboard cliphist grim slurp wayfreeze xclip \
     wireplumber pipewire pipewire-pulse pipewire-alsa playerctl \
@@ -207,7 +207,8 @@ paru -S --needed \
 paru -S --needed \
     uv xwayland-satellite clipse clipnotify \
     catppuccin-gtk-theme-latte catppuccin-gtk-theme-mocha \
-    catppuccin-cursors-latte kvantum-theme-matchama
+    catppuccin-cursors-latte kvantum-theme-matchama \
+    wayscrollshot-bin
 
 # 可选依赖 (推荐)
 paru -S --needed \
@@ -225,7 +226,7 @@ paru -S --needed \
 **Niri (Wayland 合成器)**
 ```bash
 paru -S niri fcitx5 fcitx5-im fcitx5-chinese-addons \
-    swww swayidle hyprpolkitagent brightnessctl wireplumber \
+    awww swayidle hyprpolkitagent brightnessctl wireplumber \
     wl-clipboard cliphist grim slurp wayfreeze xclip \
     xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-kde \
     xwayland-satellite
@@ -241,7 +242,7 @@ paru -S waybar playerctl cava wf-recorder jq \
 ```bash
 paru -S quickshell ttf-nerd-fonts-symbols-mono \
     networkmanager bluez pipewire brightnessctl \
-    cliphist wl-clipboard swww playerctl uv
+    cliphist wl-clipboard awww playerctl uv
 # Python 依赖
 cd ~/.config/quickshell && uv sync
 ```
@@ -376,7 +377,7 @@ niri-session
 | `fcitx5` | 中文输入法 |
 | `fcitx5-im` | 输入法集成 |
 | `fcitx5-chinese-addons` | 中文输入法支持 |
-| `swww` | 壁纸管理 |
+| `awww` | 壁纸管理 |
 | `swayidle` | 空闲管理 |
 | `hyprpolkitagent` | 权限认证 |
 | `brightnessctl` | 亮度控制 |

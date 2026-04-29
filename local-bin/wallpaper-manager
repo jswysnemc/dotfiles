@@ -109,14 +109,14 @@ set_wallpaper() {
     ln -sf "$file" "${LINK_PATH}.${ext}"
     ln -sf "$file" "$LINK_PATH"
 
-    # 启动 swww daemon
-    if ! pgrep -x "swww-daemon" > /dev/null; then
-        swww-daemon &
+    # 启动 awww daemon
+    if ! pgrep -x "awww-daemon" > /dev/null; then
+        awww-daemon &
         sleep 0.5
     fi
 
     # 设置壁纸
-    swww img "$file" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
+    awww img "$file" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
 
     # 生成主题
     theme-gen "$file"

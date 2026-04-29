@@ -194,7 +194,8 @@
         "format": "",
         "tooltip-format": "左键:选区截图并复制到剪贴板\n中键:启用长截图\n右键:截图并使用markpix打开",
         "on-click": "~/.config/waybar/scripts/screenshot.sh",
-        "on-click-right": "~/.config/waybar/scripts/power-screenshot.sh",
+        "on-click-right": "qs-popup screenshot-toolbox",
+        // "on-click-right": "~/.config/waybar/scripts/power-screenshot.sh",
         "on-click-middle": "wayscrollshot"
     },
     //wf-recorder

@@ -521,7 +521,7 @@ spawn-at-startup "clash-verge"
 spawn-sh-at-startup "/usr/lib/hyprpolkitagent/hyprpolkitagent"
 spawn-sh-at-startup "wl-paste --watch cliphist store"
 spawn-at-startup "~/.config/niri/scripts/swayidle.sh"
-spawn-at-startup "~/.config/niri/scripts/swww.sh"
+spawn-at-startup "~/.config/niri/scripts/awww.sh"
 // spawn-at-startup "niriswitcher"
 
 spawn-sh-at-startup "systemctl --user import-environment XDG_MENU_PREFIX"
@@ -1185,4 +1185,3 @@ binds {
     // 关闭显示器电源；要重新点亮，移动鼠标或按任意键即可。
     Mod+Shift+P { power-off-monitors; }
 }
-

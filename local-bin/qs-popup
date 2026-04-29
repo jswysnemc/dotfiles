@@ -21,6 +21,7 @@ show_help() {
     echo "  media          - Media player controls"
     echo "  quick-settings - Volume, brightness, display settings"
     echo "  screen-recorder - Screen recording control panel"
+    echo "  screenshot-toolbox - Screenshot toolbox"
     echo "  launcher       - Application launcher"
     echo "  clipboard      - Clipboard manager"
     echo "  wallpaper      - Wallpaper selector"
@@ -187,6 +188,9 @@ case "$COMPONENT" in
         ;;
     screen-recorder|recorder|record|rec)
         toggle_popup "screen-recorder"
+        ;;
+    screenshot-toolbox|screenshot|shot|ss)
+        toggle_popup "screenshot-toolbox"
         ;;
     launcher|launch|app)
         toggle_popup "launcher"

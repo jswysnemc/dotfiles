@@ -58,6 +58,11 @@ ShellRoot {
     }
 
     Loader {
+        active: root.popupType === "screenshot-toolbox"
+        source: "screenshot-toolbox/shell.qml"
+    }
+
+    Loader {
         active: root.popupType === "todo"
         source: "todo/shell.qml"
     }

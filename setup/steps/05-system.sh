@@ -170,13 +170,13 @@ install_wayscrollshot() {
 
     local bin_path="$HOME/.local/bin/wayscrollshot"
 
-    if [[ -x "$bin_path" ]]; then
+    if command_exists wayscrollshot || [[ -x "$bin_path" ]]; then
         print_ok "Wayscrollshot already installed"
         mark_done "install_wayscrollshot"
         return
     fi
 
-    print_info "Downloading wayscrollshot..."
+    print_info "Downloading wayscrollshot fallback..."
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
@@ -202,7 +202,7 @@ install_wayscrollshot() {
         fi
     else
         print_fail "Failed to download wayscrollshot"
-        print_info "Manual install: curl -sL $tar_url | tar -xz -C ~/.local/bin"
+        print_info "Manual install: paru -S wayscrollshot-bin"
     fi
 
     rm -rf "$tmp_dir"

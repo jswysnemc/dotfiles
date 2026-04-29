@@ -23,7 +23,7 @@ paru -S niri
 paru -S fcitx5 fcitx5-im fcitx5-chinese-addons
 
 # 壁纸和空闲管理
-paru -S swww swayidle
+paru -S awww swayidle
 
 # 系统工具
 paru -S brightnessctl wireplumber pipewire \
@@ -97,7 +97,8 @@ EOF
 │   ├── window-rules.kdl    # 窗口规则配置
 │   └── binds.kdl           # 快捷键配置
 └── scripts/                # 自定义脚本目录
-    ├── swww.sh             # 壁纸管理
+    ├── awww.sh             # 壁纸管理
+    ├── swww.sh             # 壁纸管理兼容脚本（内部调用 awww）
     ├── swayidle.sh         # 空闲管理
     ├── auto-archive.sh     # 文件自动归档
     ├── clipboard-sync      # 剪贴板同步 (X11/Wayland)
@@ -164,7 +165,8 @@ Noctalia 配色方案：
 | wl-paste + cliphist | 剪贴板管理 (文本+图片) |
 | clipboard-sync | X11/Wayland 剪贴板同步 |
 | swayidle.sh | 空闲管理 |
-| swww.sh | 壁纸管理 |
+| awww.sh | 壁纸管理 |
+| swww.sh | 壁纸管理兼容脚本（内部调用 awww） |
 | auto-archive.sh | 文件自动归档 |
 | waybar | 状态栏 |
 | hyprpolkitagent | 权限认证 |
@@ -297,9 +299,9 @@ Noctalia 配色方案：
 
 ## 自定义脚本
 
-### swww.sh - 壁纸管理
+### awww.sh - 壁纸管理
 
-启动 swww 守护进程并设置壁纸，使用 grow 过渡效果。
+启动 awww 守护进程并设置壁纸，使用 grow 过渡效果。`swww.sh` 保留为兼容脚本，内部同样调用 awww。
 
 ### swayidle.sh - 空闲管理
 
@@ -336,7 +338,7 @@ X11 和 Wayland 剪贴板双向同步：
 | `niri` | Wayland 窗口管理器 |
 | `kitty` | 终端模拟器 |
 | `waybar` | 状态栏 |
-| `swww` | 壁纸管理 |
+| `awww` | 壁纸管理 |
 | `swayidle` | 空闲管理 |
 | `quickshell` | 锁屏和弹窗组件 (AUR) |
 | `fcitx5` | 输入法 |

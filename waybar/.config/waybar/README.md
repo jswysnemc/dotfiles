@@ -24,13 +24,13 @@ paru -S waybar
 paru -S playerctl cava
 
 # 截图录屏
-paru -S grim slurp wf-recorder wayfreeze
+paru -S grim slurp wf-recorder wayfreeze wl-clipboard hyprpicker tesseract imagemagick
 
 # 系统工具
 paru -S brightnessctl jq blueman pavucontrol btop
 
 # 可选：高级截图
-paru -S markpix-bin rust-stitch  # AUR
+paru -S markpix-bin rust-stitch wayscrollshot-bin qt-img-viewer  # AUR
 ```
 
 ### 2. 应用配置
@@ -122,7 +122,7 @@ pkill -SIGUSR2 waybar
 | `custom/visualizer` | 音频可视化 (cava) | 左键: 播放/暂停 |
 | `group/quick-start` | 快捷启动 | Dolphin, Firefox, Kitty |
 | `group/shortcuts` | AI 工具抽屉 | GPT, Gemini, AI Studio, DeepSeek, Claude, Linuxdo |
-| `group/shot-recoder` | 截图录屏组 | 左键: 截图, 中键: 长截图, 右键: Markpix |
+| `group/shot-recoder` | 截图录屏组 | 左键: 截图, 中键: 长截图, 右键: qs-popup screenshot-toolbox |
 | `wlr/taskbar` | 任务栏 | 左键: 激活, 中键: 关闭 |
 
 ### 中间模块
@@ -170,8 +170,10 @@ pkill -SIGUSR2 waybar
 |------|------|------|
 | 左键 | 选区截图到剪贴板 | grim + slurp |
 | 中键 | 长截图 | wayscrollshot / rust-stitch |
-| 右键 | 截图编辑 | wayfreeze + grim + markpix |
+| 右键 | 打开截图工具箱 | qs-popup screenshot-toolbox |
 | 录屏按钮 | 开始/停止录屏 | wf-recorder |
+
+截图工具箱包含选区复制、窗口截图、全屏截图、长截图、像素测量、OCR、取色、截图编辑、贴图和打开最新图片。
 
 录屏特性：
 - 支持全屏和区域录制
@@ -189,6 +191,7 @@ qs-popup launcher       # 应用启动器
 qs-popup wallpaper      # 壁纸选择
 qs-popup weather        # 天气详情
 qs-popup media          # 媒体控制
+qs-popup screenshot-toolbox # 截图工具箱
 qs-popup wifi           # WiFi 管理
 qs-popup bluetooth      # 蓝牙管理
 qs-popup notifications  # 通知中心
@@ -260,8 +263,14 @@ matugen image /path/to/wallpaper.jpg
 | `slurp` | 区域选择 |
 | `wf-recorder` | 屏幕录制 |
 | `wayfreeze` | 屏幕冻结 |
+| `wayscrollshot-bin` | 长截图 (AUR) |
+| `wl-clipboard` | 截图复制到剪贴板 |
+| `hyprpicker` | 颜色选取 |
+| `tesseract` | OCR 识别 |
+| `imagemagick` | OCR 图像预处理 |
 | `markpix` | 截图编辑 (AUR) |
 | `rust-stitch` | 长截图拼接 (AUR) |
+| `qt-img-viewer` | 贴图查看 (AUR) |
 
 ### 系统工具
 
@@ -297,7 +306,7 @@ matugen image /path/to/wallpaper.jpg
 |------|--------|
 | 截图 | 点击截图按钮 |
 | 长截图 | 中键截图按钮 |
-| 高级截图 | 右键截图按钮 |
+| 截图工具箱 | 右键截图按钮 |
 | 开始/停止录屏 | 点击录屏按钮 |
 | 重载 Waybar | 右键 Arch Logo |
 

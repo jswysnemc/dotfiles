@@ -35,7 +35,7 @@ AUR_HELPER=""
 # ==============================================================================
 declare -A PKG_GROUPS
 
-PKG_GROUPS[wm]="niri swww swayidle hyprpolkitagent"
+PKG_GROUPS[wm]="niri awww swayidle hyprpolkitagent"
 PKG_GROUPS[bar]="waybar"
 PKG_GROUPS[terminal]="kitty starship"
 PKG_GROUPS[editor]=""
@@ -86,6 +86,7 @@ AUR_PACKAGES=(
     kvantum-theme-matchama
     fcitx5-skin-fluentlight-git
     markpix-bin
+    wayscrollshot-bin
 )
 
 OPTIONAL_GROUPS=(

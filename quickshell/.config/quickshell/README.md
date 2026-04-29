@@ -30,7 +30,11 @@ paru -S uv
 
 # 可选依赖 (按需安装)
 paru -S networkmanager bluez pipewire brightnessctl \
-    cliphist wl-clipboard swww playerctl cava
+    cliphist wl-clipboard awww playerctl cava \
+    grim slurp wayfreeze hyprpicker tesseract imagemagick
+
+# 截图编辑、长截图和贴图 (AUR)
+paru -S markpix-bin wayscrollshot-bin qt-img-viewer
 ```
 
 ### 2. 应用配置
@@ -77,6 +81,7 @@ show_help() {
     echo "  calendar       - Calendar widget"
     echo "  media          - Media player controls"
     echo "  volume         - Volume and brightness controls"
+    echo "  screenshot-toolbox - Screenshot toolbox"
     echo "  launcher       - Application launcher"
     echo "  clipboard      - Clipboard manager"
     echo "  wallpaper      - Wallpaper selector"
@@ -142,6 +147,7 @@ case "$COMPONENT" in
     calendar|cal) toggle_popup "calendar" ;;
     media|player) toggle_popup "media" ;;
     volume|vol|brightness) toggle_popup "volume" ;;
+    screenshot-toolbox|screenshot|shot|ss) toggle_popup "screenshot-toolbox" ;;
     launcher|launch|app) toggle_popup "launcher" ;;
     clipboard|clip|cb) toggle_popup "clipboard" ;;
     power-menu|power|pm) toggle_popup "power-menu" ;;
@@ -202,10 +208,11 @@ qs-popup launcher
 | 天气 | `qs-popup weather` | - | 天气预报 (Open-Meteo API) |
 | 媒体 | `qs-popup media` | `player` | MPRIS 媒体控制 + 歌词 |
 | 通知 | `qs-popup notifications` | `notif` | 通知中心 (D-Bus) |
+| 截图工具箱 | `qs-popup screenshot-toolbox` | `screenshot`, `shot`, `ss` | 截图、长截图、OCR、取色、测量和贴图 |
 | 启动器 | `qs-popup launcher` | `launch`, `app` | 应用启动器 |
 | 剪贴板 | `qs-popup clipboard` | `clip`, `cb` | 剪贴板历史 (cliphist) |
 | 电源菜单 | `qs-popup power-menu` | `power`, `pm` | 关机/重启/注销 |
-| 壁纸选择 | `qs-popup wallpaper-selector` | `wallpaper`, `wp` | 壁纸切换 (swww) |
+| 壁纸选择 | `qs-popup wallpaper-selector` | `wallpaper`, `wp` | 壁纸切换 (awww) |
 | 关闭确认 | `qs-popup close-confirm` | `close` | 窗口关闭确认 |
 | 窗口切换 | `qs-popup window-switcher` | `windows`, `ws` | 模糊搜索窗口切换 |
 | 锁屏 | `qs-lock` | - | 锁屏界面 (PAM 认证 + 人脸识别) |
@@ -223,7 +230,7 @@ qs-popup launcher
 ├── Commons/
 │   └── Theme.js                 # 统一主题配置
 │
-├── 功能组件目录 (14 个)
+├── 功能组件目录
 │   ├── wifi/shell.qml
 │   ├── bluetooth/
 │   │   ├── shell.qml
@@ -238,6 +245,13 @@ qs-popup launcher
 │   ├── media/
 │   │   ├── shell.qml
 │   │   └── lyrics_fetcher.py    # 歌词获取 (lrclib.net)
+│   ├── screenshot-toolbox/
+│   │   ├── shell.qml
+│   │   ├── screenshot-toolbox.sh
+│   │   └── Theme.js
+│   ├── color-viewer/            # 取色结果详情页
+│   │   ├── shell.qml
+│   │   └── Theme.js
 │   ├── notifications/
 │   │   ├── shell.qml
 │   │   ├── popup.qml
@@ -300,14 +314,19 @@ uv sync
 | 日历 | `python-lunarcalendar` |
 | 媒体 | `playerctl` |
 | 剪贴板 | `cliphist`, `wl-clipboard` |
-| 壁纸 | `swww` 或 `swaybg` |
+| 壁纸 | `awww` 或 `swaybg` |
 | 通知 | `python>=3.11`, `uv`, `dbus-python` |
 | 可视化 | `cava` |
+| 截图工具箱 | `grim`, `slurp`, `wl-clipboard`, `wayfreeze`, `wayscrollshot-bin`, `hyprpicker`, `tesseract`, `imagemagick`, `markpix`, `qt-img-viewer` |
 
 ```bash
 # 安装所有可选依赖 (Arch Linux)
 paru -S networkmanager bluez pipewire brightnessctl curl jq \
-        cliphist wl-clipboard swww playerctl cava
+        cliphist wl-clipboard awww playerctl cava \
+        grim slurp wayfreeze hyprpicker tesseract imagemagick
+
+# 截图工具箱高级功能 (AUR)
+paru -S markpix-bin wayscrollshot-bin qt-img-viewer
 ```
 
 ## 配置
@@ -327,6 +346,7 @@ paru -S networkmanager bluez pipewire brightnessctl curl jq \
 # 示例
 wifi=top-right,30,450      # 上=30, 右=450
 calendar=top-center,8      # 上=8
+screenshot-toolbox=top-left,30,260
 launcher=center            # 屏幕居中
 ```
 
@@ -414,6 +434,12 @@ property bool useCelsius: true       // 摄氏度
         "format": "\uf028",
         "tooltip-format": "音量",
         "on-click": "qs-popup volume"
+    },
+
+    "custom/screenshot": {
+        "format": "",
+        "tooltip-format": "截图工具箱",
+        "on-click": "qs-popup screenshot-toolbox"
     },
 
     "clock": {
@@ -507,6 +533,21 @@ binds {
 | `Space` | 播放/暂停 |
 | `左/右` | 上一曲/下一曲 |
 | 滚轮 | 调节音量 |
+
+### 截图工具箱 (screenshot-toolbox)
+
+| 操作 | 功能 |
+|------|------|
+| `选框复制` | 选区截图并复制到剪贴板 |
+| `窗口截图` | 调用 Niri 当前窗口截图 |
+| `全屏截图` | 保存全屏截图并复制 |
+| `长截图` | 调用 wayscrollshot |
+| `像素测量` | 复制选区宽高和面积 |
+| `OCR 识别` | 识别选区文字并复制 |
+| `颜色选取` | 取色并打开颜色详情页 |
+| `截图编辑` | 选区截图后打开 markpix |
+| `选区贴图` | 选区截图后用 qt-img-viewer 贴图 |
+| `贴最新图` | 打开最近的截图或图片 |
 
 ## 故障排除
 

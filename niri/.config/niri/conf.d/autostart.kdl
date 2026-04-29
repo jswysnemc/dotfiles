@@ -40,7 +40,6 @@ spawn-sh-at-startup "~/.local/bin/clipse-sync"
 
 // --- 自定义脚本 ---
 spawn-at-startup "~/.config/niri/scripts/swayidle.sh"
-// spawn-at-startup "~/.config/niri/scripts/swww.sh"
 spawn-at-startup "~/.config/niri/scripts/awww.sh"
 spawn-sh-at-startup "~/.config/niri/scripts/auto-archive.sh ~/Downloads/"
 
