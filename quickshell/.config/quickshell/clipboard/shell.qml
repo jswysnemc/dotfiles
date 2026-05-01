@@ -37,8 +37,9 @@ ShellRoot {
     property var itemIndexById: ({})
     property int selectedIndex: 0
     property bool loading: false
+    property bool closing: false
     readonly property string cacheDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/qs-clipboard"
-    readonly property int clipboardListLimit: parseInt(Quickshell.env("QS_CLIPBOARD_LIST_LIMIT")) || 220
+    readonly property int clipboardListLimit: parseInt(Quickshell.env("QS_CLIPBOARD_LIST_LIMIT")) || 750
     readonly property int decodeChunkSize: parseInt(Quickshell.env("QS_CLIPBOARD_DECODE_CHUNK")) || 24
     readonly property var tagFilterOptions: [
         ({ id: "text", label: "文本", icon: "\uf0f6" }),
@@ -48,7 +49,7 @@ ShellRoot {
         ({ id: "file", label: "文件", icon: "\uf15b" }),
         ({ id: "video", label: "视频", icon: "\uf03d" }),
         ({ id: "html", label: "HTML", icon: "\uf13b" }),
-        ({ id: "color", label: "颜色", icon: "\uf53f" })
+        ({ id: "color", label: "颜色", icon: "#" })
     ]
     readonly property var tagAliasMap: ({
         "text": "text",
@@ -108,6 +109,7 @@ ShellRoot {
     property var pendingParseEntries: []
     property var parseSeen: ({})
     readonly property int parseFirstBatch: 15
+    readonly property int parseChunkSize: parseInt(Quickshell.env("QS_CLIPBOARD_PARSE_CHUNK")) || 60
 
     Process {
         id: loadClipboard
@@ -119,6 +121,11 @@ ShellRoot {
             }
         }
         onExited: code => {
+            if (root.closing) {
+                root.clipboardBuffer = ""
+                root.loading = false
+                return
+            }
             if (code === 0) {
                 try {
                     root.parseClipboardData(root.clipboardBuffer)
@@ -141,6 +148,10 @@ ShellRoot {
             }
         }
         onExited: code => {
+            if (root.closing) {
+                root.asyncDecodeBuffer = ""
+                return
+            }
             if (code === 0 && root.asyncDecodeBuffer) {
                 root.updateDecodedEntries(root.asyncDecodeBuffer)
             }
@@ -161,6 +172,11 @@ ShellRoot {
             }
         }
         onExited: code => {
+            if (root.closing) {
+                root.mimeProbeBuffer = ""
+                root.mimeProbePending = false
+                return
+            }
             if (code === 0 && root.mimeProbeBuffer) {
                 root.applyMimeProbeData(root.mimeProbeBuffer)
             }
@@ -173,6 +189,7 @@ ShellRoot {
     }
 
     function updateDecodedEntries(data) {
+        if (root.closing) return
         var marker = "===CLIP:"
         var endMarker = "===\n"
         var pos = 0
@@ -444,6 +461,7 @@ ShellRoot {
     }
 
     function queueAsyncDecode(ids) {
+        if (root.closing) return
         pendingDecodeIds = ids ? ids.slice() : []
         pendingDecodeCursor = 0
         if (pendingDecodeIds.length > 0) {
@@ -452,6 +470,7 @@ ShellRoot {
     }
 
     function runNextDecodeChunk() {
+        if (root.closing) return
         if (asyncDecodeProcess.running) return
         if (!pendingDecodeIds || pendingDecodeCursor >= pendingDecodeIds.length) return
 
@@ -494,6 +513,7 @@ ShellRoot {
     }
 
     function queueMimeProbe() {
+        if (root.closing) return
         if (mimeProbeProcess.running) {
             mimeProbePending = true
             return
@@ -502,6 +522,7 @@ ShellRoot {
     }
 
     function startMimeProbe() {
+        if (root.closing) return
         var tasks = {}
         var parts = []
         var taskCount = 0
@@ -544,6 +565,7 @@ ShellRoot {
     }
 
     function applyMimeProbeData(data) {
+        if (root.closing) return
         var marker = "===MIME:"
         var endMarker = "===\n"
         var pos = 0
@@ -648,6 +670,155 @@ ShellRoot {
         return classifyFileByExt(normalized || path)
     }
 
+    function colorSourceText(content) {
+        var s = sanitizeClipboardText(content).trim()
+        var labeled = s.match(/^(?:hex lower|HEX|RGBA|RGB|HSL|HSV|Qt)\s+(.+)$/i)
+        return labeled ? String(labeled[1] || "").trim() : s
+    }
+
+    function hexByte(v) {
+        var h = Math.round(v * 255).toString(16)
+        return h.length === 1 ? "0" + h : h
+    }
+
+    function colorFromRgbUnit(r, g, b, a) {
+        if (a === undefined || a === null) a = 1
+        if (r === null || g === null || b === null || a === null) return null
+        if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) return null
+        if (a < 0 || a > 1) return null
+        if (r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) return null
+        if (a === 1) return "#" + hexByte(r) + hexByte(g) + hexByte(b)
+        return Qt.rgba(r, g, b, a)
+    }
+
+    function parseCssChannel(value) {
+        var s = String(value || "").trim()
+        if (!s) return null
+        var isPercent = s.endsWith("%")
+        var n = parseFloat(isPercent ? s.slice(0, -1) : s)
+        if (isNaN(n)) return null
+        if (isPercent) return n >= 0 && n <= 100 ? n / 100 : null
+        return n >= 0 && n <= 255 ? n / 255 : null
+    }
+
+    function parseCssAlpha(value) {
+        if (value === undefined || value === null || String(value).trim() === "") return 1
+        var s = String(value).trim()
+        var isPercent = s.endsWith("%")
+        var n = parseFloat(isPercent ? s.slice(0, -1) : s)
+        if (isNaN(n)) return null
+        if (isPercent) return n >= 0 && n <= 100 ? n / 100 : null
+        return n >= 0 && n <= 1 ? n : null
+    }
+
+    function normalizeHue(value) {
+        var h = parseFloat(String(value || "").trim())
+        if (isNaN(h)) return null
+        h = h % 360
+        if (h < 0) h += 360
+        return h
+    }
+
+    function parsePercentUnit(value) {
+        var s = String(value || "").trim()
+        if (!s.endsWith("%")) return null
+        var n = parseFloat(s.slice(0, -1))
+        if (isNaN(n) || n < 0 || n > 100) return null
+        return n / 100
+    }
+
+    function hslToColor(h, s, l, a) {
+        if (h === null || s === null || l === null || a === null) return null
+        var c = (1 - Math.abs(2 * l - 1)) * s
+        var x = c * (1 - Math.abs((h / 60) % 2 - 1))
+        var m = l - c / 2
+        var r = 0
+        var g = 0
+        var b = 0
+        if (h < 60) { r = c; g = x }
+        else if (h < 120) { r = x; g = c }
+        else if (h < 180) { g = c; b = x }
+        else if (h < 240) { g = x; b = c }
+        else if (h < 300) { r = x; b = c }
+        else { r = c; b = x }
+        return colorFromRgbUnit(r + m, g + m, b + m, a)
+    }
+
+    function hsvToColor(h, s, v, a) {
+        if (h === null || s === null || v === null || a === null) return null
+        var c = v * s
+        var x = c * (1 - Math.abs((h / 60) % 2 - 1))
+        var m = v - c
+        var r = 0
+        var g = 0
+        var b = 0
+        if (h < 60) { r = c; g = x }
+        else if (h < 120) { r = x; g = c }
+        else if (h < 180) { g = c; b = x }
+        else if (h < 240) { g = x; b = c }
+        else if (h < 300) { r = x; b = c }
+        else { r = c; b = x }
+        return colorFromRgbUnit(r + m, g + m, b + m, a)
+    }
+
+    function normalizeColorValue(content) {
+        var s = colorSourceText(content)
+        var m = s.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)
+        if (m) {
+            var hex = m[1]
+            if (hex.length === 3 || hex.length === 4) {
+                hex = hex.split("").map(function(c) { return c + c }).join("")
+            }
+            var r = parseInt(hex.slice(0, 2), 16) / 255
+            var g = parseInt(hex.slice(2, 4), 16) / 255
+            var b = parseInt(hex.slice(4, 6), 16) / 255
+            var a = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1
+            return colorFromRgbUnit(r, g, b, a)
+        }
+
+        m = s.match(/^rgba?\((.*)\)$/i)
+        if (m) {
+            var rgbParts = m[1].split(",")
+            if (rgbParts.length === 3 || rgbParts.length === 4) {
+                return colorFromRgbUnit(parseCssChannel(rgbParts[0]), parseCssChannel(rgbParts[1]), parseCssChannel(rgbParts[2]), parseCssAlpha(rgbParts[3]))
+            }
+        }
+
+        m = s.match(/^hsla?\((.*)\)$/i)
+        if (m) {
+            var hslParts = m[1].split(",")
+            if (hslParts.length === 3 || hslParts.length === 4) {
+                return hslToColor(normalizeHue(hslParts[0]), parsePercentUnit(hslParts[1]), parsePercentUnit(hslParts[2]), parseCssAlpha(hslParts[3]))
+            }
+        }
+
+        m = s.match(/^hsva?\((.*)\)$/i)
+        if (m) {
+            var hsvParts = m[1].split(",")
+            if (hsvParts.length === 3 || hsvParts.length === 4) {
+                return hsvToColor(normalizeHue(hsvParts[0]), parsePercentUnit(hsvParts[1]), parsePercentUnit(hsvParts[2]), parseCssAlpha(hsvParts[3]))
+            }
+        }
+
+        m = s.match(/^Qt\.rgba\((.*)\)$/i)
+        if (m) {
+            var qtParts = m[1].split(",")
+            if (qtParts.length === 4) {
+                var qr = parseFloat(qtParts[0])
+                var qg = parseFloat(qtParts[1])
+                var qb = parseFloat(qtParts[2])
+                var qa = parseFloat(qtParts[3])
+                return colorFromRgbUnit(qr, qg, qb, qa)
+            }
+        }
+
+        return null
+    }
+
+    function isColorText(content) {
+        return normalizeColorValue(content) !== null
+    }
+
     // Classify text content type
     function classifyText(content) {
         var trimmed = content.trim()
@@ -661,8 +832,8 @@ ShellRoot {
         }
         // Path
         if (/^(\/[\w.\-]+)+\/?$/.test(trimmed)) return "path"
-        // Color hex
-        if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(trimmed)) return "color"
+        // Color values from color-viewer and common CSS/Qt formats.
+        if (isColorText(trimmed)) return "color"
         // Code-like (has braces, semicolons, function keywords)
         var codeScore = 0
         if (trimmed.indexOf("{") !== -1 && trimmed.indexOf("}") !== -1) codeScore++
@@ -878,7 +1049,7 @@ ShellRoot {
                 return { label: "HTML", icon: "\uf13b", color: "#e44d26" }
             case "url": return { label: "URL", icon: "\uf0c1", color: "#2980b9" }
             case "path": return { label: "PATH", icon: "\uf07b", color: "#27ae60" }
-            case "color": return { label: "CLR", icon: "\uf53f", color: Theme.primary }
+            case "color": return { label: "CLR", icon: "#", color: Theme.primary }
             case "code": return { label: "CODE", icon: "\uf121", color: "#e74c3c" }
             default: return { label: "TEXT", icon: "\uf0f6", color: Theme.secondary }
         }
@@ -967,13 +1138,14 @@ ShellRoot {
             rawContent: isFile ? content.trim() : "",
             imagePath: "",
             preview: preview,
-            colorValue: textType === "color" ? trimmedContent : ""
+            colorValue: textType === "color" ? normalizeColorValue(trimmedContent) : ""
         }
         rebuildItemDerivedFields(item)
         return item
     }
 
     function scheduleBackgroundTasks(items) {
+        if (root.closing) return
         var decodeIds = []
         for (var j = 0; j < items.length; j++) {
             if (items[j].textType === "html" && items[j].htmlImageSrcs.length === 0) {
@@ -994,6 +1166,7 @@ ShellRoot {
     }
 
     function parseClipboardData(data) {
+        if (root.closing) return
         var rawLines = data.trim().split("\n")
         var entries = []
         for (var i = 0; i < rawLines.length; i++) {
@@ -1032,19 +1205,26 @@ ShellRoot {
     }
 
     function parseRemainingEntries() {
+        if (root.closing) return
         var seen = root.parseSeen
         var items = root.clipboardItems.slice()
-        for (var i = 0; i < root.pendingParseEntries.length; i++) {
-            var item = parseOneEntry(root.pendingParseEntries[i], seen)
+        var entries = root.pendingParseEntries
+        var end = Math.min(entries.length, root.parseChunkSize)
+        for (var i = 0; i < end; i++) {
+            var item = parseOneEntry(entries[i], seen)
             if (item) items.push(item)
         }
-        root.pendingParseEntries = []
-        root.parseSeen = ({})
+        root.pendingParseEntries = entries.slice(end)
         root.clipboardItems = items
         root.rebuildItemIndexMap()
         root.rebuildTagCounts()
         root.filterItems()
-        scheduleBackgroundTasks(items)
+        if (root.pendingParseEntries.length > 0) {
+            parseRestTimer.restart()
+        } else {
+            root.parseSeen = ({})
+            scheduleBackgroundTasks(items)
+        }
     }
 
     // ============ Image Decode ============
@@ -1058,6 +1238,7 @@ ShellRoot {
         property string currentPath: ""
         command: ["bash", "-c", "echo"]
         onExited: code => {
+            if (root.closing) return
             if (code === 0 && decodeImage.currentId && decodeImage.currentPath) {
                 var newPaths = Object.assign({}, root.imagePaths)
                 newPaths[decodeImage.currentId] = decodeImage.currentPath
@@ -1069,6 +1250,7 @@ ShellRoot {
     }
 
     function startImageDecode() {
+        if (root.closing) return
         var ids = []
         for (var i = 0; i < clipboardItems.length; i++) {
             var item = clipboardItems[i]
@@ -1086,10 +1268,13 @@ ShellRoot {
     Process {
         id: mkCacheDir
         command: ["mkdir", "-p", cacheDir]
-        onExited: root.decodeNextImage()
+        onExited: {
+            if (!root.closing) root.decodeNextImage()
+        }
     }
 
     function decodeNextImage() {
+        if (root.closing) return
         if (imageIndex >= imageQueue.length) return
         var id = imageQueue[imageIndex]
         var ext = "png"
@@ -1116,6 +1301,7 @@ ShellRoot {
         property string currentPath: ""
         command: ["bash", "-c", "echo"]
         onExited: code => {
+            if (root.closing) return
             if (code === 0 && genVideoThumb.currentPath) {
                 var thumbFile = root.cacheDir + "/vthumb_" + Qt.md5(genVideoThumb.currentPath) + ".png"
                 var newPaths = Object.assign({}, root.videoThumbPaths)
@@ -1128,6 +1314,7 @@ ShellRoot {
     }
 
     function startVideoThumbGen() {
+        if (root.closing) return
         var paths = []
         var seen = {}
         for (var i = 0; i < clipboardItems.length; i++) {
@@ -1150,10 +1337,13 @@ ShellRoot {
     Process {
         id: mkCacheDir2
         command: ["mkdir", "-p", cacheDir]
-        onExited: root.genNextVideoThumb()
+        onExited: {
+            if (!root.closing) root.genNextVideoThumb()
+        }
     }
 
     function genNextVideoThumb() {
+        if (root.closing) return
         if (videoIndex >= videoQueue.length) return
         var filePath = videoQueue[videoIndex]
         genVideoThumb.currentPath = filePath
@@ -1239,46 +1429,75 @@ ShellRoot {
         id: searchDebounce
         interval: 120
         repeat: false
-        onTriggered: root.filterItems()
+        onTriggered: {
+            if (!root.closing) root.filterItems()
+        }
+    }
+
+    Timer {
+        id: loadStartTimer
+        interval: 30
+        repeat: false
+        onTriggered: {
+            if (!root.closing) {
+                root.loading = true
+                root.clipboardBuffer = ""
+                loadClipboard.running = true
+            }
+        }
     }
 
     Timer {
         id: parseRestTimer
         interval: 1
         repeat: false
-        onTriggered: root.parseRemainingEntries()
+        onTriggered: {
+            if (!root.closing) root.parseRemainingEntries()
+        }
     }
 
     Timer {
         id: decodeChunkTimer
         interval: 60
         repeat: false
-        onTriggered: root.runNextDecodeChunk()
+        onTriggered: {
+            if (!root.closing) root.runNextDecodeChunk()
+        }
     }
 
     Timer {
         id: mimeProbeStartTimer
         interval: 260
         repeat: false
-        onTriggered: root.queueMimeProbe()
+        onTriggered: {
+            if (!root.closing) root.queueMimeProbe()
+        }
     }
 
     Timer {
         id: imageDecodeStartTimer
         interval: 360
         repeat: false
-        onTriggered: root.startImageDecode()
+        onTriggered: {
+            if (!root.closing) root.startImageDecode()
+        }
     }
 
     Timer {
         id: videoThumbStartTimer
         interval: 520
         repeat: false
-        onTriggered: root.startVideoThumbGen()
+        onTriggered: {
+            if (!root.closing) root.startVideoThumbGen()
+        }
     }
 
-    onSearchTextChanged: searchDebounce.restart()
-    onActiveTagFiltersChanged: filterItems()
+    onSearchTextChanged: {
+        if (!root.closing) searchDebounce.restart()
+    }
+    onActiveTagFiltersChanged: {
+        if (!root.closing) filterItems()
+    }
 
     // ============ Actions ============
     Process {
@@ -1288,7 +1507,6 @@ ShellRoot {
             if (code !== 0) {
                 console.error("clipboard re-activate failed, exit code:", code)
             }
-            root.closeWithAnimation()
         }
     }
 
@@ -1332,6 +1550,39 @@ ShellRoot {
         previewVisible = false
         previewItem = null
         previewFullText = ""
+    }
+
+    function stopBackgroundWork() {
+        loadStartTimer.running = false
+        searchDebounce.running = false
+        parseRestTimer.running = false
+        decodeChunkTimer.running = false
+        mimeProbeStartTimer.running = false
+        imageDecodeStartTimer.running = false
+        videoThumbStartTimer.running = false
+
+        loading = false
+        clipboardBuffer = ""
+        asyncDecodeBuffer = ""
+        mimeProbeBuffer = ""
+        mimeProbePending = false
+        pendingParseEntries = []
+        parseSeen = ({})
+        pendingDecodeIds = []
+        pendingDecodeCursor = 0
+        imageQueue = []
+        imageIndex = 0
+        videoQueue = []
+        videoIndex = 0
+        mimeProbeTasks = ({})
+    }
+
+    function startCopyProcessDetached() {
+        var command = copyProcess.command
+        if (command && command.length >= 3 && command[0] === "bash" && command[1] === "-c") {
+            copyProcess.command = ["bash", "-c", "setsid bash -c " + shellQuote(command[2]) + " >/dev/null 2>&1 &"]
+        }
+        copyProcess.running = true
     }
 
     // ============ Re-activation (二次激活) ============
@@ -1470,7 +1721,8 @@ ShellRoot {
             ]
             }
         }
-        copyProcess.running = true
+        startCopyProcessDetached()
+        closeWithAnimation()
     }
 
     function deleteItem(item) {
@@ -1490,6 +1742,9 @@ ShellRoot {
         tagCounts = ({})
         pendingDecodeIds = []
         pendingDecodeCursor = 0
+        pendingParseEntries = []
+        parseSeen = ({})
+        parseRestTimer.running = false
         decodeChunkTimer.running = false
         mimeProbeStartTimer.running = false
         imageDecodeStartTimer.running = false
@@ -1503,9 +1758,8 @@ ShellRoot {
     }
 
     Component.onCompleted: {
-        loading = true
-        loadClipboard.running = true
         enterAnimation.start()
+        loadStartTimer.restart()
     }
 
     // ============ Animations ============
@@ -1525,7 +1779,11 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
-        exitAnimation.start()
+        if (root.closing) return
+        root.closing = true
+        root.stopBackgroundWork()
+        root.panelOpacity = 0
+        Qt.quit()
     }
 
     // ============ UI ============

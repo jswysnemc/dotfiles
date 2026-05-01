@@ -173,7 +173,7 @@ pkill -SIGUSR2 waybar
 | 右键 | 打开截图工具箱 | qs-popup screenshot-toolbox |
 | 录屏按钮 | 开始/停止录屏 | wf-recorder |
 
-截图工具箱包含选区复制、窗口截图、全屏截图、长截图、像素测量、OCR、取色、截图编辑、贴图和打开最新图片。
+截图工具箱包含选区复制、窗口截图、全屏截图、选取标注、全屏标注、长截图、像素测量、OCR、取色、截图编辑、贴图和打开最新图片。
 
 录屏特性：
 - 支持全屏和区域录制
@@ -269,6 +269,7 @@ matugen image /path/to/wallpaper.jpg
 | `tesseract` | OCR 识别 |
 | `imagemagick` | OCR 图像预处理 |
 | `markpix` | 截图编辑 (AUR) |
+| `qt-shot` | 截图标注 |
 | `rust-stitch` | 长截图拼接 (AUR) |
 | `qt-img-viewer` | 贴图查看 (AUR) |
 

@@ -10,8 +10,8 @@ ShellRoot {
     id: root
 
     property real panelOpacity: 0
-    property real panelScale: 0.96
-    property real panelY: 10
+    property real panelScale: 0.95
+    property real panelY: 15
     readonly property string initialPickedColor: Quickshell.env("QS_PICKED_COLOR") || ""
     property string activePage: initialPickedColor ? "color" : "main"
     property string pickedColor: ""
@@ -42,7 +42,7 @@ ShellRoot {
             mode: "window",
             icon: "WIN",
             title: "窗口截图",
-            desc: "niri 当前窗口",
+            desc: "鼠标选择窗口",
             color: Theme.secondary
         },
         {
@@ -86,6 +86,20 @@ ShellRoot {
             title: "截图编辑",
             desc: "选区后打开 markpix",
             color: Theme.warning
+        },
+        {
+            mode: "region-annotate",
+            icon: "ANNO",
+            title: "选取标注",
+            desc: "qt-shot",
+            color: Theme.warning
+        },
+        {
+            mode: "fullscreen-annotate",
+            icon: "FANN",
+            title: "全屏标注",
+            desc: "qt-shot --fullscreen",
+            color: Theme.secondary
         },
         {
             mode: "region-pin",
@@ -216,16 +230,16 @@ ShellRoot {
 
     ParallelAnimation {
         id: enterAnimation
-        NumberAnimation { target: root; property: "panelOpacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
-        NumberAnimation { target: root; property: "panelScale"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-        NumberAnimation { target: root; property: "panelY"; to: 0; duration: Theme.animNormal; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "panelOpacity"; from: 0; to: 1; duration: 250; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "panelScale"; from: 0.95; to: 1.0; duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+        NumberAnimation { target: root; property: "panelY"; from: 15; to: 0; duration: 250; easing.type: Easing.OutCubic }
     }
 
     ParallelAnimation {
         id: exitAnimation
-        NumberAnimation { target: root; property: "panelOpacity"; to: 0; duration: Theme.animFast; easing.type: Easing.InCubic }
-        NumberAnimation { target: root; property: "panelScale"; to: 0.96; duration: Theme.animFast; easing.type: Easing.InCubic }
-        NumberAnimation { target: root; property: "panelY"; to: 8; duration: Theme.animFast; easing.type: Easing.InCubic }
+        NumberAnimation { target: root; property: "panelOpacity"; to: 0; duration: 150; easing.type: Easing.InCubic }
+        NumberAnimation { target: root; property: "panelScale"; to: 0.95; duration: 150; easing.type: Easing.InCubic }
+        NumberAnimation { target: root; property: "panelY"; to: -10; duration: 150; easing.type: Easing.InCubic }
         onFinished: Qt.quit()
     }
 
@@ -335,7 +349,6 @@ ShellRoot {
                         }
 
                         ColumnLayout {
-                            Layout.fillWidth: true
                             spacing: 2
 
                             Text {
@@ -352,22 +365,29 @@ ShellRoot {
                             }
                         }
 
+                        Item { Layout.fillWidth: true }
+
                         Rectangle {
-                            width: 30
-                            height: 30
-                            radius: Theme.radiusS
-                            color: closeArea.containsMouse ? Theme.surfaceVariant : "transparent"
+                            width: 32
+                            height: 32
+                            radius: Theme.radiusM
+                            Layout.alignment: Qt.AlignVCenter
+                            color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                            scale: closeMa.containsMouse ? 1.1 : 1.0
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 
                             Text {
                                 anchors.centerIn: parent
                                 text: "\uf00d"
                                 font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: Theme.iconSizeS
+                                font.pixelSize: Theme.iconSizeM
                                 color: Theme.textSecondary
                             }
 
                             MouseArea {
-                                id: closeArea
+                                id: closeMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor

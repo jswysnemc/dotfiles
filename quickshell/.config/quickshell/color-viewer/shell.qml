@@ -213,7 +213,6 @@ ShellRoot {
                         }
 
                         ColumnLayout {
-                            Layout.fillWidth: true
                             spacing: 2
 
                             Text {
@@ -230,22 +229,29 @@ ShellRoot {
                             }
                         }
 
+                        Item { Layout.fillWidth: true }
+
                         Rectangle {
-                            width: 30
-                            height: 30
-                            radius: Theme.radiusS
-                            color: closeArea.containsMouse ? Theme.surfaceVariant : "transparent"
+                            width: 32
+                            height: 32
+                            radius: Theme.radiusM
+                            Layout.alignment: Qt.AlignVCenter
+                            color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                            scale: closeMa.containsMouse ? 1.1 : 1.0
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 
                             Text {
                                 anchors.centerIn: parent
                                 text: "\uf00d"
                                 font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: Theme.iconSizeS
+                                font.pixelSize: Theme.iconSizeM
                                 color: Theme.textSecondary
                             }
 
                             MouseArea {
-                                id: closeArea
+                                id: closeMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor

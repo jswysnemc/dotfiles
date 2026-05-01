@@ -18,6 +18,13 @@ notify() {
     fi
 }
 
+require_cmd() {
+    if ! has "$1"; then
+        notify "未找到 $1"
+        exit 1
+    fi
+}
+
 extract_color() {
     grep -Eo '#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?' | head -1 || true
 }
@@ -87,6 +94,36 @@ capture_fullscreen_file() {
     path="$(new_path)"
     grim "$path"
     printf '%s\n' "$path"
+}
+
+pick_window_id() {
+    local picked id rc
+
+    require_cmd jq
+
+    set +e
+    picked="$(niri msg -j pick-window)"
+    rc=$?
+    set -e
+
+    if [[ $rc -ne 0 || -z "${picked// /}" ]]; then
+        exit 130
+    fi
+
+    id="$(printf '%s\n' "$picked" | jq -r '.id // empty')"
+    if [[ -z "$id" ]]; then
+        notify "未选择窗口"
+        exit 1
+    fi
+
+    printf '%s\n' "$id"
+}
+
+capture_picked_window() {
+    local id
+
+    id="$(pick_window_id)"
+    niri msg action screenshot-window --id "$id"
 }
 
 copy_png_file() {
@@ -330,6 +367,14 @@ case "$mode" in
         path="$(capture_region_file on)"
         markpix "$path"
         ;;
+    region-annotate)
+        require_cmd qt-shot
+        qt-shot
+        ;;
+    fullscreen-annotate)
+        require_cmd qt-shot
+        qt-shot --fullscreen
+        ;;
     region-pin)
         path="$(capture_region_file on)"
         qt-img-viewer -f "$path"
@@ -358,7 +403,7 @@ case "$mode" in
         qt-img-viewer -f "$path"
         ;;
     window)
-        niri msg action screenshot-window
+        capture_picked_window
         ;;
     scroll)
         wayscrollshot
@@ -367,7 +412,7 @@ case "$mode" in
         xdg-open "$(save_dir)"
         ;;
     *)
-        printf 'Usage: %s {region-copy|fullscreen|region-save|region-edit|region-pin|measure|ocr|color|color-raw|color-page|pin-latest|window|scroll|open-dir}\n' "$0" >&2
+        printf 'Usage: %s {region-copy|fullscreen|region-save|region-edit|region-annotate|fullscreen-annotate|region-pin|measure|ocr|color|color-raw|color-page|pin-latest|window|scroll|open-dir}\n' "$0" >&2
         exit 2
         ;;
 esac

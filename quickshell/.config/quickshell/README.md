@@ -208,7 +208,7 @@ qs-popup launcher
 | 天气 | `qs-popup weather` | - | 天气预报 (Open-Meteo API) |
 | 媒体 | `qs-popup media` | `player` | MPRIS 媒体控制 + 歌词 |
 | 通知 | `qs-popup notifications` | `notif` | 通知中心 (D-Bus) |
-| 截图工具箱 | `qs-popup screenshot-toolbox` | `screenshot`, `shot`, `ss` | 截图、长截图、OCR、取色、测量和贴图 |
+| 截图工具箱 | `qs-popup screenshot-toolbox` | `screenshot`, `shot`, `ss` | 截图、标注、长截图、OCR、取色、测量和贴图 |
 | 启动器 | `qs-popup launcher` | `launch`, `app` | 应用启动器 |
 | 剪贴板 | `qs-popup clipboard` | `clip`, `cb` | 剪贴板历史 (cliphist) |
 | 电源菜单 | `qs-popup power-menu` | `power`, `pm` | 关机/重启/注销 |
@@ -317,7 +317,7 @@ uv sync
 | 壁纸 | `awww` 或 `swaybg` |
 | 通知 | `python>=3.11`, `uv`, `dbus-python` |
 | 可视化 | `cava` |
-| 截图工具箱 | `grim`, `slurp`, `wl-clipboard`, `wayfreeze`, `wayscrollshot-bin`, `hyprpicker`, `tesseract`, `imagemagick`, `markpix`, `qt-img-viewer` |
+| 截图工具箱 | `grim`, `slurp`, `wl-clipboard`, `wayfreeze`, `wayscrollshot-bin`, `hyprpicker`, `tesseract`, `imagemagick`, `markpix`, `qt-shot`, `qt-img-viewer` |
 
 ```bash
 # 安装所有可选依赖 (Arch Linux)
@@ -539,13 +539,15 @@ binds {
 | 操作 | 功能 |
 |------|------|
 | `选框复制` | 选区截图并复制到剪贴板 |
-| `窗口截图` | 调用 Niri 当前窗口截图 |
+| `窗口截图` | 鼠标选择窗口后调用 Niri 截图 |
 | `全屏截图` | 保存全屏截图并复制 |
 | `长截图` | 调用 wayscrollshot |
 | `像素测量` | 复制选区宽高和面积 |
 | `OCR 识别` | 识别选区文字并复制 |
 | `颜色选取` | 取色并打开颜色详情页 |
 | `截图编辑` | 选区截图后打开 markpix |
+| `选取标注` | 调用 qt-shot 进行选区截图标注 |
+| `全屏标注` | 调用 qt-shot --fullscreen 进行全屏截图标注 |
 | `选区贴图` | 选区截图后用 qt-img-viewer 贴图 |
 | `贴最新图` | 打开最近的截图或图片 |
 
