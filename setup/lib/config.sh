@@ -86,6 +86,7 @@ AUR_PACKAGES=(
     kvantum-theme-matchama
     fcitx5-skin-fluentlight-git
     markpix-bin
+    mark-shot
     wayscrollshot-bin
 )
 

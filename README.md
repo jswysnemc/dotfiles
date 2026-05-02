@@ -208,7 +208,7 @@ paru -S --needed \
     uv xwayland-satellite clipse clipnotify \
     catppuccin-gtk-theme-latte catppuccin-gtk-theme-mocha \
     catppuccin-cursors-latte kvantum-theme-matchama \
-    wayscrollshot-bin
+    mark-shot wayscrollshot-bin
 
 # 可选依赖 (推荐)
 paru -S --needed \

@@ -30,7 +30,7 @@ paru -S grim slurp wf-recorder wayfreeze wl-clipboard hyprpicker tesseract image
 paru -S brightnessctl jq blueman pavucontrol btop
 
 # 可选：高级截图
-paru -S markpix-bin rust-stitch wayscrollshot-bin qt-img-viewer  # AUR
+paru -S markpix-bin mark-shot rust-stitch wayscrollshot-bin qt-img-viewer  # AUR
 ```
 
 ### 2. 应用配置
@@ -269,7 +269,7 @@ matugen image /path/to/wallpaper.jpg
 | `tesseract` | OCR 识别 |
 | `imagemagick` | OCR 图像预处理 |
 | `markpix` | 截图编辑 (AUR) |
-| `qt-shot` | 截图标注 |
+| `mark-shot` | 截图标注 |
 | `rust-stitch` | 长截图拼接 (AUR) |
 | `qt-img-viewer` | 贴图查看 (AUR) |
 
