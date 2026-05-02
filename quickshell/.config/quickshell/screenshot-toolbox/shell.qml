@@ -91,14 +91,14 @@ ShellRoot {
             mode: "region-annotate",
             icon: "ANNO",
             title: "选取标注",
-            desc: "qt-shot",
+            desc: "mark-shot",
             color: Theme.warning
         },
         {
             mode: "fullscreen-annotate",
             icon: "FANN",
             title: "全屏标注",
-            desc: "qt-shot --fullscreen",
+            desc: "mark-shot --fullscreen",
             color: Theme.secondary
         },
         {

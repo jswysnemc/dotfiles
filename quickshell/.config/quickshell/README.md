@@ -34,7 +34,7 @@ paru -S networkmanager bluez pipewire brightnessctl \
     grim slurp wayfreeze hyprpicker tesseract imagemagick
 
 # 截图编辑、长截图和贴图 (AUR)
-paru -S markpix-bin wayscrollshot-bin qt-img-viewer
+paru -S markpix-bin mark-shot wayscrollshot-bin qt-img-viewer
 ```
 
 ### 2. 应用配置
@@ -317,7 +317,7 @@ uv sync
 | 壁纸 | `awww` 或 `swaybg` |
 | 通知 | `python>=3.11`, `uv`, `dbus-python` |
 | 可视化 | `cava` |
-| 截图工具箱 | `grim`, `slurp`, `wl-clipboard`, `wayfreeze`, `wayscrollshot-bin`, `hyprpicker`, `tesseract`, `imagemagick`, `markpix`, `qt-shot`, `qt-img-viewer` |
+| 截图工具箱 | `grim`, `slurp`, `wl-clipboard`, `wayfreeze`, `wayscrollshot-bin`, `hyprpicker`, `tesseract`, `imagemagick`, `markpix`, `mark-shot`, `qt-img-viewer` |
 
 ```bash
 # 安装所有可选依赖 (Arch Linux)
@@ -326,7 +326,7 @@ paru -S networkmanager bluez pipewire brightnessctl curl jq \
         grim slurp wayfreeze hyprpicker tesseract imagemagick
 
 # 截图工具箱高级功能 (AUR)
-paru -S markpix-bin wayscrollshot-bin qt-img-viewer
+paru -S markpix-bin mark-shot wayscrollshot-bin qt-img-viewer
 ```
 
 ## 配置
@@ -546,8 +546,8 @@ binds {
 | `OCR 识别` | 识别选区文字并复制 |
 | `颜色选取` | 取色并打开颜色详情页 |
 | `截图编辑` | 选区截图后打开 markpix |
-| `选取标注` | 调用 qt-shot 进行选区截图标注 |
-| `全屏标注` | 调用 qt-shot --fullscreen 进行全屏截图标注 |
+| `选取标注` | 调用 mark-shot 进行选区截图标注 |
+| `全屏标注` | 调用 mark-shot --fullscreen 进行全屏截图标注 |
 | `选区贴图` | 选区截图后用 qt-img-viewer 贴图 |
 | `贴最新图` | 打开最近的截图或图片 |
 

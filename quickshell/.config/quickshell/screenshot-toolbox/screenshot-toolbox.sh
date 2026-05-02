@@ -368,12 +368,12 @@ case "$mode" in
         markpix "$path"
         ;;
     region-annotate)
-        require_cmd qt-shot
-        qt-shot
+        require_cmd mark-shot
+        mark-shot
         ;;
     fullscreen-annotate)
-        require_cmd qt-shot
-        qt-shot --fullscreen
+        require_cmd mark-shot
+        mark-shot --fullscreen
         ;;
     region-pin)
         path="$(capture_region_file on)"
