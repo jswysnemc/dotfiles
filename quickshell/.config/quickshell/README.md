@@ -54,112 +54,10 @@ uv sync
 ### 4. 创建 qs-popup 启动脚本
 
 创建 `~/.local/bin/qs-popup` 脚本用于启动/切换弹窗组件：
+此脚本在仓库的local-bin中可以找到
 
 ```bash
 mkdir -p ~/.local/bin
-
-cat > ~/.local/bin/qs-popup << 'EOFSCRIPT'
-#!/bin/bash
-# QuickShell popup launcher for Waybar integration
-
-QS_CONFIG_DIR="$HOME/.config/quickshell"
-QS_POS_CONF="$QS_CONFIG_DIR/position.conf"
-
-COMPONENT="$1"
-if [ $# -gt 0 ]; then
-    shift
-fi
-
-show_help() {
-    echo "Usage: qs-popup <component> [options]"
-    echo ""
-    echo "Components:"
-    echo "  wifi           - WiFi network manager"
-    echo "  bluetooth      - Bluetooth device manager"
-    echo "  notifications  - Notification center"
-    echo "  weather        - Weather widget"
-    echo "  calendar       - Calendar widget"
-    echo "  media          - Media player controls"
-    echo "  volume         - Volume and brightness controls"
-    echo "  screenshot-toolbox - Screenshot toolbox"
-    echo "  launcher       - Application launcher"
-    echo "  clipboard      - Clipboard manager"
-    echo "  wallpaper      - Wallpaper selector"
-    echo "  close-confirm  - Close window confirmation"
-    echo "  window-switcher - Window switcher"
-    echo "  power-menu     - Power menu"
-}
-
-# Read position from config file
-read_config() {
-    local name="$1"
-    QS_POS="top-right"
-    QS_MARGIN_T="8"
-    QS_MARGIN_R="8"
-    QS_MARGIN_B="0"
-    QS_MARGIN_L="0"
-
-    if [[ -f "$QS_POS_CONF" ]]; then
-        local line
-        line=$(grep "^${name}=" "$QS_POS_CONF" 2>/dev/null | head -1)
-        if [[ -n "$line" ]]; then
-            local value="${line#*=}"
-            IFS=',' read -ra parts <<< "$value"
-            [[ -n "${parts[0]}" ]] && QS_POS="${parts[0]}"
-            [[ -n "${parts[1]}" ]] && QS_MARGIN_T="${parts[1]}"
-            [[ -n "${parts[2]}" ]] && QS_MARGIN_R="${parts[2]}"
-        fi
-    fi
-}
-
-toggle_popup() {
-    local name="$1"
-    local shell_path="$QS_CONFIG_DIR/$name/shell.qml"
-
-    if pgrep -f "quickshell.*$name/shell.qml" > /dev/null; then
-        pkill -f "quickshell.*$name/shell.qml"
-    else
-        if [[ -f "$shell_path" ]]; then
-            read_config "$name"
-            QS_POS="$QS_POS" \
-            QS_MARGIN_T="$QS_MARGIN_T" \
-            QS_MARGIN_R="$QS_MARGIN_R" \
-            QS_MARGIN_B="$QS_MARGIN_B" \
-            QS_MARGIN_L="$QS_MARGIN_L" \
-            quickshell -p "$shell_path" &
-        else
-            notify-send "QuickShell" "Component not found: $shell_path"
-            exit 1
-        fi
-    fi
-}
-
-if [[ -z "$COMPONENT" ]]; then
-    show_help
-    exit 0
-fi
-
-case "$COMPONENT" in
-    wifi) toggle_popup "wifi" ;;
-    bluetooth) toggle_popup "bluetooth" ;;
-    notifications|notif) toggle_popup "notifications" ;;
-    weather) toggle_popup "weather" ;;
-    calendar|cal) toggle_popup "calendar" ;;
-    media|player) toggle_popup "media" ;;
-    volume|vol|brightness) toggle_popup "volume" ;;
-    screenshot-toolbox|screenshot|shot|ss) toggle_popup "screenshot-toolbox" ;;
-    launcher|launch|app) toggle_popup "launcher" ;;
-    clipboard|clip|cb) toggle_popup "clipboard" ;;
-    power-menu|power|pm) toggle_popup "power-menu" ;;
-    wallpaper-selector|wallpaper|wp) toggle_popup "wallpaper-selector" ;;
-    close-confirm|close) toggle_popup "close-confirm" ;;
-    window-switcher|windows|ws) toggle_popup "window-switcher" ;;
-    -h|--help|help) show_help ;;
-    *) echo "Unknown component: $COMPONENT"; show_help; exit 1 ;;
-esac
-EOFSCRIPT
-
-chmod +x ~/.local/bin/qs-popup
 ```
 
 ### 5. 确保 PATH 包含 ~/.local/bin
@@ -353,51 +251,7 @@ launcher=center            # 屏幕居中
 ### 主题配置
 
 编辑 `~/.config/quickshell/Commons/Theme.js`：
-
-```javascript
-// 颜色系统
-var background = "#f6f7fb"
-var surface = "#ffffff"
-var primary = "#3b6ef5"
-var secondary = "#7a56d6"
-var tertiary = "#..."
-var success = "#2e9d63"
-var warning = "#c57f1b"
-var error = "#e04f5f"
-var textPrimary = "#1f2430"
-var textSecondary = "#..."
-var textMuted = "#6b7280"
-var outline = "#d5dbe7"
-
-// 字体大小
-var fontSizeXS = 10
-var fontSizeS = 11
-var fontSizeM = 12
-var fontSizeL = 14
-var fontSizeXL = 16
-var fontSizeHuge = 28
-
-// 间距
-var spacingXS = 4
-var spacingS = 6
-var spacingM = 10
-var spacingL = 14
-var spacingXL = 20
-
-// 圆角
-var radiusS = 6
-var radiusM = 10
-var radiusL = 14
-var radiusPill = 100
-
-// 动画时长
-var animFast = 120
-var animNormal = 200
-var animSlow = 300
-
-// 辅助函数
-function alpha(color, a) { ... }
-```
+或者通过matugen配置
 
 ### 天气配置
 
