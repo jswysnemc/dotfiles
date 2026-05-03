@@ -336,6 +336,82 @@ open_color_page() {
     disown
 }
 
+preprocess_qr_image() {
+    local input="$1"
+    local output="$2"
+
+    if ! has magick; then
+        cp "$input" "$output"
+        return 0
+    fi
+
+    magick "$input" \
+        -alpha remove -background white -alpha off \
+        -colorspace Gray \
+        -filter Point -resize "${QR_SCALE:-300}%" \
+        -auto-level \
+        "$output"
+}
+
+decode_qr_image() {
+    local path="$1"
+    local processed_path output rc
+
+    if ! has zbarimg; then
+        notify "未找到 zbarimg"
+        exit 1
+    fi
+
+    set +e
+    output="$(zbarimg --quiet --raw "$path" 2>>"$log_file")"
+    rc=$?
+    set -e
+
+    if [[ $rc -eq 0 && -n "${output//[[:space:]]/}" ]]; then
+        printf '%s\n' "$output"
+        return 0
+    fi
+
+    processed_path="${XDG_RUNTIME_DIR:-/tmp}/qs-qr-processed-$(date +%s%N).png"
+    preprocess_qr_image "$path" "$processed_path"
+
+    set +e
+    output="$(zbarimg --quiet --raw "$processed_path" 2>>"$log_file")"
+    rc=$?
+    set -e
+    rm -f "$processed_path"
+
+    if [[ $rc -eq 0 && -n "${output//[[:space:]]/}" ]]; then
+        printf '%s\n' "$output"
+        return 0
+    fi
+
+    log "decode_qr_image: failed rc=$rc path=$path"
+    notify "未识别到二维码"
+    exit 1
+}
+
+open_qr_page() {
+    local geometry path text shell_path
+
+    log "open_qr_page: start"
+    geometry="$(pick_geometry on)"
+    path="${XDG_RUNTIME_DIR:-/tmp}/qs-qr-raw-$(date +%s%N).png"
+    grim -g "$geometry" "$path"
+    text="$(decode_qr_image "$path")"
+    shell_path="$HOME/.config/quickshell/qr-viewer/shell.qml"
+    log "open_qr_page: decoded ${#text} bytes"
+
+    if [[ "${QR_KEEP_IMAGE:-0}" != "1" ]]; then
+        rm -f "$path"
+    else
+        log "open_qr_page: kept image $path"
+    fi
+
+    QS_QR_TEXT="$text" quickshell -p "$shell_path" >>"$log_file" 2>&1 &
+    disown
+}
+
 latest_image() {
     local dir
     dir="$(save_dir)"
@@ -394,6 +470,9 @@ case "$mode" in
     color-page)
         open_color_page
         ;;
+    qr-page)
+        open_qr_page
+        ;;
     pin-latest)
         path="$(latest_image)"
         if [[ -z "$path" ]]; then
@@ -412,7 +491,7 @@ case "$mode" in
         xdg-open "$(save_dir)"
         ;;
     *)
-        printf 'Usage: %s {region-copy|fullscreen|region-save|region-edit|region-annotate|fullscreen-annotate|region-pin|measure|ocr|color|color-raw|color-page|pin-latest|window|scroll|open-dir}\n' "$0" >&2
+        printf 'Usage: %s {region-copy|fullscreen|region-save|region-edit|region-annotate|fullscreen-annotate|region-pin|measure|ocr|color|color-raw|color-page|qr-page|pin-latest|window|scroll|open-dir}\n' "$0" >&2
         exit 2
         ;;
 esac

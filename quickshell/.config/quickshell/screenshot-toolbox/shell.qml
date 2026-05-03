@@ -110,10 +110,10 @@ ShellRoot {
             color: Theme.success
         },
         {
-            mode: "pin-latest",
-            icon: "IMG",
-            title: "贴最新图",
-            desc: "打开最近截图",
+            mode: "qr-page",
+            icon: "QR",
+            title: "QR 扫码",
+            desc: "选区识别二维码",
             color: Theme.primary
         }
     ]
