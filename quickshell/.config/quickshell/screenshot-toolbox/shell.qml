@@ -16,6 +16,7 @@ ShellRoot {
     property string activePage: initialPickedColor ? "color" : "main"
     property string pickedColor: ""
     property string copyNotice: ""
+    property bool isClosing: false
 
     property string posEnv: Quickshell.env("QS_POS") || "top-left"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -123,6 +124,9 @@ ShellRoot {
     }
 
     function runAction(mode) {
+        if (root.isClosing) return
+        root.isClosing = true
+
         if (mode === "color") {
             actionProc.command = ["bash", "-c", "setsid \"$1\" color-page >/dev/null 2>&1 &", "qs-shot-color", root.scriptPath]
         } else {
@@ -214,6 +218,8 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        if (root.isClosing) return
+        root.isClosing = true
         exitAnimation.start()
     }
 

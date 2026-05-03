@@ -1,8 +1,16 @@
 // 显示器配置
 // Output configuration
 
-output "eDp-1" {
-    //mode "2560x1600@60"
+// 连接显示器,没有连接电源的显示器
+output "eDP-2" {
+    mode "2560x1600@60"
+    scale 1.0
+    transform "normal"
+    position x=0 y=0
+}
+
+// 连接显示器,连接电源的显示器
+output "eDP-1" {
     mode "2560x1600@240"
     scale 1.0
     transform "normal"
