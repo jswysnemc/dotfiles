@@ -92,6 +92,8 @@ ShellRoot {
     property bool previewVisible: false
     property var previewItem: null
     property string previewFullText: ""
+    property string saveImageStatus: ""
+    property bool saveImageRunning: false
     // Re-parsed file paths from decoded content (for preview overlay)
     property var previewFilePaths: {
         if (!previewItem || !previewItem.isFile || !previewFullText) return previewItem ? previewItem.filePaths : []
@@ -105,8 +107,11 @@ ShellRoot {
     property string mimeProbeBuffer: ""
     property bool mimeProbePending: false
     property var pathMimeCache: ({})
+    property var videoMetaCache: ({})
     property var mimeProbeTasks: ({})
     property int mimeProbeSeq: 0
+    property string videoMetaBuffer: ""
+    property string videoMetaPendingPath: ""
     property var pendingDecodeIds: []
     property int pendingDecodeCursor: 0
     // Chunked parse state
@@ -1337,32 +1342,55 @@ ShellRoot {
     property var videoQueue: []
     property int videoIndex: 0
     property var videoThumbPaths: ({})
+    property bool videoThumbPending: false
 
     Process {
         id: genVideoThumb
         property string currentPath: ""
+        property string output: ""
         command: ["bash", "-c", "echo"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: data => {
+                genVideoThumb.output += data
+            }
+        }
         onExited: code => {
             if (root.closing) return
-            if (code === 0 && genVideoThumb.currentPath) {
+            if (code === 0 && genVideoThumb.currentPath && genVideoThumb.output.trim() === "OK") {
                 var thumbFile = root.cacheDir + "/vthumb_" + Qt.md5(genVideoThumb.currentPath) + ".png"
                 var newPaths = Object.assign({}, root.videoThumbPaths)
                 newPaths[genVideoThumb.currentPath] = thumbFile
                 root.videoThumbPaths = newPaths
+            } else if (genVideoThumb.currentPath && root.videoThumbPaths[genVideoThumb.currentPath]) {
+                var cleanedPaths = Object.assign({}, root.videoThumbPaths)
+                delete cleanedPaths[genVideoThumb.currentPath]
+                root.videoThumbPaths = cleanedPaths
             }
+            genVideoThumb.output = ""
             root.videoIndex++
-            root.genNextVideoThumb()
+            if (root.videoIndex < root.videoQueue.length) {
+                root.genNextVideoThumb()
+            } else if (root.videoThumbPending) {
+                root.videoThumbPending = false
+                root.startVideoThumbGen()
+            }
         }
     }
 
     function startVideoThumbGen() {
         if (root.closing) return
+        if (genVideoThumb.running) {
+            root.videoThumbPending = true
+            return
+        }
         var paths = []
         var seen = {}
         for (var i = 0; i < clipboardItems.length; i++) {
             var item = clipboardItems[i]
             if (item.isFile && item.fileType === "video" && item.filePaths.length > 0) {
-                var path = item.filePaths[0]
+                var path = normalizeLocalPath(item.filePaths[0])
+                if (!path) continue
                 if (seen[path]) continue
                 if (root.videoThumbPaths[path]) continue
                 seen[path] = true
@@ -1374,6 +1402,14 @@ ShellRoot {
         if (paths.length > 0) {
             mkCacheDir2.running = true
         }
+    }
+
+    function removeVideoThumbPath(rawPath) {
+        var path = normalizeLocalPath(rawPath)
+        if (!path || !root.videoThumbPaths[path]) return
+        var nextPaths = Object.assign({}, root.videoThumbPaths)
+        delete nextPaths[path]
+        root.videoThumbPaths = nextPaths
     }
 
     Process {
@@ -1389,9 +1425,105 @@ ShellRoot {
         if (videoIndex >= videoQueue.length) return
         var filePath = videoQueue[videoIndex]
         genVideoThumb.currentPath = filePath
+        genVideoThumb.output = ""
         var thumbFile = cacheDir + "/vthumb_" + Qt.md5(filePath) + ".png"
-        genVideoThumb.command = ["ffmpegthumbnailer", "-i", filePath, "-o", thumbFile, "-s", "256", "-q", "8"]
+        genVideoThumb.command = ["bash", "-c",
+            'rm -f -- ' + shellQuote(thumbFile) + '; ' +
+            'if command -v ffmpeg >/dev/null 2>&1; then ' +
+                'ffmpeg -hide_banner -loglevel error -y -i ' + shellQuote(filePath) + ' -frames:v 1 -vf "scale=256:-1:force_original_aspect_ratio=decrease" -vcodec png -f image2 ' + shellQuote(thumbFile) + '; ' +
+            'elif command -v ffmpegthumbnailer >/dev/null 2>&1; then ' +
+                'ffmpegthumbnailer -i ' + shellQuote(filePath) + ' -o ' + shellQuote(thumbFile) + ' -s 256 -q 8; ' +
+            'fi; ' +
+            'if test -s ' + shellQuote(thumbFile) + ' && file -Lb --mime-type -- ' + shellQuote(thumbFile) + ' | grep -q "^image/"; then printf OK; else rm -f -- ' + shellQuote(thumbFile) + '; exit 1; fi'
+        ]
         genVideoThumb.running = true
+    }
+
+    // ============ Video Metadata ============
+    Process {
+        id: videoMetaProcess
+        property string currentPath: ""
+        command: ["bash", "-c", "echo"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: data => {
+                root.videoMetaBuffer += data
+            }
+        }
+        onExited: code => {
+            if (root.closing) return
+            if (code === 0 && videoMetaProcess.currentPath) {
+                var nextCache = Object.assign({}, root.videoMetaCache)
+                nextCache[videoMetaProcess.currentPath] = root.parseVideoMetaData(root.videoMetaBuffer, videoMetaProcess.currentPath)
+                root.videoMetaCache = nextCache
+            }
+            root.videoMetaBuffer = ""
+            if (root.videoMetaPendingPath) {
+                var pendingPath = root.videoMetaPendingPath
+                root.videoMetaPendingPath = ""
+                root.startVideoMetaProbe(pendingPath)
+            }
+        }
+    }
+
+    function startVideoMetaProbe(rawPath) {
+        if (root.closing) return
+        var path = normalizeLocalPath(rawPath)
+        if (!path || root.videoMetaCache[path]) return
+        if (videoMetaProcess.running) {
+            root.videoMetaPendingPath = path
+            return
+        }
+
+        root.videoMetaBuffer = ""
+        videoMetaProcess.currentPath = path
+        videoMetaProcess.command = ["bash", "-c",
+            'p=' + shellQuote(path) + '; ' +
+            'printf "path=%s\\n" "$p"; ' +
+            'printf "name=%s\\n" "$(basename -- "$p")"; ' +
+            'printf "size=%s\\n" "$(stat -c %s -- "$p" 2>/dev/null || stat -f %z -- "$p" 2>/dev/null || true)"; ' +
+            'printf "modified=%s\\n" "$(stat -c %y -- "$p" 2>/dev/null | cut -d. -f1 || true)"; ' +
+            'if command -v ffprobe >/dev/null 2>&1; then ' +
+                'ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration:format=duration,format_name -of default=noprint_wrappers=1:nokey=0 "$p" 2>/dev/null || true; ' +
+            'fi'
+        ]
+        videoMetaProcess.running = true
+    }
+
+    function parseVideoMetaData(data, path) {
+        var meta = ({ path: path, name: path.split("/").pop() })
+        var lines = String(data || "").split(/\r?\n/)
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i]
+            var eq = line.indexOf("=")
+            if (eq <= 0) continue
+            var key = line.substring(0, eq)
+            var value = line.substring(eq + 1).trim()
+            if (value && value !== "N/A") meta[key] = value
+        }
+        return meta
+    }
+
+    function formatBytes(value) {
+        var n = Number(value)
+        if (!isFinite(n) || n <= 0) return ""
+        var units = ["B", "KB", "MB", "GB", "TB"]
+        var idx = 0
+        while (n >= 1024 && idx < units.length - 1) {
+            n /= 1024
+            idx++
+        }
+        return (idx === 0 ? String(Math.round(n)) : n.toFixed(n >= 10 ? 1 : 2)) + " " + units[idx]
+    }
+
+    function formatDuration(value) {
+        var total = Math.round(Number(value))
+        if (!isFinite(total) || total <= 0) return ""
+        var h = Math.floor(total / 3600)
+        var m = Math.floor((total % 3600) / 60)
+        var s = total % 60
+        function pad(n) { return n < 10 ? "0" + n : String(n) }
+        return h > 0 ? (h + ":" + pad(m) + ":" + pad(s)) : (m + ":" + pad(s))
     }
 
     // ============ Fuzzy Search ============
@@ -1540,6 +1672,11 @@ ShellRoot {
     onSearchTextChanged: {
         if (!root.closing) searchDebounce.restart()
     }
+    onPreviewFullTextChanged: {
+        if (!root.closing && root.previewVisible && root.previewItem && root.previewItem.isFile && root.previewItem.fileType === "video") {
+            root.startVideoMetaProbe(root.previewVideoPath())
+        }
+    }
     onActiveTagFiltersChanged: {
         if (!root.closing) filterItems()
     }
@@ -1558,6 +1695,21 @@ ShellRoot {
     Process {
         id: deleteProcess
         command: ["echo"]
+    }
+
+    Process {
+        id: openFileProcess
+        command: ["echo"]
+    }
+
+    Process {
+        id: saveImageProcess
+        property string targetPath: ""
+        command: ["echo"]
+        onExited: code => {
+            root.saveImageRunning = false
+            root.saveImageStatus = code === 0 && targetPath ? ("已保存: " + targetPath) : "保存失败"
+        }
     }
 
     Process {
@@ -1580,6 +1732,11 @@ ShellRoot {
     function showPreview(item) {
         previewItem = item
         previewVisible = true
+        previewFullText = ""
+        saveImageStatus = ""
+        if (item.isFile && item.fileType === "video" && item.filePaths.length > 0) {
+            startVideoMetaProbe(item.filePaths[0])
+        }
         if (item.isFile) {
             getFullText.targetId = item.id
             getFullText.command = ["bash", "-c", "cliphist decode '" + item.id + "'"]
@@ -1595,6 +1752,41 @@ ShellRoot {
         previewVisible = false
         previewItem = null
         previewFullText = ""
+        saveImageStatus = ""
+        saveImageRunning = false
+    }
+
+    function previewVideoPath() {
+        if (!previewItem || !previewItem.isFile || previewItem.fileType !== "video") return ""
+        var paths = previewFilePaths && previewFilePaths.length > 0 ? previewFilePaths : previewItem.filePaths
+        if (!paths || paths.length === 0) return ""
+        return normalizeLocalPath(paths[0])
+    }
+
+    function savePreviewImageToDisk() {
+        if (!previewItem || !previewItem.isImage || saveImageRunning) return
+        var ext = String(previewItem.imageExt || "png").toLowerCase()
+        if (!ext || !/^[a-z0-9]+$/.test(ext)) ext = "png"
+        var targetName = "clipboard-" + Qt.formatDateTime(new Date(), "yyyyMMdd-hhmmss") + "-" + previewItem.id + "." + ext
+        saveImageProcess.targetPath = "Pictures/Clipboard/" + targetName
+        saveImageStatus = "保存中..."
+        saveImageRunning = true
+        saveImageProcess.command = ["bash", "-c",
+            'PIC_DIR="$(xdg-user-dir PICTURES 2>/dev/null || true)"; ' +
+            '[ -n "$PIC_DIR" ] || PIC_DIR="$HOME/Pictures"; ' +
+            'OUT="$PIC_DIR/Clipboard/' + targetName + '"; ' +
+            'mkdir -p "$(dirname "$OUT")" && ' +
+            'cliphist decode ' + shellQuote(previewItem.id) + ' > "$OUT" && ' +
+            'test -s "$OUT"'
+        ]
+        saveImageProcess.running = true
+    }
+
+    function openPreviewVideo() {
+        var path = previewVideoPath()
+        if (!path) return
+        openFileProcess.command = ["bash", "-c", "xdg-open " + shellQuote(path) + " >/dev/null 2>&1 &"]
+        openFileProcess.running = true
     }
 
     function stopBackgroundWork() {
@@ -1614,6 +1806,8 @@ ShellRoot {
         asyncDecodeBuffer = ""
         mimeProbeBuffer = ""
         mimeProbePending = false
+        videoMetaBuffer = ""
+        videoMetaPendingPath = ""
         pendingParseEntries = []
         parseItemsBuffer = []
         parseSeen = ({})
@@ -1623,6 +1817,7 @@ ShellRoot {
         imageIndex = 0
         videoQueue = []
         videoIndex = 0
+        videoThumbPending = false
         mimeProbeTasks = ({})
     }
 
@@ -2343,10 +2538,18 @@ ShellRoot {
                                                     id: previewVideoThumb
                                                     anchors.fill: parent; anchors.margins: 2
                                                     visible: clipItem.modelData.isFile && clipItem.modelData.fileType === "video"
-                                                    source: (clipItem.modelData.isFile && clipItem.modelData.fileType === "video" && clipItem.modelData.filePaths.length > 0)
-                                                        ? (root.videoThumbPaths[clipItem.modelData.filePaths[0]]
-                                                            ? "file://" + root.videoThumbPaths[clipItem.modelData.filePaths[0]] : "") : ""
+                                                    source: {
+                                                        if (!clipItem.modelData.isFile || clipItem.modelData.fileType !== "video" || clipItem.modelData.filePaths.length === 0) return ""
+                                                        var path = root.normalizeLocalPath(clipItem.modelData.filePaths[0])
+                                                        var thumb = path ? root.videoThumbPaths[path] : ""
+                                                        return thumb ? "file://" + thumb : ""
+                                                    }
                                                     fillMode: Image.PreserveAspectCrop; asynchronous: true
+                                                    onStatusChanged: {
+                                                        if (status === Image.Error && clipItem.modelData.filePaths.length > 0) {
+                                                            root.removeVideoThumbPath(clipItem.modelData.filePaths[0])
+                                                        }
+                                                    }
                                                 }
 
                                                 // HTML embedded image
@@ -2579,6 +2782,60 @@ ShellRoot {
                             Item { Layout.fillWidth: true }
 
                             Rectangle {
+                                visible: root.previewVideoPath().length > 0
+                                width: openVideoLabel.implicitWidth + Theme.spacingM * 2
+                                height: 28
+                                radius: Theme.radiusM
+                                color: openVideoHover.hovered ? Theme.surfaceVariant : Theme.alpha(Theme.primary, 0.08)
+                                border.color: Theme.alpha(Theme.primary, openVideoHover.hovered ? 0.65 : 0.35)
+                                border.width: 1
+
+                                Text {
+                                    id: openVideoLabel
+                                    anchors.centerIn: parent
+                                    text: "打开视频"
+                                    font.pixelSize: Theme.fontSizeXS
+                                    font.bold: true
+                                    color: Theme.primary
+                                }
+
+                                HoverHandler { id: openVideoHover }
+                                TapHandler { onTapped: root.openPreviewVideo() }
+                            }
+
+                            Text {
+                                visible: root.previewItem && root.previewItem.isImage && root.saveImageStatus
+                                Layout.maximumWidth: 220
+                                text: root.saveImageStatus
+                                font.pixelSize: Theme.fontSizeXS
+                                color: root.saveImageStatus === "保存失败" ? Theme.error : Theme.textMuted
+                                elide: Text.ElideMiddle
+                                maximumLineCount: 1
+                            }
+
+                            Rectangle {
+                                visible: root.previewItem && root.previewItem.isImage
+                                width: saveImageLabel.implicitWidth + Theme.spacingM * 2
+                                height: 28
+                                radius: Theme.radiusM
+                                color: saveImageHover.hovered ? Theme.surfaceVariant : Theme.alpha(Theme.primary, 0.08)
+                                border.color: Theme.alpha(Theme.primary, saveImageHover.hovered ? 0.65 : 0.35)
+                                border.width: 1
+
+                                Text {
+                                    id: saveImageLabel
+                                    anchors.centerIn: parent
+                                    text: root.saveImageRunning ? "保存中" : "保存图片"
+                                    font.pixelSize: Theme.fontSizeXS
+                                    font.bold: true
+                                    color: Theme.primary
+                                }
+
+                                HoverHandler { id: saveImageHover }
+                                TapHandler { onTapped: root.savePreviewImageToDisk() }
+                            }
+
+                            Rectangle {
                                 width: 28; height: 28
                                 radius: Theme.radiusM
                                 color: previewCloseHover.hovered ? Theme.surfaceVariant : "transparent"
@@ -2614,7 +2871,7 @@ ShellRoot {
                                         if (root.previewItem.filePaths.length > 1) return previewFileInfo.implicitHeight
                                         if (root.previewItem.fileType === "gif") return previewGif.height
                                         if (root.previewItem.fileType === "image") return previewFileImage.height
-                                        if (root.previewItem.fileType === "video") return previewVideoThumb.height
+                                        if (root.previewItem.fileType === "video") return previewVideoPanel.implicitHeight
                                         return previewFileInfo.implicitHeight
                                     }
                                     if (root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0 && root.isLocalImagePath(root.previewItem.htmlImageSrcs[0]))
@@ -2659,32 +2916,122 @@ ShellRoot {
                                     asynchronous: true
                                 }
 
-                                // Video thumbnail preview
-                                Image {
-                                    id: previewVideoThumb
+                                // Video thumbnail and metadata preview
+                                ColumnLayout {
+                                    id: previewVideoPanel
                                     visible: root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "video"
                                     width: parent.width
-                                    source: {
-                                        if (!root.previewItem || !root.previewItem.isFile || root.previewItem.filePaths.length > 1 || root.previewItem.fileType !== "video" || root.previewItem.filePaths.length === 0) return ""
-                                        var thumb = root.videoThumbPaths[root.previewItem.filePaths[0]]
-                                        return thumb ? "file://" + thumb : ""
-                                    }
-                                    fillMode: Image.PreserveAspectFit
-                                    asynchronous: true
+                                    spacing: Theme.spacingM
+                                    property string videoPath: root.previewVideoPath()
+                                    property var videoMeta: videoPath ? (root.videoMetaCache[videoPath] || ({})) : ({})
 
                                     Rectangle {
-                                        visible: previewVideoThumb.status === Image.Ready
-                                        anchors.centerIn: parent
-                                        width: 48; height: 48
-                                        radius: 24
-                                        color: Theme.alpha(Qt.black, 0.5)
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 280
+                                        radius: Theme.radiusM
+                                        color: Theme.surfaceVariant
+                                        border.color: Theme.outline
+                                        border.width: 1
+                                        clip: true
+
+                                        Image {
+                                            id: previewVideoThumb
+                                            anchors.fill: parent
+                                            anchors.margins: Theme.spacingM
+                                            source: {
+                                                if (!previewVideoPanel.videoPath) return ""
+                                                var thumb = root.videoThumbPaths[previewVideoPanel.videoPath]
+                                                return thumb ? "file://" + thumb : ""
+                                            }
+                                            fillMode: Image.PreserveAspectFit
+                                            asynchronous: true
+                                            onStatusChanged: {
+                                                if (status === Image.Error && previewVideoPanel.videoPath) {
+                                                    root.removeVideoThumbPath(previewVideoPanel.videoPath)
+                                                }
+                                            }
+                                        }
 
                                         Text {
+                                            visible: previewVideoThumb.status !== Image.Ready
                                             anchors.centerIn: parent
-                                            text: "\uf04b"
+                                            text: "\uf03d"
                                             font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: 20
-                                            color: "white"
+                                            font.pixelSize: 48
+                                            color: Theme.textMuted
+                                        }
+
+                                        Rectangle {
+                                            visible: previewVideoThumb.status === Image.Ready
+                                            anchors.centerIn: parent
+                                            width: 48; height: 48
+                                            radius: 24
+                                            color: Theme.alpha(Qt.black, 0.5)
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "\uf04b"
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: 20
+                                                color: "white"
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: videoMetaColumn.implicitHeight + Theme.spacingM * 2
+                                        radius: Theme.radiusM
+                                        color: Theme.surface
+                                        border.color: Theme.outline
+                                        border.width: 1
+
+                                        ColumnLayout {
+                                            id: videoMetaColumn
+                                            anchors.fill: parent
+                                            anchors.margins: Theme.spacingM
+                                            spacing: 4
+
+                                            TextEdit {
+                                                id: videoMetaText
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: contentHeight
+                                                text: {
+                                                    if (!root.previewItem) return ""
+                                                    var meta = previewVideoPanel.videoMeta || ({})
+                                                    var path = previewVideoPanel.videoPath
+                                                    var lines = []
+                                                    var name = meta.name || (path ? path.split("/").pop() : "")
+                                                    if (name) lines.push("文件名: " + name)
+                                                    if (meta.path || path) lines.push("路径: " + (meta.path || path))
+
+                                                    var parts = ["视频"]
+                                                    var duration = root.formatDuration(meta.duration)
+                                                    if (duration) parts.push(duration)
+                                                    if (meta.width && meta.height) parts.push(meta.width + "x" + meta.height)
+                                                    var size = root.formatBytes(meta.size)
+                                                    if (size) parts.push(size)
+                                                    if (root.previewItem.fileMime) parts.push(root.previewItem.fileMime)
+                                                    if (meta.format_name) parts.push(meta.format_name)
+                                                    var ext = path && path.lastIndexOf(".") !== -1 ? path.substring(path.lastIndexOf(".") + 1).toUpperCase() : ""
+                                                    if (ext) parts.push(ext)
+                                                    lines.push("信息: " + parts.join(" | "))
+
+                                                    if (meta.modified) {
+                                                        lines.push("修改时间: " + meta.modified)
+                                                    } else if (videoMetaProcess.running && videoMetaProcess.currentPath === path) {
+                                                        lines.push("正在读取视频信息...")
+                                                    }
+                                                    return lines.join("\n")
+                                                }
+                                                font.pixelSize: Theme.fontSizeXS
+                                                color: Theme.textPrimary
+                                                wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
+                                                readOnly: true
+                                                selectByMouse: true
+                                                selectionColor: Theme.primary
+                                                selectedTextColor: "white"
+                                            }
                                         }
                                     }
                                 }
