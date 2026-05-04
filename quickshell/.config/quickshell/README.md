@@ -30,8 +30,11 @@ paru -S uv
 
 # 可选依赖 (按需安装)
 paru -S networkmanager bluez pipewire brightnessctl \
-    cliphist wl-clipboard awww playerctl cava \
+    cliphist wl-clipboard xclip clipnotify file xdg-utils xdg-user-dirs awww playerctl cava \
     grim slurp wayfreeze hyprpicker tesseract imagemagick
+
+# 剪贴板视频预览可选依赖
+paru -S ffmpeg
 
 # 截图编辑、长截图和贴图 (AUR)
 paru -S markpix-bin mark-shot wayscrollshot-bin qt-img-viewer
@@ -68,7 +71,24 @@ mkdir -p ~/.local/bin
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### 6. 启动通知守护进程 (可选)
+### 6. 启动剪贴板历史监听
+
+剪贴板面板只负责读取和重新激活 `cliphist` 历史，不负责常驻监听剪贴板。必须在窗口管理器或用户服务中启动 `wl-paste --watch cliphist store`。
+
+当前 Niri 配置使用两条监听命令，分别保存文本和图片：
+
+```kdl
+spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
+spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
+```
+
+如果不区分 MIME 类型，也可以使用通用监听：
+
+```bash
+wl-paste --watch cliphist store
+```
+
+### 7. 启动通知守护进程 (可选)
 
 ```bash
 cd ~/.config/quickshell
@@ -77,7 +97,7 @@ uv run python notifications/main.py &
 
 或在 Niri 配置中自动启动（已配置在 `autostart.kdl`）。
 
-### 7. 验证安装
+### 8. 验证安装
 
 ```bash
 # 测试 qs-popup
@@ -85,6 +105,10 @@ qs-popup --help
 
 # 测试启动器
 qs-popup launcher
+
+# 测试剪贴板历史
+cliphist list | head
+qs-popup clipboard
 ```
 
 ## 功能特性
@@ -211,7 +235,7 @@ uv sync
 | 天气 | `curl`, `jq` |
 | 日历 | `python-lunarcalendar` |
 | 媒体 | `playerctl` |
-| 剪贴板 | `cliphist`, `wl-clipboard` |
+| 剪贴板 | `cliphist`, `wl-clipboard`, `xclip` (X11 同步), `clipnotify` (X11 事件监听), `file`, `xdg-utils`, `xdg-user-dirs`, `ffmpeg` 或 `ffmpegthumbnailer` (视频预览) |
 | 壁纸 | `awww` 或 `swaybg` |
 | 通知 | `python>=3.11`, `uv`, `dbus-python` |
 | 可视化 | `cava` |
@@ -220,8 +244,11 @@ uv sync
 ```bash
 # 安装所有可选依赖 (Arch Linux)
 paru -S networkmanager bluez pipewire brightnessctl curl jq \
-        cliphist wl-clipboard awww playerctl cava \
+        cliphist wl-clipboard xclip clipnotify file xdg-utils xdg-user-dirs awww playerctl cava \
         grim slurp wayfreeze hyprpicker tesseract imagemagick
+
+# 剪贴板视频预览
+paru -S ffmpeg
 
 # 截图工具箱高级功能 (AUR)
 paru -S markpix-bin mark-shot wayscrollshot-bin qt-img-viewer
@@ -252,6 +279,106 @@ launcher=center            # 屏幕居中
 
 编辑 `~/.config/quickshell/Commons/Theme.js`：
 或者通过matugen配置
+
+### 剪贴板配置
+
+剪贴板组件入口是 `~/.config/quickshell/clipboard/shell.qml`，启动命令是：
+
+```bash
+qs-popup clipboard
+qs-popup clip
+qs-popup cb
+```
+
+它不是剪贴板监听守护进程。历史来源是 `cliphist list`，选择、预览、删除和清空记录时再调用 `cliphist decode`、`cliphist delete`、`cliphist wipe`。
+
+#### 剪贴板依赖
+
+| 依赖 | 必要性 | 用途 |
+|------|--------|------|
+| `cliphist` | 必需 | 保存历史、列出历史、解码历史、删除和清空历史 |
+| `wl-clipboard` | 必需 | 提供 `wl-paste` 和 `wl-copy`；`wl-paste` 负责监听，`wl-copy` 负责重新写入 Wayland 剪贴板 |
+| `bash`, `awk`, `grep`, `head`, `sed`, `coreutils` | 必需 | 解析 `cliphist list` 输出、限制读取数量、生成临时文件、计算哈希、清理缓存 |
+| `file` | 建议安装 | 判断文件和图片 MIME 类型；缺少时文件分类、图片重新激活和预览准确性会下降 |
+| `xclip` | 可选 | 选择历史后同步写入 X11 剪贴板选择区，给 XWayland/X11 应用使用 |
+| `xdg-utils` | 可选 | 预览视频时通过 `xdg-open` 打开原文件 |
+| `xdg-user-dirs` | 可选 | 保存图片时定位图片目录；缺少时回退到 `~/Pictures` |
+| `ffmpeg` | 可选 | 生成视频缩略图，并通过 `ffprobe` 读取视频尺寸、时长、格式等信息 |
+| `ffmpegthumbnailer` | 可选 | 没有 `ffmpeg` 时作为视频缩略图生成后备方案 |
+| `clipnotify` | 可选 | 当前 `clipse-sync` 二进制用于监听 X11 剪贴板事件 |
+
+#### 历史监听
+
+在 Niri 中建议保持当前两条自启动配置：
+
+```kdl
+spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
+spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
+```
+
+这两条分别保存文本和图片 MIME，图片历史才能被组件识别为图片并显示预览。如果只需要基础文本历史，可以改成：
+
+```bash
+wl-paste --watch cliphist store
+```
+
+X11 和 Wayland 剪贴板同步由 Niri 自启动中的 `~/.local/bin/clipse-sync` 负责。这个同步器独立于 QuickShell clipboard 面板；如果不使用 X11/XWayland 应用，可以不启动它。
+
+#### 内容类型
+
+| 类型 | 行为 |
+|------|------|
+| 文本 | 显示摘要，右键可查看全文，选择后用 `wl-copy` 写回剪贴板 |
+| HTML | 识别 HTML 内容；选择时按 `text/html` 或纯文本重新写入 |
+| 代码 | 根据文本特征归类，支持通过 `#code` 过滤 |
+| URL | 根据链接特征归类，支持通过 `#url` 或 `#链接` 过滤 |
+| 颜色 | 识别 HEX、RGB、RGBA、HSL、HSV 和 Qt 颜色格式，并显示色块 |
+| 图片 | 解码到 `${XDG_RUNTIME_DIR}/qs-clipboard` 后显示预览，选择后按原 MIME 写回 |
+| 文件 | 解析 `text/uri-list`、`copy`、`cut` 和本地路径，选择后写回 `text/uri-list` |
+| 视频文件 | 用 `ffmpeg` 或 `ffmpegthumbnailer` 生成缩略图；右键预览时显示元数据和打开按钮 |
+
+#### 搜索和过滤
+
+搜索框支持普通关键字、模糊匹配和标签过滤。标签可以直接输入，也可以点击过滤按钮显示标签条。
+
+常用标签：
+
+```text
+#text #code #url #image #file #video #html #color
+```
+
+中文别名也可使用，例如 `#文本`、`#代码`、`#链接`、`#图片`、`#文件`、`#视频`、`#颜色`。
+
+#### 选择后的写入规则
+
+选择记录时组件会先把当前内容哈希写入 `${XDG_RUNTIME_DIR}/clipboard-sync/last_hash`，再写入剪贴板。这样可以减少剪贴板同步器把同一条记录来回同步的概率。
+
+| 记录类型 | Wayland 写入 | X11 写入 |
+|----------|--------------|----------|
+| 普通文本 | `wl-copy`，HTML 使用 `--type text/html` | `xclip -selection clipboard -t UTF8_STRING` |
+| 图片 | `wl-copy --type image/*` | `xclip -selection clipboard -t image/*` |
+| 文件列表 | `wl-copy --type text/uri-list` | `xclip -selection clipboard -t text/uri-list` |
+| 单个非 GIF 图片文件 | 默认按图片 MIME 写入 | 同步写入图片 MIME |
+
+`QS_IMAGE_FILE_MODE` 控制单个图片文件的写入方式：
+
+| 值 | 行为 |
+|----|------|
+| `auto` | 默认值；普通图片文件按图片内容写入，QQ 缩略图路径按 URI 写入 |
+| `image` | 强制按图片内容写入 |
+| `uri` | 强制按 `text/uri-list` 写入 |
+
+#### 性能参数
+
+| 环境变量 | 默认值 | 作用 |
+|----------|--------|------|
+| `QS_CLIPBOARD_LIST_LIMIT` | `750` | `cliphist list` 最多读取的历史条数 |
+| `QS_CLIPBOARD_PARSE_CHUNK` | `60` | 首屏后每批解析的历史条数 |
+| `QS_CLIPBOARD_DECODE_CHUNK` | `24` | 后台为搜索索引批量解码的条数 |
+| `QS_CLIPBOARD_SEARCH_TEXT_LIMIT` | `20000` | 每条历史最多读取多少字符用于搜索 |
+| `QS_IMAGE_FILE_MODE` | `auto` | 单个图片文件选择后按图片内容还是 URI 写入 |
+
+临时缓存目录是 `${XDG_RUNTIME_DIR}/qs-clipboard`。点击顶部清空按钮会执行 `cliphist wipe`，并删除该缓存目录。
 
 ### 天气配置
 
@@ -369,9 +496,19 @@ binds {
 
 | 快捷键 | 功能 |
 |--------|------|
-| `方向键` | 导航 |
-| `Enter` | 粘贴选中项 |
-| `Delete` | 删除选中项 |
+| `Up` / `Down` | 在过滤后的历史列表中移动选中项 |
+| `Enter` / `Return` | 重新激活选中项，并关闭面板 |
+| `Escape` | 关闭面板；预览层打开时先关闭预览 |
+| 输入文字 | 搜索历史内容，支持模糊匹配 |
+| 输入 `#标签` | 按类型过滤，例如 `#image`、`#代码`、`#文件` |
+
+| 鼠标操作 | 功能 |
+|----------|------|
+| 左键点击记录 | 重新激活该记录，并关闭面板 |
+| 右键点击记录 | 打开预览层 |
+| 点击记录右侧删除按钮 | 删除单条历史 |
+| 点击顶部垃圾桶按钮 | 清空全部 `cliphist` 历史并删除预览缓存 |
+| 点击搜索框右侧过滤按钮 | 显示或隐藏标签过滤条 |
 
 ### 日历 (calendar)
 
@@ -415,6 +552,61 @@ quickshell --version
 
 # 手动运行查看错误
 POPUP_TYPE=launcher quickshell -c ~/.config/quickshell
+```
+
+### 剪贴板为空
+
+先确认 `cliphist` 中确实有历史：
+
+```bash
+cliphist list | head
+```
+
+如果没有输出，检查 `wl-paste` 监听是否启动：
+
+```bash
+pgrep -af "wl-paste.*cliphist store"
+```
+
+手动测试监听：
+
+```bash
+wl-paste --type text --watch cliphist store &
+wl-paste --type image --watch cliphist store &
+```
+
+### 剪贴板图片或文件类型不准确
+
+确认 `file` 命令存在：
+
+```bash
+command -v file
+```
+
+图片历史需要用带 MIME 的监听方式保存：
+
+```bash
+wl-paste --type image --watch cliphist store
+```
+
+### 选择历史后 X11 应用无法粘贴
+
+确认 `xclip` 和剪贴板同步器存在：
+
+```bash
+command -v xclip
+pgrep -af clipse-sync
+```
+
+QuickShell clipboard 会优先写入 Wayland 剪贴板；X11 写入依赖 `xclip`，跨协议同步依赖当前 Niri 自启动中的 `~/.local/bin/clipse-sync`。
+
+### 视频没有缩略图或元数据
+
+安装 `ffmpeg` 后重新打开剪贴板面板：
+
+```bash
+paru -S ffmpeg
+qs-popup clipboard
 ```
 
 ### 图标显示为方块
