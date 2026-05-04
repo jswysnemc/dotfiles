@@ -37,10 +37,14 @@ ShellRoot {
     property var itemIndexById: ({})
     property int selectedIndex: 0
     property bool loading: false
+    property bool parsing: false
+    property bool searchIndexing: false
+    property int searchIndexedCount: 0
     property bool closing: false
     readonly property string cacheDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/qs-clipboard"
     readonly property int clipboardListLimit: parseInt(Quickshell.env("QS_CLIPBOARD_LIST_LIMIT")) || 750
     readonly property int decodeChunkSize: parseInt(Quickshell.env("QS_CLIPBOARD_DECODE_CHUNK")) || 24
+    readonly property int searchTextLimit: parseInt(Quickshell.env("QS_CLIPBOARD_SEARCH_TEXT_LIMIT")) || 20000
     readonly property var tagFilterOptions: [
         ({ id: "text", label: "文本", icon: "\uf0f6" }),
         ({ id: "code", label: "代码", icon: "\uf121" }),
@@ -107,13 +111,14 @@ ShellRoot {
     property int pendingDecodeCursor: 0
     // Chunked parse state
     property var pendingParseEntries: []
+    property var parseItemsBuffer: []
     property var parseSeen: ({})
     readonly property int parseFirstBatch: 15
     readonly property int parseChunkSize: parseInt(Quickshell.env("QS_CLIPBOARD_PARSE_CHUNK")) || 60
 
     Process {
         id: loadClipboard
-        command: ["bash", "-c", "cliphist list | head -n " + root.clipboardListLimit]
+        command: ["bash", "-c", "cliphist list | awk -v limit=" + root.clipboardListLimit + " 'BEGIN{count=0} /^[0-9]+\\t/{ count++; if (count > limit) exit } { print }'"]
         stdout: SplitParser {
             splitMarker: ""
             onRead: data => {
@@ -131,10 +136,14 @@ ShellRoot {
                     root.parseClipboardData(root.clipboardBuffer)
                 } catch (e) {
                     console.error("parseClipboardData error:", e)
+                    root.parsing = false
+                    root.loading = false
                 }
+            } else {
+                root.parsing = false
+                root.loading = false
             }
             root.clipboardBuffer = ""
-            root.loading = false
         }
     }
 
@@ -158,6 +167,8 @@ ShellRoot {
             root.asyncDecodeBuffer = ""
             if (root.pendingDecodeCursor < root.pendingDecodeIds.length) {
                 decodeChunkTimer.restart()
+            } else {
+                root.searchIndexing = false
             }
         }
     }
@@ -193,7 +204,8 @@ ShellRoot {
         var marker = "===CLIP:"
         var endMarker = "===\n"
         var pos = 0
-        var updated = false
+        var visualUpdated = false
+        var searchUpdated = false
         data = sanitizeClipboardText(data)
         while (true) {
             var start = data.indexOf(marker, pos)
@@ -210,6 +222,17 @@ ShellRoot {
             if (idx !== undefined) {
                 var item = clipboardItems[idx]
                 var itemChanged = false
+                var allowSearchContent = !item.isImage && (item.isFile || item.textType === "html" || !isLikelyBinaryNoiseText(content))
+                var nextSearchLower = allowSearchContent ? sanitizeClipboardText(content).toLowerCase() : ""
+                if (!item.searchIndexed) {
+                    item.searchIndexed = true
+                    root.searchIndexedCount++
+                }
+                if (nextSearchLower && item.decodedSearchLower !== nextSearchLower) {
+                    item.decodedSearchLower = nextSearchLower
+                    searchUpdated = true
+                    itemChanged = true
+                }
 
                 if (item.textType === "html") {
                     var srcs = extractHtmlImageSrcs(content)
@@ -220,47 +243,47 @@ ShellRoot {
                         }).join(", ")
                         if (JSON.stringify(item.htmlImageSrcs || []) !== JSON.stringify(srcs)) {
                             item.htmlImageSrcs = srcs
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         if (item.preview !== nextPreview) {
                             item.preview = nextPreview
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         if (item.htmlPlainText) {
                             item.htmlPlainText = ""
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         if (item.htmlPreferPlain) {
                             item.htmlPreferPlain = false
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                     } else {
                         if (item.htmlImageSrcs && item.htmlImageSrcs.length > 0) {
                             item.htmlImageSrcs = []
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         var plain = htmlToPlainText(content)
                         var preferPlain = shouldTreatHtmlAsPlainText(content, plain)
                         if (item.htmlPlainText !== plain) {
                             item.htmlPlainText = plain
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         if (item.htmlPreferPlain !== preferPlain) {
                             item.htmlPreferPlain = preferPlain
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         if (preferPlain && plain) {
                             var plainPreview = previewText(plain)
                             if (item.preview !== plainPreview) {
                                 item.preview = plainPreview
-                                updated = true
+                                visualUpdated = true
                                 itemChanged = true
                             }
                         }
@@ -274,17 +297,17 @@ ShellRoot {
                         }).join(", ")
                         if (JSON.stringify(item.filePaths || []) !== JSON.stringify(paths)) {
                             item.filePaths = paths
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         if (item.fileType !== nextType) {
                             item.fileType = nextType
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                         if (item.preview !== nextPreview2) {
                             item.preview = nextPreview2
-                            updated = true
+                            visualUpdated = true
                             itemChanged = true
                         }
                     }
@@ -296,11 +319,11 @@ ShellRoot {
             }
             pos = nextMarker === -1 ? data.length : nextMarker
         }
-        if (updated) {
+        if (visualUpdated || (searchUpdated && root.hasKeywordSearch())) {
             clipboardItems = clipboardItems.slice()
-            rebuildTagCounts()
+            if (visualUpdated) rebuildTagCounts()
             filterItems()
-            queueMimeProbe()
+            if (visualUpdated) queueMimeProbe()
         }
     }
 
@@ -416,10 +439,16 @@ ShellRoot {
 
         item.tags = tags
         item.tagSet = tagSet
-        item.searchBlobLower = sanitizeClipboardText(searchParts.join(" ")).toLowerCase()
+        var searchBlob = sanitizeClipboardText(searchParts.join(" ")).toLowerCase()
+        if (item.decodedSearchLower) searchBlob += " " + item.decodedSearchLower
+        item.searchBlobLower = searchBlob
         item.hasVisualPreview = item.isImage
             || (item.isFile && (item.fileType === "image" || item.fileType === "gif" || item.fileType === "video"))
             || (item.textType === "html" && item.htmlImageSrcs && item.htmlImageSrcs.length > 0 && isLocalImagePath(item.htmlImageSrcs[0]))
+    }
+
+    function hasKeywordSearch() {
+        return parseSearchQuery(searchText).keyword.length > 0
     }
 
     function rebuildItemIndexMap() {
@@ -464,6 +493,8 @@ ShellRoot {
         if (root.closing) return
         pendingDecodeIds = ids ? ids.slice() : []
         pendingDecodeCursor = 0
+        searchIndexedCount = 0
+        searchIndexing = pendingDecodeIds.length > 0
         if (pendingDecodeIds.length > 0) {
             decodeChunkTimer.restart()
         }
@@ -479,8 +510,9 @@ ShellRoot {
         pendingDecodeCursor = end
 
         if (chunk.length === 0) return
+        var limit = Math.max(1024, root.searchTextLimit)
         var cmd = chunk.map(function(id) {
-            return "printf '===CLIP:" + id + "===\\n'; cliphist decode '" + id + "'"
+            return "printf '===CLIP:" + id + "===\\n'; cliphist decode '" + id + "' | head -c " + limit
         }).join("; ")
         asyncDecodeProcess.command = ["bash", "-c", cmd]
         asyncDecodeProcess.running = true
@@ -1116,7 +1148,7 @@ ShellRoot {
             preview = previewText(content)
         }
 
-        var key = isImage ? ("img:" + content) : (isFile ? ("file:" + filePaths.join("|")) : preview)
+        var key = isImage ? ("img:" + content) : (isFile ? ("file:" + filePaths.join("|")) : ("text:" + id))
         if (seen[key]) return null
         seen[key] = true
 
@@ -1138,7 +1170,9 @@ ShellRoot {
             rawContent: isFile ? content.trim() : "",
             imagePath: "",
             preview: preview,
-            colorValue: textType === "color" ? normalizeColorValue(trimmedContent) : ""
+            colorValue: textType === "color" ? normalizeColorValue(trimmedContent) : "",
+            decodedSearchLower: "",
+            searchIndexed: false
         }
         rebuildItemDerivedFields(item)
         return item
@@ -1148,9 +1182,7 @@ ShellRoot {
         if (root.closing) return
         var decodeIds = []
         for (var j = 0; j < items.length; j++) {
-            if (items[j].textType === "html" && items[j].htmlImageSrcs.length === 0) {
-                decodeIds.push(items[j].id)
-            } else if (items[j].isFile) {
+            if (!items[j].isImage) {
                 decodeIds.push(items[j].id)
             }
         }
@@ -1167,6 +1199,8 @@ ShellRoot {
 
     function parseClipboardData(data) {
         if (root.closing) return
+        root.parsing = true
+        root.loading = true
         var rawLines = data.trim().split("\n")
         var entries = []
         for (var i = 0; i < rawLines.length; i++) {
@@ -1188,6 +1222,7 @@ ShellRoot {
             var item = parseOneEntry(entries[i], seen)
             if (item) items.push(item)
         }
+        root.parseItemsBuffer = items
         root.clipboardItems = items
         root.rebuildItemIndexMap()
         root.rebuildTagCounts()
@@ -1200,6 +1235,9 @@ ShellRoot {
             parseRestTimer.restart()
         } else {
             root.pendingParseEntries = []
+            root.parseItemsBuffer = items
+            root.parsing = false
+            root.loading = false
             scheduleBackgroundTasks(items)
         }
     }
@@ -1207,7 +1245,7 @@ ShellRoot {
     function parseRemainingEntries() {
         if (root.closing) return
         var seen = root.parseSeen
-        var items = root.clipboardItems.slice()
+        var items = root.parseItemsBuffer.slice()
         var entries = root.pendingParseEntries
         var end = Math.min(entries.length, root.parseChunkSize)
         for (var i = 0; i < end; i++) {
@@ -1215,14 +1253,18 @@ ShellRoot {
             if (item) items.push(item)
         }
         root.pendingParseEntries = entries.slice(end)
-        root.clipboardItems = items
-        root.rebuildItemIndexMap()
-        root.rebuildTagCounts()
-        root.filterItems()
+        root.parseItemsBuffer = items
         if (root.pendingParseEntries.length > 0) {
             parseRestTimer.restart()
         } else {
+            root.clipboardItems = items
+            root.rebuildItemIndexMap()
+            root.rebuildTagCounts()
+            root.filterItems()
             root.parseSeen = ({})
+            root.parseItemsBuffer = []
+            root.parsing = false
+            root.loading = false
             scheduleBackgroundTasks(items)
         }
     }
@@ -1441,6 +1483,9 @@ ShellRoot {
         onTriggered: {
             if (!root.closing) {
                 root.loading = true
+                root.parsing = false
+                root.searchIndexing = false
+                root.searchIndexedCount = 0
                 root.clipboardBuffer = ""
                 loadClipboard.running = true
             }
@@ -1562,11 +1607,15 @@ ShellRoot {
         videoThumbStartTimer.running = false
 
         loading = false
+        parsing = false
+        searchIndexing = false
+        searchIndexedCount = 0
         clipboardBuffer = ""
         asyncDecodeBuffer = ""
         mimeProbeBuffer = ""
         mimeProbePending = false
         pendingParseEntries = []
+        parseItemsBuffer = []
         parseSeen = ({})
         pendingDecodeIds = []
         pendingDecodeCursor = 0
@@ -1729,6 +1778,9 @@ ShellRoot {
         deleteProcess.command = ["bash", "-c", "cliphist list | grep -m1 '^" + item.id + "\t' | cliphist delete"]
         deleteProcess.running = true
         clipboardItems = clipboardItems.filter(i => i.id !== item.id)
+        parseItemsBuffer = parseItemsBuffer.filter(i => i.id !== item.id)
+        pendingParseEntries = pendingParseEntries.filter(i => i.id !== item.id)
+        pendingDecodeIds = pendingDecodeIds.filter(id => String(id) !== String(item.id))
         rebuildItemIndexMap()
         rebuildTagCounts()
         filterItems()
@@ -1743,7 +1795,12 @@ ShellRoot {
         pendingDecodeIds = []
         pendingDecodeCursor = 0
         pendingParseEntries = []
+        parseItemsBuffer = []
         parseSeen = ({})
+        loading = false
+        parsing = false
+        searchIndexing = false
+        searchIndexedCount = 0
         parseRestTimer.running = false
         decodeChunkTimer.running = false
         mimeProbeStartTimer.running = false
@@ -1879,6 +1936,8 @@ ShellRoot {
 
                         Text {
                             text: root.filteredItems.length + " 条记录"
+                                + (root.parsing ? " · 解析中" : "")
+                                + (root.searchIndexing ? " · 索引 " + root.searchIndexedCount + "/" + root.pendingDecodeIds.length : "")
                             font.pixelSize: Theme.fontSizeXS
                             color: Theme.textMuted
                         }
@@ -2095,9 +2154,9 @@ ShellRoot {
 
                         // Loading
                         Text {
-                            visible: root.loading
+                            visible: root.loading && root.filteredItems.length === 0
                             anchors.centerIn: parent
-                            text: "加载中..."
+                            text: root.parsing ? "解析中..." : "加载中..."
                             font.pixelSize: Theme.fontSizeM
                             color: Theme.textMuted
                         }
@@ -2105,12 +2164,33 @@ ShellRoot {
                         ListView {
                             id: listFlickable
                             anchors.fill: parent
-                            anchors.rightMargin: listScrollbar.visible ? 10 : 0
                             clip: true
                             boundsBehavior: Flickable.StopAtBounds
                             spacing: Theme.spacingS
                             model: root.filteredItems
-                            cacheBuffer: 240
+                            cacheBuffer: Math.max(1800, height * 4)
+                            reuseItems: true
+                            readonly property int scrollbarGutter: 31
+                            readonly property int scrollbarWidth: 6
+                            readonly property int itemLeftInset: 12
+
+                            ScrollBar.vertical: ScrollBar {
+                                id: listScrollbar
+                                width: listFlickable.scrollbarWidth
+                                x: listFlickable.width - ((listFlickable.scrollbarGutter + width) / 2)
+                                policy: ScrollBar.AsNeeded
+                                minimumSize: Math.min(1, 30 / Math.max(1, listFlickable.height))
+
+                                contentItem: Rectangle {
+                                    implicitWidth: 6
+                                    implicitHeight: 30
+                                    radius: 3
+                                    color: listScrollbar.pressed || listScrollbar.hovered
+                                        ? Theme.textMuted : Theme.alpha(Theme.textMuted, 0.4)
+
+                                    Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                }
+                            }
 
                             Connections {
                                 target: root
@@ -2120,16 +2200,29 @@ ShellRoot {
                                 }
                             }
 
-                            delegate: Rectangle {
-                                id: clipItem
+                            delegate: Item {
+                                id: clipDelegate
                                 required property var modelData
                                 required property int index
 
-                                property var badge: root.typeBadgeInfo(modelData)
-                                property bool hasVisualPreview: !!modelData.hasVisualPreview
+                                readonly property var badge: root.typeBadgeInfo(modelData)
+                                readonly property bool hasVisualPreview: !!modelData.hasVisualPreview
+                                readonly property bool hasScrollbar: listFlickable.contentHeight > listFlickable.height
 
                                 width: listFlickable.width
                                 height: hasVisualPreview ? 80 : 56
+
+                                Rectangle {
+                                    id: clipItem
+
+                                    readonly property var modelData: clipDelegate.modelData
+                                    readonly property int index: clipDelegate.index
+                                    readonly property var badge: clipDelegate.badge
+                                    readonly property bool hasVisualPreview: clipDelegate.hasVisualPreview
+
+                                    x: clipDelegate.hasScrollbar ? listFlickable.itemLeftInset : 0
+                                    width: listFlickable.width - (clipDelegate.hasScrollbar ? listFlickable.scrollbarGutter : 0)
+                                    height: parent.height
                                         radius: Theme.radiusM
                                         color: index === root.selectedIndex
                                             ? Theme.alpha(Theme.primary, 0.1)
@@ -2159,7 +2252,18 @@ ShellRoot {
                                             anchors.margins: Theme.spacingM
                                             spacing: Theme.spacingM
 
-                                            // Column 1: Type icon (always visible)
+                                            // Column 1: Visible list index
+                                            Text {
+                                                Layout.preferredWidth: 24
+                                                Layout.alignment: Qt.AlignVCenter
+                                                horizontalAlignment: Text.AlignRight
+                                                text: index + 1
+                                                font.pixelSize: Theme.fontSizeXS
+                                                font.bold: index === root.selectedIndex
+                                                color: index === root.selectedIndex ? Theme.primary : Theme.textMuted
+                                            }
+
+                                            // Column 2: Type icon (always visible)
                                             Rectangle {
                                                 Layout.preferredWidth: 28; Layout.preferredHeight: 28
                                                 Layout.alignment: Qt.AlignVCenter
@@ -2372,54 +2476,13 @@ ShellRoot {
 
                                                 HoverHandler { id: delHover }
                                                 TapHandler { onTapped: root.deleteItem(clipItem.modelData) }
-                                            }
-                                        }
-                                    }
-                        }
+	                                            }
+	                                        }
+	                                    }
+	                                }
+	                        }
 
-                        // Scrollbar
-                        Rectangle {
-                            id: listScrollbar
-                            visible: listFlickable.contentHeight > listFlickable.height
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            width: 6
-                            color: "transparent"
-
-                            Rectangle {
-                                id: scrollHandle
-                                anchors.right: parent.right
-                                width: 6
-                                height: Math.max(30, parent.height * listFlickable.height / listFlickable.contentHeight)
-                                radius: 3
-                                color: scrollHandleArea.containsMouse || scrollHandleArea.pressed
-                                    ? Theme.textMuted : Theme.alpha(Theme.textMuted, 0.4)
-                                y: listFlickable.contentHeight > listFlickable.height
-                                    ? listFlickable.contentY / (listFlickable.contentHeight - listFlickable.height) * (parent.height - height)
-                                    : 0
-
-                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
-
-                                MouseArea {
-                                    id: scrollHandleArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    drag.target: parent
-                                    drag.axis: Drag.YAxis
-                                    drag.minimumY: 0
-                                    drag.maximumY: listScrollbar.height - scrollHandle.height
-
-                                    onPositionChanged: {
-                                        if (drag.active && listFlickable.contentHeight > listFlickable.height) {
-                                            var ratio = scrollHandle.y / (listScrollbar.height - scrollHandle.height)
-                                            listFlickable.contentY = ratio * (listFlickable.contentHeight - listFlickable.height)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+	                    }
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
