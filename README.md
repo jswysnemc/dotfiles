@@ -79,6 +79,7 @@
 | **kitty** | Kitty 终端模拟器配置 | [README](kitty/.config/kitty/README.md) |
 | **mpv** | MPV 媒体播放器配置（含 Anime4K） | [README](mpv/.config/mpv/README.md) |
 | **sddm-theme** | SDDM 登录主题 (lunar-glass) | [README](sddm-theme/README.md) |
+| **systemd** | systemd 用户服务 (通知守护进程等) | - |
 | **my-scripts** | 自定义脚本集合 | [README](my-scripts/.custom/bin/README.md) |
 | **font** | 字体配置 | [README](font/.config/fontconfig/README.md) |
 
@@ -119,7 +120,7 @@ cd ~/.dotfiles
 | Phase 6b | Zsh Shell（可选，含 .zshenv 自动创建） |
 | Phase 6c | Tmux 终端复用器（可选） |
 | Phase 6d | MPV 媒体播放器（可选，含 Anime4K 着色器） |
-| Phase 7 | Quickshell 配置与 PAM 锁屏 |
+| Phase 7 | Quickshell 配置、PAM 锁屏与通知服务 |
 | Phase 8 | Matugen 主题生成 + GTK/Qt 主题配置 |
 | Phase 9 | 启用系统服务（NetworkManager、蓝牙） |
 | Phase 9b | SDDM 显示管理器（可选，含 lunar-glass 主题） |
@@ -309,6 +310,7 @@ stow kitty
 stow font
 stow my-scripts
 stow electron-flags
+stow systemd
 ```
 
 #### 第五步：初始化主题
@@ -552,6 +554,7 @@ export WIFI_PASSWORD="your-password"
 1. 检查 quickshell 是否安装：`quickshell --version`
 2. 检查 Python 依赖是否安装：`cd ~/.config/quickshell && uv sync`
 3. 检查 qs-popup 脚本是否存在：`which qs-popup`
+4. 检查通知服务状态：`systemctl --user status qs-notifications.service`
 
 ### Zsh 插件加载失败
 

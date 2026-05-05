@@ -86,7 +86,6 @@ EOF
 ```
 ~/.config/niri/
 ├── config.kdl              # 主配置文件（模块加载器）
-├── noctalia.kdl            # Noctalia 主题配色
 ├── conf.d/                 # 模块化配置目录
 │   ├── input.kdl           # 输入设备配置
 │   ├── output.kdl          # 显示器配置
@@ -120,6 +119,7 @@ EOF
 | 输出 | 分辨率 | 缩放 |
 |------|--------|------|
 | eDP-1 | 2560x1600@240Hz | 1.0 |
+| HDMI-A-1 | 1920x1080@60Hz | 1.0 (外接) |
 
 ### 布局 (`layout.kdl`)
 
@@ -142,28 +142,13 @@ EOF
 - **Qt 主题**: `qt6ct`
 - **输入法**: Fcitx5 (`XMODIFIERS="@im=fcitx"`)
 
-### 主题 (`noctalia.kdl`)
-
-Noctalia 配色方案：
-
-| 元素 | 活动 | 非活动 | 紧急 |
-|------|------|--------|------|
-| 焦点环 | `#5257a1` | `#fbf8ff` | `#ba1a1a` |
-| 边框 | `#5257a1` | `#fbf8ff` | `#ba1a1a` |
-| 标签指示器 | `#5257a1` | `#a9aefe` | `#ba1a1a` |
-
-- **阴影**: `#00000070`
-- **插入提示**: `#5257a180`
-
 ### 自启动 (`autostart.kdl`)
 
 | 服务 | 说明 |
 |------|------|
 | fcitx5 | 输入法 |
-| quickshell notifications | 通知守护进程 (uv run) |
-| sticky-notes | 便签服务 |
+| qs-notifications.service | 通知守护进程 (systemd 用户服务) |
 | wl-paste + cliphist | 剪贴板管理 (文本+图片) |
-| clipboard-sync | X11/Wayland 剪贴板同步 |
 | swayidle.sh | 空闲管理 |
 | awww.sh | 壁纸管理 |
 | swww.sh | 壁纸管理兼容脚本（内部调用 awww） |
@@ -301,7 +286,7 @@ Noctalia 配色方案：
 
 ### awww.sh - 壁纸管理
 
-启动 awww 守护进程并设置壁纸，使用 grow 过渡效果。`swww.sh` 保留为兼容脚本，内部同样调用 awww。
+启动 awww 守护进程并设置壁纸，使用 grow 过渡效果。支持多显示器独立壁纸，为每个输出（eDP-1、HDMI-A-1）分别读取 `~/.cache/current_wallpaper_<output>` 缓存文件。`swww.sh` 保留为兼容脚本，内部同样调用 awww。
 
 ### swayidle.sh - 空闲管理
 
@@ -323,7 +308,7 @@ X11 和 Wayland 剪贴板双向同步：
 
 ### wallpaper-selector.sh - 壁纸选择器
 
-使用 Rofi 选择和设置壁纸，支持缩略图预览、视频首帧提取、matugen 主题生成。
+使用 Rofi 选择和设置壁纸，支持缩略图预览、视频首帧提取、matugen 主题生成。可选传入 TARGET_OUTPUT 参数为指定显示器设置壁纸，仅对主显示器触发主题生成。
 
 ### niri-monitor-switch.sh - 显示器配置切换
 

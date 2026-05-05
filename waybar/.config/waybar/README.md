@@ -177,9 +177,11 @@ pkill -SIGUSR2 waybar
 
 录屏特性：
 - 支持全屏和区域录制
+- 支持 GIF 模式（区域录制后自动转换为 GIF）
 - 可配置编码器 (默认 libx264)
 - 支持音频录制
 - 自动保存格式选择 (mp4/mkv/webm)
+- 健壮的进程检测（僵尸进程过滤、命令名校验）
 - Waybar 信号集成 (SIGUSR1+8)
 
 ## Quickshell 集成

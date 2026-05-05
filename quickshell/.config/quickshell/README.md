@@ -90,12 +90,20 @@ wl-paste --watch cliphist store
 
 ### 7. 启动通知守护进程 (可选)
 
+通知守护进程已配置为 systemd 用户服务，随桌面会话自动启动：
+
 ```bash
-cd ~/.config/quickshell
-uv run python notifications/main.py &
+# 启用并启动服务
+systemctl --user enable --now qs-notifications.service
+
+# 查看状态
+systemctl --user status qs-notifications.service
+
+# 查看日志
+journalctl --user -u qs-notifications.service -f
 ```
 
-或在 Niri 配置中自动启动（已配置在 `autostart.kdl`）。
+服务配置文件位于 `~/.config/systemd/user/qs-notifications.service`。
 
 ### 8. 验证安装
 
@@ -115,9 +123,10 @@ qs-popup clipboard
 
 - 统一的主题设计 (Commons/Theme.js)
 - 支持自定义位置和边距 (position.conf)
+- 多显示器支持：弹窗自动定位到当前焦点输出 (ScreenModel.js + QS_TARGET_OUTPUT)
 - 键盘友好 (Escape 关闭，方向键导航)
 - 低资源占用，按需启动
-- 环境变量驱动的模块化架构
+- 环境变量驱动的模块化架构 (`QS_TARGET_OUTPUT` 控制目标屏幕)
 
 ## 组件列表
 
@@ -130,7 +139,7 @@ qs-popup clipboard
 | 天气 | `qs-popup weather` | - | 天气预报 (Open-Meteo API) |
 | 媒体 | `qs-popup media` | `player` | MPRIS 媒体控制 + 歌词 |
 | 通知 | `qs-popup notifications` | `notif` | 通知中心 (D-Bus) |
-| 截图工具箱 | `qs-popup screenshot-toolbox` | `screenshot`, `shot`, `ss` | 截图、标注、长截图、OCR、取色、测量和贴图 |
+| 截图工具箱 | `qs-popup screenshot-toolbox` | `screenshot`, `shot`, `ss` | 截图、标注、长截图、OCR、取色、测量和贴图；多屏时全屏截图支持屏幕选择 |
 | 启动器 | `qs-popup launcher` | `launch`, `app` | 应用启动器 |
 | 剪贴板 | `qs-popup clipboard` | `clip`, `cb` | 剪贴板历史 (cliphist) |
 | 电源菜单 | `qs-popup power-menu` | `power`, `pm` | 关机/重启/注销 |
@@ -150,7 +159,8 @@ qs-popup clipboard
 ├── visual_model_templates.json  # 视觉模型模板 (OCR/图片描述)
 │
 ├── Commons/
-│   └── Theme.js                 # 统一主题配置
+│   ├── Theme.js                 # 统一主题配置
+│   └── ScreenModel.js           # 多屏定位工具
 │
 ├── 功能组件目录
 │   ├── wifi/shell.qml
@@ -259,6 +269,8 @@ paru -S markpix-bin mark-shot wayscrollshot-bin qt-img-viewer
 ### 位置配置
 
 编辑 `~/.config/quickshell/position.conf`：
+
+`qs-popup` 支持 `--output <name>` 选项，将弹窗定位到指定显示器。不指定时自动检测当前焦点输出（通过 niri 或 WAYBAR_OUTPUT_NAME 环境变量）。
 
 ```ini
 # 格式: 组件名=位置[,边距1[,边距2]]
@@ -531,7 +543,8 @@ binds {
 |------|------|
 | `选框复制` | 选区截图并复制到剪贴板 |
 | `窗口截图` | 鼠标选择窗口后调用 Niri 截图 |
-| `全屏截图` | 保存全屏截图并复制 |
+| `全屏截图` | 保存全屏截图并复制；多显示器时显示屏幕选择器 |
+| `全屏截图 (指定屏幕)` | 从屏幕选择器中选取单个显示器截图 |
 | `长截图` | 调用 wayscrollshot |
 | `像素测量` | 复制选区宽高和面积 |
 | `OCR 识别` | 识别选区文字并复制 |
@@ -633,12 +646,14 @@ sudo systemctl enable --now NetworkManager
 ### 通知守护进程问题
 
 ```bash
-# 检查 D-Bus 连接
-cd ~/.config/quickshell/notifications
-uv run python main.py
+# 检查服务状态
+systemctl --user status qs-notifications.service
 
 # 查看日志
-journalctl --user -f
+journalctl --user -u qs-notifications.service -f
+
+# 手动重启服务
+systemctl --user restart qs-notifications.service
 ```
 
 ### 主题修改不生效
