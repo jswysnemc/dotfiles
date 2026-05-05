@@ -57,6 +57,12 @@ default_output() {
     fi
 }
 
+target_window_json() {
+    if command -v niri >/dev/null 2>&1; then
+        niri msg --json focused-window 2>/dev/null | tr -d '\n'
+    fi
+}
+
 # Apply margins based on position
 # Args: position, margin1, [margin2]
 apply_margins() {
@@ -160,6 +166,10 @@ toggle_popup() {
         if [[ -f "$shell_path" ]]; then
             read_config "$name"
             QS_TARGET_OUTPUT="$(default_output)"
+            QS_TARGET_WINDOW_JSON=""
+            if [[ "$name" == "close-confirm" ]]; then
+                QS_TARGET_WINDOW_JSON="$(target_window_json)"
+            fi
             parse_args $ARGS
             QS_POS="$QS_POS" \
             QS_MARGIN_T="$QS_MARGIN_T" \
@@ -167,6 +177,7 @@ toggle_popup() {
             QS_MARGIN_B="$QS_MARGIN_B" \
             QS_MARGIN_L="$QS_MARGIN_L" \
             QS_TARGET_OUTPUT="$QS_TARGET_OUTPUT" \
+            QS_TARGET_WINDOW_JSON="$QS_TARGET_WINDOW_JSON" \
             quickshell -p "$shell_path" &
         else
             notify-send "QuickShell" "Component not found: $shell_path"

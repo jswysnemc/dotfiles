@@ -14,6 +14,12 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property var targetWindow: null
+    property bool hasTargetWindow: targetWindow !== null && targetWindow !== undefined
+    readonly property string targetTitle: hasTargetWindow && targetWindow.title ? targetWindow.title : "未知标题"
+    readonly property string targetAppId: hasTargetWindow && targetWindow.app_id ? targetWindow.app_id : "unknown"
+    readonly property string targetWorkspace: hasTargetWindow && targetWindow.workspace_id !== undefined ? String(targetWindow.workspace_id) : "-"
+    readonly property string targetPid: hasTargetWindow && targetWindow.pid !== undefined ? String(targetWindow.pid) : "-"
 
     Process {
         id: closeProcess
@@ -25,7 +31,49 @@ ShellRoot {
         closeProcess.running = true
     }
 
+    function setTargetWindow(win) {
+        if (win && typeof win === "object" && win.id !== undefined && win.id !== null) {
+            targetWindow = win
+            closeProcess.command = ["niri", "msg", "action", "close-window", "--id", String(win.id)]
+        } else {
+            targetWindow = null
+            closeProcess.command = ["niri", "msg", "action", "close-window"]
+        }
+    }
+
+    function loadTargetWindowFromEnv() {
+        var data = Quickshell.env("QS_TARGET_WINDOW_JSON")
+        if (!data) return false
+
+        try {
+            var win = JSON.parse(data)
+            setTargetWindow(win)
+            return hasTargetWindow
+        } catch (e) {
+            console.log("Failed to parse target window:", e)
+            return false
+        }
+    }
+
+    Process {
+        id: loadFocusedWindow
+        command: ["niri", "msg", "--json", "focused-window"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: data => {
+                try {
+                    root.setTargetWindow(JSON.parse(data))
+                } catch (e) {
+                    console.log("Failed to load focused window:", e)
+                }
+            }
+        }
+    }
+
     Component.onCompleted: {
+        if (!loadTargetWindowFromEnv()) {
+            loadFocusedWindow.running = true
+        }
         enterAnimation.start()
     }
 
@@ -106,7 +154,7 @@ ShellRoot {
             Rectangle {
                 id: dialog
                 anchors.centerIn: parent
-                width: 280
+                width: 380
                 height: contentCol.implicitHeight + Theme.spacingXL * 2
                 color: Theme.background
                 radius: Theme.radiusXL
@@ -125,6 +173,7 @@ ShellRoot {
                 ColumnLayout {
                     id: contentCol
                     anchors.centerIn: parent
+                    width: parent.width - Theme.spacingXL * 2
                     anchors.margins: Theme.spacingXL
                     spacing: Theme.spacingL
 
@@ -157,9 +206,92 @@ ShellRoot {
                     // Message
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "确定要关闭当前窗口吗？"
+                        text: root.hasTargetWindow ? "确定要关闭以下窗口吗？" : "确定要关闭当前窗口吗？"
                         font.pixelSize: Theme.fontSizeM
                         color: Theme.textSecondary
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: windowInfoCol.implicitHeight + Theme.spacingM * 2
+                        radius: Theme.radiusL
+                        color: Theme.surface
+                        border.color: root.hasTargetWindow ? Theme.alpha(Theme.error, 0.25) : Theme.outline
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: windowInfoCol
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingM
+                            spacing: Theme.spacingS
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
+
+                                Rectangle {
+                                    width: 28
+                                    height: 28
+                                    radius: Theme.radiusS
+                                    color: Theme.alpha(Theme.error, 0.1)
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\uf2d2"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 14
+                                        color: Theme.error
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.hasTargetWindow ? root.targetTitle : "未获取到窗口信息"
+                                        font.pixelSize: Theme.fontSizeM
+                                        font.bold: true
+                                        color: Theme.textPrimary
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.hasTargetWindow ? root.targetAppId : "将按 niri 当前聚焦窗口执行"
+                                        font.pixelSize: Theme.fontSizeS
+                                        font.family: "monospace"
+                                        color: Theme.textMuted
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
+
+                                Text {
+                                    text: "工作区 " + root.targetWorkspace
+                                    font.pixelSize: Theme.fontSizeS
+                                    color: Theme.textSecondary
+                                }
+
+                                Text {
+                                    text: "PID " + root.targetPid
+                                    font.pixelSize: Theme.fontSizeS
+                                    color: Theme.textSecondary
+                                }
+
+                                Text {
+                                    visible: root.hasTargetWindow && root.targetWindow.id !== undefined
+                                    text: "ID " + root.targetWindow.id
+                                    font.pixelSize: Theme.fontSizeS
+                                    color: Theme.textSecondary
+                                }
+                            }
+                        }
                     }
 
                     // Buttons

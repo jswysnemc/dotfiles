@@ -10,6 +10,8 @@ WALLPAPER_DIRS=(
 CACHE_DIR="$HOME/.cache/wallpaper-thumbs"
 LINK_PATH="$HOME/.cache/current_wallpaper"
 EXTS="jpg|jpeg|png|gif|webp"
+WALLPAPER_CLIENT="awww"
+WALLPAPER_DAEMON="awww-daemon"
 
 mkdir -p "$CACHE_DIR"
 
@@ -94,6 +96,23 @@ generate_all_thumbs() {
 
 # ============ 设置壁纸 ============
 
+ensure_wallpaper_backend() {
+    if ! command -v "$WALLPAPER_CLIENT" >/dev/null 2>&1; then
+        echo "error: command not found: $WALLPAPER_CLIENT"
+        return 1
+    fi
+
+    if ! command -v "$WALLPAPER_DAEMON" >/dev/null 2>&1; then
+        echo "error: command not found: $WALLPAPER_DAEMON"
+        return 1
+    fi
+
+    if ! pgrep -x "$WALLPAPER_DAEMON" > /dev/null; then
+        "$WALLPAPER_DAEMON" >/dev/null 2>&1 &
+        sleep 0.5
+    fi
+}
+
 set_wallpaper() {
     local file="$1"
 
@@ -109,17 +128,19 @@ set_wallpaper() {
     ln -sf "$file" "${LINK_PATH}.${ext}"
     ln -sf "$file" "$LINK_PATH"
 
-    # 启动 awww daemon
-    if ! pgrep -x "awww-daemon" > /dev/null; then
-        awww-daemon &
-        sleep 0.5
-    fi
+    ensure_wallpaper_backend || return 1
 
     # 设置壁纸
-    awww img "$file" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
+    if ! "$WALLPAPER_CLIENT" img "$file" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60; then
+        echo "error: failed to set wallpaper via $WALLPAPER_CLIENT"
+        return 1
+    fi
 
     # 生成主题
-    theme-gen "$file"
+    if ! theme-gen "$file"; then
+        echo "error: theme generation failed"
+        return 1
+    fi
 
     echo "ok"
 }

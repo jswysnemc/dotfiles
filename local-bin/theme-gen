@@ -234,7 +234,7 @@ generate() {
     fi
 
     echo "Generating theme (mode: $mode) from: $image"
-    matugen image "$image" -m "$mode"
+    matugen image "$image" -m "$mode" --source-color-index 0
 
     # Setup component themes
     setup_waybar "$image"
