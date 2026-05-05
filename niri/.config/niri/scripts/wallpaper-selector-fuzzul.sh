@@ -10,7 +10,12 @@ CACHE_DIR="$HOME/.cache/rofi-wallpaper-thumbs"
 LINK_PATH="$HOME/.cache/current_wallpaper"
 FUZZEL_CONF=""
 EXTS="jpg|jpeg|png|gif|webp|mp4|mkv"
+TARGET_OUTPUT="${1:-}"
 # ===========================================
+
+if [[ -n "$TARGET_OUTPUT" ]]; then
+    LINK_PATH="$HOME/.cache/current_wallpaper_${TARGET_OUTPUT}"
+fi
 
 mkdir -p "$CACHE_DIR"
 
@@ -107,7 +112,7 @@ if [[ -n "$SELECTED_INDEX" ]]; then
 
     # 设置壁纸
     EXT="${SELECTED##*.}"
-    rm -f "$LINK_PATH" "$LINK_PATH"*
+    rm -f "$LINK_PATH" "$LINK_PATH".*
     ln -sf "$SELECTED" "${LINK_PATH}.${EXT}"
     ln -sf "$SELECTED" "${LINK_PATH}"
 
@@ -116,13 +121,20 @@ if [[ -n "$SELECTED_INDEX" ]]; then
         sleep 0.5
     fi
 
-    awww img "$SELECTED" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
+    AWWW_ARGS=()
+    if [[ -n "$TARGET_OUTPUT" ]]; then
+        AWWW_ARGS+=(--outputs "$TARGET_OUTPUT")
+    fi
+
+    awww img "$SELECTED" "${AWWW_ARGS[@]}" --transition-type grow --transition-pos 0.5,0.5 --transition-step 90 --transition-fps 60
 
     # 使用 theme-gen 生成主题
-    if command -v theme-gen &> /dev/null; then
-        theme-gen
-    else
-        matugen image ~/.cache/current_wallpaper
+    if [[ -z "$TARGET_OUTPUT" ]]; then
+        if command -v theme-gen &> /dev/null; then
+            theme-gen
+        else
+            matugen image ~/.cache/current_wallpaper
+        fi
     fi
 
     # 通知

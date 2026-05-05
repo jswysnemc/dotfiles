@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import sys
+import traceback
 from pathlib import Path
 from datetime import datetime
 from dbus_next.aio import MessageBus
@@ -18,12 +19,35 @@ from dbus_next import Variant, BusType
 RUNTIME_DIR = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 SOCKET_PATH = f"{RUNTIME_DIR}/qs-notifications.sock"
 HISTORY_FILE = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "qs-notifications" / "history.json"
+LOG_FILE = Path(os.environ.get("QS_NOTIFICATIONS_LOG", "/tmp/qs-notifications.log"))
 
 # State
 notifications = {}
 history = []
 next_id = 1
 dnd_mode = False
+
+
+def log(message: str):
+    line = f"{datetime.now().isoformat(timespec='seconds')} {message}"
+    print(line, file=sys.stderr, flush=True)
+    try:
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+
+def log_exception(context: str):
+    log(f"{context}:\n{traceback.format_exc().rstrip()}")
+
+
+def hint_value(hints: dict, key: str, default=None):
+    value = hints.get(key, default)
+    if isinstance(value, Variant):
+        return value.value
+    return value
 
 
 def load_history():
@@ -51,12 +75,28 @@ async def show_popup(notif: dict):
     popup_path = Path(__file__).parent / "popup.qml"
     env = os.environ.copy()
     env["QS_NOTIF_DATA"] = json.dumps(notif, ensure_ascii=False)
-    subprocess.Popen(
-        ["quickshell", "-p", str(popup_path)],
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
+    try:
+        output_json = subprocess.check_output(
+            ["niri", "msg", "--json", "focused-output"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=0.3,
+        )
+        env["QS_TARGET_OUTPUT"] = json.loads(output_json).get("name", "")
+    except Exception:
+        log_exception("Failed to resolve focused output")
+
+    try:
+        popup_log = open("/tmp/qs-notification-popup.log", "ab", buffering=0)
+        subprocess.Popen(
+            ["quickshell", "-p", str(popup_path)],
+            env=env,
+            stdout=popup_log,
+            stderr=popup_log,
+            close_fds=True,
+        )
+    except Exception:
+        log_exception("Failed to launch notification popup")
 
 
 class NotificationService(ServiceInterface):
@@ -86,31 +126,39 @@ class NotificationService(ServiceInterface):
         global next_id, notifications, history, dnd_mode
 
         nid = replaces_id if replaces_id > 0 else next_id
-        if replaces_id == 0:
-            next_id += 1
+        try:
+            if replaces_id == 0:
+                next_id += 1
 
-        # Parse actions into pairs
-        action_list = []
-        for i in range(0, len(actions) - 1, 2):
-            action_list.append({"id": actions[i], "label": actions[i + 1]})
+            # Parse actions into pairs
+            action_list = []
+            for i in range(0, len(actions) - 1, 2):
+                action_list.append({"id": actions[i], "label": actions[i + 1]})
 
-        notif = {
-            "id": nid,
-            "app_name": app_name,
-            "app_icon": app_icon,
-            "summary": summary,
-            "body": body,
-            "actions": action_list,
-            "timestamp": datetime.now().isoformat(),
-            "urgency": hints.get("urgency", Variant("y", 1)).value,
-        }
+            try:
+                urgency = int(hint_value(hints, "urgency", 1) or 1)
+            except (TypeError, ValueError):
+                urgency = 1
 
-        notifications[nid] = notif
-        history.append(notif)
-        save_history()
+            notif = {
+                "id": nid,
+                "app_name": app_name,
+                "app_icon": app_icon,
+                "summary": summary,
+                "body": body,
+                "actions": action_list,
+                "timestamp": datetime.now().isoformat(),
+                "urgency": urgency,
+            }
 
-        if not dnd_mode:
-            await show_popup(notif)
+            notifications[nid] = notif
+            history.append(notif)
+            save_history()
+
+            if not dnd_mode:
+                await show_popup(notif)
+        except Exception:
+            log_exception("Notify failed")
 
         return nid
 
@@ -175,7 +223,7 @@ async def handle_control(reader, writer):
         writer.write((json.dumps(resp) + "\n").encode())
         await writer.drain()
     except Exception as e:
-        print(f"Control error: {e}", file=sys.stderr)
+        log(f"Control error: {e}")
     finally:
         writer.close()
 
@@ -190,7 +238,7 @@ async def main():
 
     # Start control server
     ctrl_server = await asyncio.start_unix_server(handle_control, SOCKET_PATH)
-    print(f"Control socket: {SOCKET_PATH}")
+    log(f"Control socket: {SOCKET_PATH}")
 
     # Connect to D-Bus
     bus = await MessageBus(bus_type=BusType.SESSION).connect()
@@ -198,7 +246,7 @@ async def main():
     bus.export("/org/freedesktop/Notifications", service)
 
     await bus.request_name("org.freedesktop.Notifications")
-    print("Notification daemon started")
+    log("Notification daemon started")
 
     await ctrl_server.serve_forever()
 

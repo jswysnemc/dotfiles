@@ -13,6 +13,7 @@ STARTFILE="$STATE_DIR/start"
 SAVEPATH_FILE="$STATE_DIR/save_path"
 MODEFILE="$STATE_DIR/mode"             # full/region -> tooltip
 GIF_MARKER="$STATE_DIR/is_gif"         # 标记当前录制是否为 GIF 模式
+LOGFILE="$STATE_DIR/wf-recorder.log"
 TICKPIDFILE="$STATE_DIR/tickpid"
 WAYBAR_PIDS_CACHE="$STATE_DIR/waybar.pids"
 
@@ -41,6 +42,7 @@ mkdir -p "$CONFIG_DIR"
 # Hold chosen mode
 MODE_DECIDED=""
 IS_GIF_MODE="false" # [NEW] 临时变量
+STARTED_PID=""
 
 # ================== Tunables (ENV overridable) ==================
 # defaults — 默认使用 CPU 编码 (libx264)
@@ -50,10 +52,16 @@ _DEFAULT_AUDIO="on"
 _DEFAULT_SAVE_EXT="auto"             # auto/mp4/mkv/webm
 
 # --- [NEW] GIF 配置区域 ---
-GIF_WIDTH=720
-GIF_FPS=24
-GIF_DITHER_MODE="bayer:bayer_scale=5"
-GIF_STATS_MODE="diff"
+GIF_WIDTH="${GIF_WIDTH:-640}"
+GIF_FPS="${GIF_FPS:-15}"
+GIF_DITHER_MODE="${GIF_DITHER_MODE:-bayer:bayer_scale=5}"
+GIF_STATS_MODE="${GIF_STATS_MODE:-diff}"
+GIF_INTERMEDIATE_CODEC="${GIF_INTERMEDIATE_CODEC:-libx264}"
+GIF_START_DELAY="${GIF_START_DELAY:-0.15}"
+REC_START_CONFIRM_TICKS="${REC_START_CONFIRM_TICKS:-12}"
+REC_STOP_WAIT_TICKS="${REC_STOP_WAIT_TICKS:-100}"
+GIF_STOP_WAIT_TICKS="${GIF_STOP_WAIT_TICKS:-180}"
+FILE_READY_TICKS="${FILE_READY_TICKS:-50}"
 # -------------------------
 
 # load persisted settings if exist
@@ -124,7 +132,8 @@ msg() {
         notif_saved)    printf "已保存：%s" "$@" ;;
         notif_stopped)  printf "已停止录制。" ;;
         notif_processing_gif) printf "正在转换为 GIF，请稍候..." ;;
-        notif_gif_failed)     printf "GIF 转换失败，保留原视频。" ;;
+        notif_gif_failed)     printf "GIF 转换失败，保留原视频。日志：%s" "$@" ;;
+        err_recorder_failed)  printf "录制启动失败，日志：%s" "$@" ;;
         notif_copied)         printf "文件已复制" ;;
         already_running) printf "already running" ;;
         not_running)      printf "not running" ;;
@@ -181,7 +190,8 @@ msg() {
         notif_saved)    printf "保存しました：%s" "$@" ;;
         notif_stopped)  printf "録画を停止しました。" ;;
         notif_processing_gif) printf "GIF に変換中、お待ちください..." ;;
-        notif_gif_failed)     printf "GIF 変換に失敗しました。元の動画を保持します。" ;;
+        notif_gif_failed)     printf "GIF 変換に失敗しました。元の動画を保持します。ログ：%s" "$@" ;;
+        err_recorder_failed)  printf "録画起動に失敗しました。ログ：%s" "$@" ;;
         notif_copied)         printf "ファイルをコピーしました" ;;
         already_running) printf "already running" ;;
         not_running)      printf "not running" ;;
@@ -238,7 +248,8 @@ msg() {
         notif_saved)    printf "Saved: %s" "$@" ;;
         notif_stopped)  printf "Recording stopped." ;;
         notif_processing_gif) printf "Converting to GIF, please wait..." ;;
-        notif_gif_failed)     printf "GIF conversion failed. Original video kept." ;;
+        notif_gif_failed)     printf "GIF conversion failed. Original video kept. Log: %s" "$@" ;;
+        err_recorder_failed)  printf "Recording failed to start. Log: %s" "$@" ;;
         notif_copied)         printf "File copied" ;;
         already_running) printf "already running" ;;
         not_running)      printf "not running" ;;
@@ -282,8 +293,14 @@ msg() {
 
 is_running() {
   [[ -r "$PIDFILE" ]] || return 1
-  local pid; read -r pid <"$PIDFILE" 2>/dev/null || return 1
-  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+  local pid stat comm
+  read -r pid <"$PIDFILE" 2>/dev/null || return 1
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  stat="$(ps -o stat= -p "$pid" 2>/dev/null | awk '{print $1}')"
+  [[ "$stat" == Z* ]] && return 1
+  comm="$(ps -o comm= -p "$pid" 2>/dev/null | awk '{print $1}')"
+  [[ "$comm" == "$APP" ]]
 }
 is_paused() {
   [[ -f "$PAUSEFILE" ]]
@@ -292,13 +309,108 @@ is_recording_or_paused() {
   is_running || is_paused
 }
 notify() { has notify-send && notify-send "wf-recorder" "$1" || true; }
+is_gif_state() {
+  [[ -f "$GIF_MARKER" ]] && return 0
+  local mode=""
+  [[ -r "$MODEFILE" ]] && read -r mode <"$MODEFILE" 2>/dev/null || true
+  [[ "$mode" == "gif" ]]
+}
+pending_save_path() {
+  local path=""
+  [[ -r "$SAVEPATH_FILE" ]] && read -r path <"$SAVEPATH_FILE" 2>/dev/null || true
+  [[ -n "$path" && -f "$path" ]]
+}
+log_line() {
+  printf '[%s] %s\n' "$(date +'%F %T')" "$*" >>"$LOGFILE" 2>/dev/null || true
+}
+
+wait_until_not_running() {
+  local ticks="${1:-80}" i
+  for ((i=0; i<ticks; i++)); do
+    sleep 0.1
+    is_running || return 0
+  done
+  return 1
+}
+
+wait_file_ready() {
+  local path="$1" ticks="${2:-$FILE_READY_TICKS}" i prev=-1 size=-1 stable=0
+  for ((i=0; i<ticks; i++)); do
+    if [[ -f "$path" ]]; then
+      size="$(stat -c '%s' "$path" 2>/dev/null || echo 0)"
+      if [[ "$size" =~ ^[0-9]+$ && "$size" -gt 0 ]]; then
+        if [[ "$size" == "$prev" ]]; then
+          stable=$((stable + 1))
+          ((stable >= 3)) && return 0
+        else
+          stable=0
+          prev="$size"
+        fi
+      fi
+    fi
+    sleep 0.2
+  done
+  return 1
+}
+
+configure_gif_recording() {
+  has ffmpeg || { echo "$(msg err_need_ffmpeg)"; emit_waybar_signal; exit 1; }
+  CODEC="$GIF_INTERMEDIATE_CODEC"
+  AUDIO="off"
+  SAVE_EXT="mp4"
+  FRAMERATE="$GIF_FPS"
+  touch "$GIF_MARKER"
+}
+
+start_recorder_process() {
+  local -n _args_ref="$1"
+  local pid
+  STARTED_PID=""
+  : >"$LOGFILE"
+  log_line "Command: wf-recorder ${_args_ref[*]}"
+  if [[ "${DEBUG,,}" == "on" ]]; then
+    echo "DEBUG=on: running wf-recorder in foreground"
+    echo "Command: wf-recorder ${_args_ref[*]}"
+    wf-recorder "${_args_ref[@]}" 2>&1 &
+  else
+    setsid nohup wf-recorder "${_args_ref[@]}" >>"$LOGFILE" 2>&1 &
+  fi
+  pid=$!
+  echo "$pid" >"$PIDFILE"
+
+  local i
+  for ((i=0; i<REC_START_CONFIRM_TICKS; i++)); do
+    sleep 0.1
+    is_running && { STARTED_PID="$pid"; return 0; }
+    kill -0 "$pid" 2>/dev/null || break
+  done
+
+  rm -f "$PIDFILE"
+  log_line "wf-recorder exited during startup"
+  return 1
+}
+
+stop_recorder_process() {
+  local wait_ticks="${1:-$REC_STOP_WAIT_TICKS}"
+  local pid
+  [[ -r "$PIDFILE" ]] || return 0
+  read -r pid <"$PIDFILE" 2>/dev/null || return 0
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 0
+
+  kill -INT "$pid" 2>/dev/null || true
+  wait_until_not_running "$wait_ticks" && return 0
+
+  log_line "wf-recorder did not stop after SIGINT, sending SIGTERM"
+  kill -TERM "$pid" 2>/dev/null || true
+  wait_until_not_running 40 && return 0
+
+  log_line "wf-recorder did not stop after SIGTERM, sending SIGKILL"
+  kill -KILL "$pid" 2>/dev/null || true
+  sleep 0.2
+}
 
 signal_waybar() {
   local pids
-  if [[ -r "$WAYBAR_PIDS_CACHE" ]]; then
-    pids="$(tr '\n' ' ' <"$WAYBAR_PIDS_CACHE")"
-    if [[ -n "$pids" ]]; then kill -RTMIN+"$WAYBAR_SIG" $pids 2>/dev/null && return 0; fi
-  fi
   pids="$(pgrep -x -u "$UID" waybar 2>/dev/null | tr '\n' ' ')"
   [[ -n "$pids" ]] && printf '%s\n' $pids >"$WAYBAR_PIDS_CACHE"
   [[ -n "$pids" ]] && kill -RTMIN+"$WAYBAR_SIG" $pids 2>/dev/null || true
@@ -326,6 +438,19 @@ stop_tick() {
     local tpid; read -r tpid <"$TICKPIDFILE" 2>/dev/null || true
     [[ -n "$tpid" ]] && kill -TERM "$tpid" 2>/dev/null || true
     rm -f "$TICKPIDFILE"
+  fi
+}
+
+cleanup_inactive_state() {
+  is_running || rm -f "$PIDFILE"
+  if ! is_running && ! is_paused; then
+    if is_gif_state && pending_save_path; then
+      stop_tick
+      return 0
+    fi
+    rm -f "$STARTFILE" "$SAVEPATH_FILE" "$MODEFILE" "$GEOMFILE" "$OUTPUTFILE" \
+      "$PAUSE_TOTAL_FILE" "$SEGMENTSFILE" "$GIF_MARKER"
+    stop_tick
   fi
 }
 
@@ -573,21 +698,19 @@ start_rec() {
   IS_GIF_MODE="false"
 
   # 检查是否由外部（如 QML）预设了 GIF 模式
-  if [[ -f "$GIF_MARKER" ]]; then
-      IS_GIF_MODE="true"
-  fi
+  case "${GIF_MODE:-}" in
+    1|true|TRUE|on|ON|yes|YES) IS_GIF_MODE="true" ;;
+  esac
+  [[ -f "$GIF_MARKER" ]] && IS_GIF_MODE="true"
 
   if ! decide_mode; then
+    [[ "$IS_GIF_MODE" == "true" ]] && rm -f "$GIF_MARKER"
     echo "$(msg cancel_no_mode)"; emit_waybar_signal; exit 130
   fi
   local mode="$MODE_DECIDED"
 
-  # [NEW] GIF 模式检查
   if [[ "$IS_GIF_MODE" == "true" ]]; then
-      if ! has ffmpeg; then echo "$(msg err_need_ffmpeg)"; emit_waybar_signal; exit 1; fi
-      # GIF 模式强制使用 mp4 作为中间格式，因为 mp4 兼容性好且编码速度快
-      SAVE_EXT="mp4"
-      touch "$GIF_MARKER"
+      configure_gif_recording
   else
       rm -f "$GIF_MARKER"
   fi
@@ -613,7 +736,10 @@ start_rec() {
     else
       has slurp || { echo "$(msg err_need_slurp)"; emit_waybar_signal; exit 1; }
       set +e; GEOM="$(slurp)"; local rc=$?; set -e
-      if [[ $rc -ne 0 || -z "${GEOM// /}" ]]; then echo "$(msg cancel_no_region)"; emit_waybar_signal; exit 130; fi
+      if [[ $rc -ne 0 || -z "${GEOM// /}" ]]; then
+        [[ "$IS_GIF_MODE" == "true" ]] && rm -f "$GIF_MARKER"
+        echo "$(msg cancel_no_region)"; emit_waybar_signal; exit 130
+      fi
     fi
     GEOM="$(echo -n "$GEOM" | tr -s '[:space:]' ' ')"
     args+=( -g "$GEOM" )
@@ -657,31 +783,19 @@ start_rec() {
   # 将第一个片段添加到列表
   echo "$SAVE_PATH" >>"$SEGMENTSFILE"
 
-  # === 不保存日志：仅在 DEBUG=on 时将 wf-recorder 输出到终端 ===
-  if [[ "${DEBUG,,}" == "on" ]]; then
-    echo "DEBUG=on: running wf-recorder in foreground"
-    echo "Command: wf-recorder ${args[*]}"
-    wf-recorder "${args[@]}" 2>&1 &
-    local pid=$!
-    echo "$pid" >"$PIDFILE"
-    date +%s >"$STARTFILE"
-    echo "$SAVE_PATH" >"$SAVEPATH_FILE"
-    echo "$mode" >"$MODEFILE"
-    local note; if [[ "$mode" == "full" ]]; then note="$(msg notif_started_full "$output" "$SAVE_PATH")"; else note="$(msg notif_started_region "$SAVE_PATH")"; fi
-    [[ -n "$dev" ]] && note+="$(msg notif_device_suffix "$dev")"
-    echo "$note";
-    emit_waybar_signal
-    start_tick
-    return 0
+  if ! start_recorder_process args; then
+    rm -f "$SEGMENTSFILE" "$PAUSEFILE" "$PAUSE_TOTAL_FILE" "$SAVEPATH_FILE" "$MODEFILE" "$GIF_MARKER"
+    local err; err="$(msg err_recorder_failed "$LOGFILE")"
+    echo "$err"; notify "$err"; emit_waybar_signal
+    exit 1
   fi
-
-  # 非 DEBUG：后台运行，且不保存任何日志（与原脚本行为相近）
-  setsid nohup wf-recorder "${args[@]}" >/dev/null 2>&1 &
-  local pid=$!
-  echo "$pid" >"$PIDFILE"
   date +%s >"$STARTFILE"
   echo "$SAVE_PATH" >"$SAVEPATH_FILE"
-  echo "$mode" >"$MODEFILE"
+  if [[ "$IS_GIF_MODE" == "true" ]]; then
+    echo "gif" >"$MODEFILE"
+  else
+    echo "$mode" >"$MODEFILE"
+  fi
 
   local note; if [[ "$mode" == "full" ]]; then note="$(msg notif_started_full "$output" "$SAVE_PATH")"; else note="$(msg notif_started_region "$SAVE_PATH")"; fi
   [[ -n "$dev" ]] && note+="$(msg notif_device_suffix "$dev")"
@@ -699,14 +813,8 @@ pause_rec() {
     echo "$(msg not_running)"; exit 1
   fi
 
-  local pid; read -r pid <"$PIDFILE"
-
   # 停止当前 wf-recorder 进程
-  kill -INT "$pid" 2>/dev/null || true
-  for _ in {1..40}; do sleep 0.1; is_running || break; done
-  is_running && kill -TERM "$pid" 2>/dev/null || true
-  sleep 0.2
-  is_running && kill -KILL "$pid" 2>/dev/null || true
+  stop_recorder_process "$REC_STOP_WAIT_TICKS"
 
   rm -f "$PIDFILE"
   stop_tick
@@ -727,6 +835,10 @@ resume_rec() {
   fi
 
   has wf-recorder || { echo "$(msg err_wf_not_found)"; exit 1; }
+
+  if [[ -f "$GIF_MARKER" ]]; then
+    configure_gif_recording
+  fi
 
   # 计算暂停时长并累加
   local pause_start pause_end pause_dur pause_total
@@ -795,10 +907,11 @@ resume_rec() {
   # 添加到片段列表
   echo "$SAVE_PATH" >>"$SEGMENTSFILE"
 
-  # 启动 wf-recorder
-  setsid nohup wf-recorder "${args[@]}" >/dev/null 2>&1 &
-  local pid=$!
-  echo "$pid" >"$PIDFILE"
+  if ! start_recorder_process args; then
+    echo "$(msg err_recorder_failed "$LOGFILE")"
+    emit_waybar_signal
+    exit 1
+  fi
   echo "$SAVE_PATH" >"$SAVEPATH_FILE"
 
   local s; s="$(msg notif_resumed)"; echo "$s"; notify "$s"
@@ -808,18 +921,20 @@ resume_rec() {
 
 stop_rec() {
   # 支持从暂停状态停止
-  if ! is_running && ! is_paused; then
+  if ! is_running && ! is_paused && ! pending_save_path; then
     echo "$(msg not_running)"; emit_waybar_signal; exit 0
   fi
 
+  local was_gif_mode="false"
+  is_gif_state && was_gif_mode="true"
+
   # 如果正在录制，先停止
   if is_running; then
-    local pid; read -r pid <"$PIDFILE"
-    kill -INT "$pid" 2>/dev/null || true
-    for _ in {1..40}; do sleep 0.1; is_running || break; done
-    is_running && kill -TERM "$pid" 2>/dev/null || true
-    sleep 0.2
-    is_running && kill -KILL "$pid" 2>/dev/null || true
+    if [[ "$was_gif_mode" == "true" ]]; then
+      stop_recorder_process "$GIF_STOP_WAIT_TICKS"
+    else
+      stop_recorder_process "$REC_STOP_WAIT_TICKS"
+    fi
   fi
 
   # 停止后清理运行时状态文件
@@ -850,8 +965,12 @@ stop_rec() {
       fi
     done <"$SEGMENTSFILE"
 
+    while IFS= read -r seg; do
+      [[ -f "$seg" ]] && wait_file_ready "$seg" "$FILE_READY_TICKS" || true
+    done <"$SEGMENTSFILE"
+
     # 使用 ffmpeg concat demuxer 合并
-    if ffmpeg -y -v error -f concat -safe 0 -i "$concat_list" -c copy "$merged_path" 2>/dev/null; then
+    if ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$concat_list" -c copy "$merged_path" >>"$LOGFILE" 2>&1 && wait_file_ready "$merged_path" "$FILE_READY_TICKS"; then
       # 删除所有片段文件
       while IFS= read -r seg; do
         [[ -f "$seg" ]] && rm -f "$seg"
@@ -867,13 +986,14 @@ stop_rec() {
   else
     # 单片段，直接使用
     [[ -r "$SAVEPATH_FILE" ]] && read -r save_path <"$SAVEPATH_FILE"
+    [[ -n "$save_path" && -f "$save_path" ]] && wait_file_ready "$save_path" "$FILE_READY_TICKS" || true
   fi
 
   # 清理片段列表和其他状态文件
-  rm -f "$SEGMENTSFILE" "$GEOMFILE" "$OUTPUTFILE" "$MODEFILE" "$PAUSE_TOTAL_FILE"
+  rm -f "$SEGMENTSFILE" "$GEOMFILE" "$OUTPUTFILE" "$MODEFILE" "$PAUSE_TOTAL_FILE" "$STARTFILE"
 
   # --- GIF Conversion Logic ---
-  if [[ -f "$GIF_MARKER" ]]; then
+  if [[ "$was_gif_mode" == "true" ]]; then
     rm -f "$GIF_MARKER"
     if [[ -n "$save_path" && -f "$save_path" ]]; then
         notify "$(msg notif_processing_gif)"
@@ -881,17 +1001,24 @@ stop_rec() {
         local gif_dir="$(get_save_dir)/gif"
         mkdir -p "$gif_dir"
 
-        local filename=$(basename "$save_path")
+        local filename gif_tmp
+        filename="$(basename "$save_path")"
         local gif_out="$gif_dir/${filename%.*}.gif"
+        gif_tmp="$gif_out.tmp.gif"
 
         local filters="fps=$GIF_FPS,scale=$GIF_WIDTH:-1:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=$GIF_STATS_MODE[p];[s1][p]paletteuse=dither=$GIF_DITHER_MODE"
 
-        if ffmpeg -y -v error -i "$save_path" -vf "$filters" "$gif_out"; then
-             rm "$save_path"
+        rm -f "$gif_tmp"
+        log_line "Converting GIF: $save_path -> $gif_out"
+        if wait_file_ready "$save_path" "$FILE_READY_TICKS" && ffmpeg -y -hide_banner -loglevel error -i "$save_path" -an -vf "$filters" "$gif_tmp" >>"$LOGFILE" 2>&1 && wait_file_ready "$gif_tmp" "$FILE_READY_TICKS"; then
+             mv -f "$gif_tmp" "$gif_out"
+             rm -f "$save_path"
              save_path="$gif_out"
              echo "$save_path" > "$SAVEPATH_FILE"
         else
-             notify "$(msg notif_gif_failed)"
+             rm -f "$gif_tmp"
+             log_line "GIF conversion failed"
+             notify "$(msg notif_gif_failed "$LOGFILE")"
         fi
     fi
   fi
@@ -910,6 +1037,8 @@ stop_rec() {
   else
     local s; s="$(msg notif_stopped)"; echo "$s"; notify "$s"
   fi
+
+  rm -f "$SAVEPATH_FILE"
 
   if [[ "${PKILL_AFTER_STOP,,}" != "off" ]]; then
     for sig in INT TERM KILL; do
@@ -950,7 +1079,7 @@ EOF
 tooltip_recording_text() { # $1 elapsed, $2 filepath, $3 mode: full|region
   local t="$1" p="${2:-}" m="${3:-}"
   local mode_label
-  case "$m" in full|fullscreen) mode_label="$(msg mode_full)";; region|area) mode_label="$(msg mode_region)";; *) mode_label="";; esac
+  case "$m" in full|fullscreen) mode_label="$(msg mode_full)";; gif) mode_label="GIF";; region|area) mode_label="$(msg mode_region)";; *) mode_label="";; esac
   case "$(lang_code)" in
     zh) [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "录制中（%s）\n已用时：%s\n文件：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$mode_label" "$t" "$p" || printf "录制中\n已用时：%s\n文件：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "录制中（%s）\n已用时：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$mode_label" "$t" || printf "录制中\n已用时：%s\n左键：停止录制\n中键：暂停录制\n右键：录制面板\n" "$t"; } ;;
     ja) [[ -n "$p" ]] && { [[ -n "$mode_label" ]] && printf "録画中（%s）\n経過時間：%s\nファイル：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$mode_label" "$t" "$p" || printf "録画中\n経過時間：%s\nファイル：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$t" "$p"; } || { [[ -n "$mode_label" ]] && printf "録画中（%s）\n経過時間：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$mode_label" "$t" || printf "録画中\n経過時間：%s\n左クリック：停止\n中クリック：一時停止\n右クリック：録画パネル\n" "$t"; } ;;
@@ -966,6 +1095,8 @@ tooltip_paused_text() { # $1 elapsed, $2 filepath
   esac
 }
 pretty_status_json() {
+  cleanup_inactive_state
+
   local text tooltip class alt
   local ICON_PAUSED="${ICON_PAUSED:-󰏤 }"
 
@@ -1015,6 +1146,8 @@ pretty_status_json() {
     "$class" "$alt"
 }
 status_rec() {
+  cleanup_inactive_state
+
   local json="${1:-}"
   local ICON_PAUSED="${ICON_PAUSED:-󰏤 }"
   if [[ "$json" == "--json" ]]; then

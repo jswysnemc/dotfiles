@@ -33,6 +33,7 @@ show_help() {
     echo "Options:"
     echo "  --pos <position>   Position (see below)"
     echo "  --margin <value>   Margin value(s)"
+    echo "  --output <name>    Target output name; defaults to Waybar output or niri focused output"
     echo ""
     echo "Positions & Margins:"
     echo "  top-left,T,L       top-center,T       top-right,T,R"
@@ -43,6 +44,17 @@ show_help() {
     echo "  wifi=top-right,8,10      # top=8, right=10"
     echo "  calendar=top-center,50   # top=50"
     echo "  media=center             # no margin needed"
+}
+
+default_output() {
+    if [[ -n "${WAYBAR_OUTPUT_NAME:-}" ]]; then
+        printf '%s\n' "$WAYBAR_OUTPUT_NAME"
+        return
+    fi
+
+    if command -v niri >/dev/null 2>&1; then
+        niri msg --json focused-output 2>/dev/null | sed -n 's/.*"name":"\([^"]*\)".*/\1/p'
+    fi
 }
 
 # Apply margins based on position
@@ -127,6 +139,10 @@ parse_args() {
                 apply_margins "$QS_POS" "${m[0]}" "${m[1]}"
                 shift 2
                 ;;
+            --output|--screen)
+                QS_TARGET_OUTPUT="$2"
+                shift 2
+                ;;
             *)
                 shift
                 ;;
@@ -143,12 +159,14 @@ toggle_popup() {
     else
         if [[ -f "$shell_path" ]]; then
             read_config "$name"
+            QS_TARGET_OUTPUT="$(default_output)"
             parse_args $ARGS
             QS_POS="$QS_POS" \
             QS_MARGIN_T="$QS_MARGIN_T" \
             QS_MARGIN_R="$QS_MARGIN_R" \
             QS_MARGIN_B="$QS_MARGIN_B" \
             QS_MARGIN_L="$QS_MARGIN_L" \
+            QS_TARGET_OUTPUT="$QS_TARGET_OUTPUT" \
             quickshell -p "$shell_path" &
         else
             notify-send "QuickShell" "Component not found: $shell_path"

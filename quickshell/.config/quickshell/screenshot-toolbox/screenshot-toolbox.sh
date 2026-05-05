@@ -45,6 +45,12 @@ new_path() {
     printf '%s/screenshot_%s.png\n' "$dir" "$(date +%Y-%m-%d_%H-%M-%S)"
 }
 
+preview_dir() {
+    local dir="${XDG_RUNTIME_DIR:-/tmp}/qs-screenshot-previews"
+    mkdir -p "$dir"
+    printf '%s\n' "$dir"
+}
+
 cleanup_freeze() {
     if [[ -n "${freeze_pid:-}" ]]; then
         kill "$freeze_pid" 2>/dev/null || true
@@ -89,11 +95,106 @@ capture_region_file() {
 }
 
 capture_fullscreen_file() {
+    local output="${1:-}"
     local path
 
     path="$(new_path)"
-    grim "$path"
+    if [[ -n "$output" ]]; then
+        grim -o "$output" "$path"
+    else
+        grim "$path"
+    fi
     printf '%s\n' "$path"
+}
+
+make_preview() {
+    local output="${1:-}"
+    local target="$2"
+    local raw="${target%.png}.raw.png"
+
+    if [[ -n "$output" ]]; then
+        grim -o "$output" "$raw"
+    else
+        grim "$raw"
+    fi
+
+    if has magick; then
+        magick "$raw" -thumbnail 220x110^ -gravity center -extent 220x110 "$target"
+        rm -f "$raw"
+    else
+        mv "$raw" "$target"
+    fi
+}
+
+make_preview_from_raw() {
+    local raw="$1"
+    local geometry="$2"
+    local target="$3"
+
+    if [[ -n "$geometry" ]]; then
+        magick "$raw" -crop "$geometry" +repage -thumbnail 220x110^ -gravity center -extent 220x110 "$target"
+    else
+        magick "$raw" -thumbnail 220x110^ -gravity center -extent 220x110 "$target"
+    fi
+}
+
+json_string() {
+    jq -Rn --arg v "$1" '$v'
+}
+
+preview_json() {
+    require_cmd grim
+    require_cmd jq
+
+    local dir raw all_path outputs_json scale
+    dir="$(preview_dir)"
+    rm -f "$dir"/*.png 2>/dev/null || true
+
+    outputs_json="$(niri msg --json outputs)"
+    all_path="$dir/all.png"
+    scale="${QS_SCREEN_PREVIEW_SCALE:-0.2}"
+
+    if has magick; then
+        raw="$dir/raw.png"
+        grim -s "$scale" "$raw"
+        make_preview_from_raw "$raw" "" "$all_path"
+
+        while IFS=$'\t' read -r name x y width height; do
+            [[ -z "$name" ]] && continue
+            local safe path geometry
+            safe="$(printf '%s' "$name" | tr -c 'A-Za-z0-9_.-' '_')"
+            path="$dir/$safe.png"
+            geometry="$(awk -v s="$scale" -v x="$x" -v y="$y" -v w="$width" -v h="$height" 'BEGIN { printf "%dx%d+%d+%d", int(w*s + 0.5), int(h*s + 0.5), int(x*s + 0.5), int(y*s + 0.5) }')"
+            make_preview_from_raw "$raw" "$geometry" "$path"
+        done < <(printf '%s\n' "$outputs_json" | jq -r '.[] | [.name, .logical.x, .logical.y, .logical.width, .logical.height] | @tsv')
+
+        rm -f "$raw"
+    else
+        make_preview "" "$all_path"
+        while IFS= read -r name; do
+            [[ -z "$name" ]] && continue
+            local safe path
+            safe="$(printf '%s' "$name" | tr -c 'A-Za-z0-9_.-' '_')"
+            path="$dir/$safe.png"
+            make_preview "$name" "$path"
+        done < <(printf '%s\n' "$outputs_json" | jq -r '.[].name')
+    fi
+
+    printf '['
+    printf '{"mode":"fullscreen","output":"","title":"全部屏幕","desc":"按逻辑布局拼接","preview":%s}' "$(json_string "$all_path")"
+
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        local safe path
+        safe="$(printf '%s' "$name" | tr -c 'A-Za-z0-9_.-' '_')"
+        path="$dir/$safe.png"
+        printf ',{"mode":"fullscreen-output","output":%s,"title":%s,"desc":"只截取这个显示器","preview":%s}' \
+            "$(json_string "$name")" \
+            "$(json_string "$name")" \
+            "$(json_string "$path")"
+    done < <(printf '%s\n' "$outputs_json" | jq -r '.[].name')
+
+    printf ']\n'
 }
 
 pick_window_id() {
@@ -432,6 +533,19 @@ case "$mode" in
         copy_png_file "$path"
         notify "全屏截图已保存并复制: $path"
         ;;
+    fullscreen-output)
+        output="${2:-}"
+        if [[ -z "$output" ]]; then
+            notify "未指定显示器"
+            exit 1
+        fi
+        path="$(capture_fullscreen_file "$output")"
+        copy_png_file "$path"
+        notify "显示器截图已保存并复制: $output -> $path"
+        ;;
+    preview-json)
+        preview_json
+        ;;
     region-save)
         path="$(capture_region_file off)"
         if has wl-copy; then
@@ -491,7 +605,7 @@ case "$mode" in
         xdg-open "$(save_dir)"
         ;;
     *)
-        printf 'Usage: %s {region-copy|fullscreen|region-save|region-edit|region-annotate|fullscreen-annotate|region-pin|measure|ocr|color|color-raw|color-page|qr-page|pin-latest|window|scroll|open-dir}\n' "$0" >&2
+        printf 'Usage: %s {region-copy|fullscreen|fullscreen-output OUTPUT|preview-json|region-save|region-edit|region-annotate|fullscreen-annotate|region-pin|measure|ocr|color|color-raw|color-page|qr-page|pin-latest|window|scroll|open-dir}\n' "$0" >&2
         exit 2
         ;;
 esac

@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import "./Theme.js" as Theme
+import "./ScreenModel.js" as ScreenModel
 
 ShellRoot {
     id: root
@@ -17,6 +18,8 @@ ShellRoot {
     property string pickedColor: ""
     property string copyNotice: ""
     property bool isClosing: false
+    property bool previewLoading: false
+    property var previewItems: []
 
     property string posEnv: Quickshell.env("QS_POS") || "top-left"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -125,6 +128,13 @@ ShellRoot {
 
     function runAction(mode) {
         if (root.isClosing) return
+
+        if (mode === "fullscreen" && root.activePage === "main" && Quickshell.screens.length > 1) {
+            root.activePage = "screen-select"
+            root.loadScreenPreviews()
+            return
+        }
+
         root.isClosing = true
 
         if (mode === "color") {
@@ -133,6 +143,46 @@ ShellRoot {
             actionProc.command = ["bash", "-c", "setsid \"$1\" \"$2\" >/dev/null 2>&1 &", "qs-shot", root.scriptPath, mode]
         }
         actionProc.running = true
+    }
+
+    function runActionWithArg(mode, arg) {
+        if (root.isClosing) return
+        root.isClosing = true
+
+        actionProc.command = ["bash", "-c", "setsid \"$1\" \"$2\" \"$3\" >/dev/null 2>&1 &", "qs-shot-arg", root.scriptPath, mode, arg]
+        actionProc.running = true
+    }
+
+    function screenOptions() {
+        if (root.previewItems.length > 0) return root.previewItems
+
+        var options = [
+            {
+                mode: "fullscreen",
+                output: "",
+                icon: "ALL",
+                title: "全部屏幕",
+                desc: "按逻辑布局拼接"
+            }
+        ]
+
+        for (var i = 0; i < Quickshell.screens.length; i++) {
+            options.push({
+                mode: "fullscreen-output",
+                output: Quickshell.screens[i].name,
+                icon: "MON",
+                title: Quickshell.screens[i].name,
+                desc: "只截取这个显示器"
+            })
+        }
+
+        return options
+    }
+
+    function loadScreenPreviews() {
+        root.previewLoading = true
+        previewProc.command = [root.scriptPath, "preview-json"]
+        previewProc.running = true
     }
 
     function normalizeHex(hex) {
@@ -234,6 +284,22 @@ ShellRoot {
         command: ["true"]
     }
 
+    Process {
+        id: previewProc
+        command: ["true"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.previewItems = JSON.parse(text)
+                } catch (e) {
+                    console.log("Failed to parse screenshot previews:", e)
+                }
+                root.previewLoading = false
+            }
+        }
+        onExited: root.previewLoading = false
+    }
+
     ParallelAnimation {
         id: enterAnimation
         NumberAnimation { target: root; property: "panelOpacity"; from: 0; to: 1; duration: 250; easing.type: Easing.OutCubic }
@@ -250,7 +316,7 @@ ShellRoot {
     }
 
     Variants {
-        model: Quickshell.screens
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
             id: panel
@@ -266,7 +332,7 @@ ShellRoot {
             anchors.left: true
             anchors.right: true
 
-            Shortcut { sequence: "Escape"; onActivated: root.activePage === "color" ? root.activePage = "main" : root.closeWithAnimation() }
+            Shortcut { sequence: "Escape"; onActivated: root.activePage !== "main" ? root.activePage = "main" : root.closeWithAnimation() }
 
             MouseArea {
                 anchors.fill: parent
@@ -313,7 +379,7 @@ ShellRoot {
                         spacing: Theme.spacingM
 
                         Rectangle {
-                            visible: root.activePage === "color"
+                            visible: root.activePage !== "main"
                             width: 30
                             height: 30
                             radius: Theme.radiusS
@@ -358,14 +424,14 @@ ShellRoot {
                             spacing: 2
 
                             Text {
-                                text: root.activePage === "color" ? "颜色详情" : "截图工具箱"
+                                text: root.activePage === "color" ? "颜色详情" : (root.activePage === "screen-select" ? "选择截图屏幕" : "截图工具箱")
                                 font.pixelSize: Theme.fontSizeXL
                                 font.weight: Font.Bold
                                 color: Theme.textPrimary
                             }
 
                             Text {
-                                text: root.activePage === "color" ? "点击任意写法复制" : "选框、窗口、长截图、贴图和编辑"
+                                text: root.activePage === "color" ? "点击任意写法复制" : (root.activePage === "screen-select" ? "单屏截图或多屏逻辑拼接" : "选框、窗口、长截图、贴图和编辑")
                                 font.pixelSize: Theme.fontSizeS
                                 color: Theme.textMuted
                             }
@@ -537,6 +603,118 @@ ShellRoot {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: root.runAction("open-dir")
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        visible: root.activePage === "screen-select"
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingM
+
+                        Rectangle {
+                            visible: root.previewLoading
+                            Layout.fillWidth: true
+                            height: 38
+                            radius: Theme.radiusM
+                            color: Theme.surfaceVariant
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "正在生成屏幕预览..."
+                                font.pixelSize: Theme.fontSizeS
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Repeater {
+                            model: root.screenOptions()
+
+                            Rectangle {
+                                id: screenRow
+                                required property var modelData
+                                required property int index
+
+                                Layout.fillWidth: true
+                                height: 94
+                                radius: Theme.radiusL
+                                color: screenArea.containsMouse ? Theme.alpha(Theme.primary, 0.12) : Theme.surface
+                                border.color: screenArea.containsMouse ? Theme.primary : Theme.outline
+                                border.width: 1
+                                scale: screenArea.pressed ? 0.98 : 1.0
+
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
+                                Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: Theme.spacingM
+                                    spacing: Theme.spacingM
+
+                                    Rectangle {
+                                        width: 112
+                                        height: 64
+                                        radius: Theme.radiusM
+                                        color: Theme.alpha(Theme.primary, 0.14)
+                                        clip: true
+
+                                        Image {
+                                            anchors.fill: parent
+                                            source: screenRow.modelData.preview ? "file://" + screenRow.modelData.preview : ""
+                                            fillMode: Image.PreserveAspectCrop
+                                            asynchronous: true
+                                            cache: false
+                                            visible: source !== ""
+                                        }
+
+                                        Text {
+                                            visible: !screenRow.modelData.preview
+                                            anchors.centerIn: parent
+                                            text: screenRow.modelData.icon
+                                            font.family: "monospace"
+                                            font.pixelSize: Theme.fontSizeS
+                                            font.weight: Font.Bold
+                                            color: Theme.primary
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: screenRow.modelData.title
+                                            font.pixelSize: Theme.fontSizeM
+                                            font.weight: Font.DemiBold
+                                            color: Theme.textPrimary
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: screenRow.modelData.desc
+                                            font.pixelSize: Theme.fontSizeXS
+                                            color: Theme.textMuted
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: screenArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (screenRow.modelData.mode === "fullscreen") {
+                                            root.runAction("fullscreen")
+                                        } else {
+                                            root.runActionWithArg(screenRow.modelData.mode, screenRow.modelData.output)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

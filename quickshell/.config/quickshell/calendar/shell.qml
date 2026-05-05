@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import "./Theme.js" as Theme
+import "./ScreenModel.js" as ScreenModel
 
 ShellRoot {
     id: root
@@ -403,7 +404,7 @@ ShellRoot {
 
     // ============ UI ============
     Variants {
-        model: Quickshell.screens
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
             id: clickCatcher
@@ -428,7 +429,7 @@ ShellRoot {
     }
 
     Variants {
-        model: Quickshell.screens
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
             id: panel

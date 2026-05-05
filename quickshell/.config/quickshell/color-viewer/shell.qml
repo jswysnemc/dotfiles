@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import "./Theme.js" as Theme
+import "./ScreenModel.js" as ScreenModel
 
 ShellRoot {
     id: root
@@ -127,7 +128,7 @@ ShellRoot {
 
     // Background overlay, same structure as close-confirm.
     Variants {
-        model: Quickshell.screens
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
             required property ShellScreen modelData
@@ -150,7 +151,7 @@ ShellRoot {
 
     // Main dialog, matching close-confirm's separate dialog window pattern.
     Variants {
-        model: Quickshell.screens
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
             id: panel

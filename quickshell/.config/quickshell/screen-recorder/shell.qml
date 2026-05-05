@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import "./Theme.js" as Theme
+import "./ScreenModel.js" as ScreenModel
 
 ShellRoot {
     id: root
@@ -79,7 +80,10 @@ ShellRoot {
         id: statusProc
         command: ["bash", "-c", "~/.config/waybar/scripts/wf-recorder.sh is-active && echo recording || echo idle"]
         stdout: StdioCollector {
-            onStreamFinished: { root.isRecording = text.trim() === "recording" }
+            onStreamFinished: {
+                root.isRecording = text.trim() === "recording"
+                if (!root.isRecording) root.duration = "00:00"
+            }
         }
     }
     Process {
@@ -123,16 +127,32 @@ ShellRoot {
     }
     Process {
         id: regionProc
-        command: ["bash", "-c", "RECORD_MODE=region MENU_BACKEND=none setsid ~/.config/waybar/scripts/wf-recorder.sh start &"]
+        command: ["bash", "-c", "setsid bash -lc 'sleep 0.15; RECORD_MODE=region MENU_BACKEND=none exec ~/.config/waybar/scripts/wf-recorder.sh start' >/dev/null 2>&1 &"]
         onExited: Qt.quit()
     }
     Process {
         id: gifMarkerProc
-        command: ["bash", "-c", "mkdir -p \"${XDG_RUNTIME_DIR:-/run/user/$UID}/wfrec\" && touch \"${XDG_RUNTIME_DIR:-/run/user/$UID}/wfrec/is_gif\" && RECORD_MODE=region MENU_BACKEND=none setsid ~/.config/waybar/scripts/wf-recorder.sh start &"]
+        command: ["bash", "-c", "setsid bash -lc 'sleep 0.15; GIF_MODE=1 RECORD_MODE=region MENU_BACKEND=none exec ~/.config/waybar/scripts/wf-recorder.sh start' >/dev/null 2>&1 &"]
         onExited: Qt.quit()
     }
-    Process { id: stopProc; command: ["bash", "-c", "~/.config/waybar/scripts/wf-recorder.sh stop"]; onExited: loadStatus() }
-    Process { id: forceStopProc; command: ["pkill", "-9", "wf-recorder"]; onExited: loadStatus() }
+    Process {
+        id: stopProc
+        command: ["bash", "-c", "~/.config/waybar/scripts/wf-recorder.sh stop"]
+        onExited: {
+            root.isRecording = false
+            root.duration = "00:00"
+            loadStatus()
+        }
+    }
+    Process {
+        id: forceStopProc
+        command: ["bash", "-c", "pkill -9 wf-recorder 2>/dev/null || true; ~/.config/waybar/scripts/wf-recorder.sh waybar >/dev/null"]
+        onExited: {
+            root.isRecording = false
+            root.duration = "00:00"
+            loadStatus()
+        }
+    }
     Process { id: openDirProc; command: ["bash", "-c", "xdg-open \"$(xdg-user-dir VIDEOS)/wf-recorder\""] }
 
     Timer {
@@ -142,7 +162,7 @@ ShellRoot {
 
     // ============ UI ============
     Variants {
-        model: Quickshell.screens
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
         PanelWindow {
             required property ShellScreen modelData
             screen: modelData
@@ -156,7 +176,7 @@ ShellRoot {
     }
 
     Variants {
-        model: Quickshell.screens
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
         PanelWindow {
             id: panel
             required property ShellScreen modelData

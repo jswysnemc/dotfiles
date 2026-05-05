@@ -4,8 +4,8 @@
 // --- 显示配置 (从本地状态恢复) ---
 // spawn-sh-at-startup "sleep 0.5 && ~/.config/niri/scripts/niri-monitor-switch.sh apply"
 
-spawn-sh-at-startup "systemctl --user import-environment LANG LC_ALL LC_MESSAGES"
-spawn-sh-at-startup "dbus-update-activation-environment LANG LC_ALL LC_MESSAGES"
+spawn-sh-at-startup "systemctl --user import-environment LANG LC_ALL LC_MESSAGES WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE NIRI_SOCKET XDG_RUNTIME_DIR"
+spawn-sh-at-startup "dbus-update-activation-environment --systemd LANG LC_ALL LC_MESSAGES WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE NIRI_SOCKET XDG_RUNTIME_DIR"
 
 // --- 核心服务 ---
 spawn-at-startup "fcitx5"
@@ -21,7 +21,7 @@ spawn-sh-at-startup "/usr/lib/hyprpolkitagent/hyprpolkitagent"
 // spawn-sh-at-startup "/usr/bin/python ~/.config/quickshell/scripts/notification_daemon.py"
 
 
-spawn-at-startup "sh" "-c" "cd ~/.config/quickshell && uv run python notifications/main.py"
+spawn-sh-at-startup "systemctl --user restart qs-notifications.service"
 
 // spawn-sh-at-startup "sticky-notes start-server"
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=QuickShell Notification Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.config/quickshell
+Environment=QS_NOTIFICATIONS_LOG=%t/qs-notifications.log
+ExecStart=/usr/bin/uv run python -u notifications/main.py
+Restart=on-failure
+RestartSec=2
+SuccessExitStatus=143
+
+[Install]
+WantedBy=default.target
