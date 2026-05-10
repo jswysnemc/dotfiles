@@ -156,6 +156,7 @@ window-rule {
     match app-id="yad"
     match app-id="rnote"
     match app-id="com.snemc.sticky-notes"
+    match app-id="mark-shot"
     match app-id="Antigravity_tools"
     match title="图片查看器"
     match title="群聊的聊天记录"

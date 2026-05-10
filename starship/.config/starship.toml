@@ -78,6 +78,7 @@ Gentoo = " "
 SUSE = " "
 Redhat = " "
 Linux = " "
+CachyOS = " "
 
 [custom.zsh_startup]
 description = "显示 Zsh 的总启动时间 (仅首次)"
