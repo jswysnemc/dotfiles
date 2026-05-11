@@ -1,0 +1,31 @@
+cursor {
+  shake-to-enlarge {
+      // off
+      zoom-factor 3.0
+      hold-duration-ms 1200
+      threshold 2000
+      // grow
+      grow-speed 0.01
+  }
+}
+
+magnifier {
+  // off
+  zoom-factor 2.0
+  // track-cursor false
+  // scale-cursor false
+}
+
+grid-overview {
+  gap 16
+  padding 100
+  focused-column-scale 1.08
+}
+
+binds {
+  Mod+G { toggle-grid-overview; }
+
+  Mod+Shift+Z { toggle-magnifier; }
+  Mod+WheelScrollUp   { adjust-magnifier-zoom 0.1; }
+  Mod+WheelScrollDown { adjust-magnifier-zoom -0.1; }
+}

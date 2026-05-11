@@ -1,0 +1,169 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+  "logo": {
+    "type": "builtin",
+    "source": "arch_small",
+    "padding": {
+      "top": 1,
+      "right": 3
+    },
+    "color": {
+      "1": "36",
+      "2": "34"
+    }
+  },
+
+  "display": {
+    "separator": "  │ ",
+    "brightColor": true,
+    "color": {
+      "keys": "36",
+      "title": "36",
+      "output": "97",
+      "separator": "90"
+    },
+    "key": {
+      "width": 13,
+      "type": "string"
+    },
+    "size": {
+      "binaryPrefix": "iec",
+      "ndigits": 1
+    },
+    "freq": {
+      "ndigits": 2
+    },
+    "percent": {
+      "type": [
+        "bar",
+        "num-color"
+      ],
+      "ndigits": 0
+    },
+    "bar": {
+      "char": {
+        "elapsed": "━",
+        "total": "─"
+      },
+      "border": {
+        "left": "",
+        "right": ""
+      },
+      "color": {
+        "elapsed": "36",
+        "total": "90"
+      },
+      "width": 10
+    }
+  },
+
+  "general": {
+    "thread": true,
+    "detectVersion": true,
+    "processingTimeout": 1000
+  },
+
+  "modules": [
+    {
+      "type": "title",
+      "format": "{#36}{user-name}{#90}@{#36}{host-name}"
+    },
+    {
+      "type": "separator",
+      "string": "─"
+    },
+    {
+      "type": "os",
+      "key": " OS"
+    },
+    {
+      "type": "kernel",
+      "key": " Kernel",
+      "format": "{release}"
+    },
+    {
+      "type": "uptime",
+      "key": "󰅐 Uptime"
+    },
+    {
+      "type": "packages",
+      "key": "󰏖 Packages",
+      "combined": true
+    },
+    {
+      "type": "wm",
+      "key": " WM",
+      "detectPlugin": true
+    },
+    {
+      "type": "display",
+      "key": "󰍹 Display",
+      "compactType": "original",
+      "preciseRefreshRate": false
+    },
+    {
+      "type": "terminal",
+      "key": " Terminal"
+    },
+    {
+      "type": "shell",
+      "key": " Shell"
+    },
+    {
+      "type": "cpu",
+      "key": " CPU",
+      "temp": false,
+      "showPeCoreCount": false
+    },
+    {
+      "type": "gpu",
+      "key": "󰢮 GPU",
+      "detectionMethod": "auto",
+      "driverSpecific": false,
+      "temp": false,
+      "format": "{name} [{type}]"
+    },
+    {
+      "type": "memory",
+      "key": " Memory"
+    },
+    {
+      "type": "swap",
+      "key": "󰓡 Swap"
+    },
+    {
+      "type": "disk",
+      "key": " Disk",
+      "folders": "/",
+      "useAvailable": false
+    },
+    {
+      "type": "localip",
+      "key": "󰩟 IPv4",
+      "showIpv4": true,
+      "showIpv6": false,
+      "showMac": false,
+      "showPrefixLen": true,
+      "defaultRouteOnly": true
+    },
+    {
+      "type": "battery",
+      "key": " Battery",
+      "temp": false
+    },
+    {
+      "type": "colors",
+      "key": "󰏘 Palette",
+      "symbol": "circle",
+      "paddingLeft": 1,
+      "block": {
+        "width": 3,
+        "range": [
+          0,
+          15
+        ]
+      }
+    }
+  ]
+}

@@ -25,6 +25,16 @@ ShellRoot {
     property int graceRemaining: graceDuration
     property bool inputEnabled: false
     property point lastMousePos: Qt.point(-1, -1)
+    property bool faceAuthRequested: false
+    property bool faceAuthFailed: false
+    property bool passwordSubmitInProgress: false
+    property real faceFailurePulse: 0.0
+
+    onPhaseChanged: {
+        if (phase === "locked") {
+            Qt.callLater(startAuth)
+        }
+    }
 
     // Grace period animation properties
     property real graceProgress: 1.0 - (graceRemaining / graceDuration)
@@ -39,6 +49,27 @@ ShellRoot {
     }
 
     onGraceProgressChanged: smoothGraceProgress = graceProgress
+
+    SequentialAnimation {
+        id: faceFailurePulseAnim
+        running: false
+        PropertyAnimation {
+            target: root
+            property: "faceFailurePulse"
+            from: 0.0
+            to: 1.0
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+        PropertyAnimation {
+            target: root
+            property: "faceFailurePulse"
+            from: 1.0
+            to: 0.0
+            duration: 720
+            easing.type: Easing.OutCubic
+        }
+    }
 
     // ==================== Theme Colors ====================
     readonly property color primaryColor: "#3b82f6"
@@ -580,30 +611,34 @@ ShellRoot {
         screenshotProcess.running = true
         weatherCacheLoader.running = true
         refreshPlayersList()
+        if (phase === "locked") {
+            Qt.callLater(startAuth)
+        }
     }
 
     // ==================== PAM Authentication ====================
 
     PamContext {
         id: pamFace
-        config: "sudo"
+        config: "qs-lock-face"
         user: userName
 
         onActiveChanged: {
+            console.log("pamFace active:", active)
+            authInProgress = pamFace.active || passwordSubmitInProgress
             if (active) {
-                authInProgress = true
+                faceAuthFailed = false
                 statusMessage = "正在进行人脸识别..."
             }
         }
 
         onPamMessage: {
+            console.log("pamFace message:", pamFace.message, "required:", pamFace.responseRequired, "visible:", pamFace.responseVisible)
             if (pamFace.responseRequired) {
                 if (pamFace.responseVisible) {
                     pamFace.respond(userName)
                 } else {
-                    pamFace.abort()
-                    statusMessage = "人脸识别失败，请输入密码"
-                    authInProgress = false
+                    statusMessage = pamFace.message || "正在进行人脸识别..."
                 }
             } else {
                 statusMessage = pamFace.message
@@ -611,18 +646,22 @@ ShellRoot {
         }
 
         onCompleted: function(result) {
-            authInProgress = false
+            console.log("pamFace completed:", result)
+            faceAuthRequested = false
+            authInProgress = passwordSubmitInProgress
             statusMessage = ""
+            faceAuthTimeoutTimer.stop()
             if (result === PamResult.Success) {
+                faceAuthFailed = false
                 sessionLock.locked = false
             } else {
-                statusMessage = "请输入密码"
+                root.markFaceAuthFailed(false)
             }
         }
 
         onError: function(err) {
-            authInProgress = false
-            statusMessage = "请输入密码"
+            console.log("pamFace error:", err)
+            root.markFaceAuthFailed(false)
         }
     }
 
@@ -632,15 +671,20 @@ ShellRoot {
         user: userName
 
         onActiveChanged: {
-            if (active) {
-                authInProgress = true
+            console.log("pamPassword active:", active)
+            authInProgress = pamFace.active || passwordSubmitInProgress
+            if (active && passwordSubmitInProgress) {
                 statusMessage = "正在验证密码..."
             }
         }
 
         onPamMessage: {
+            console.log("pamPassword message:", pamPassword.message, "required:", pamPassword.responseRequired, "visible:", pamPassword.responseVisible)
             if (pamPassword.responseRequired) {
                 if (pendingPassword.length > 0) {
+                    passwordSubmitInProgress = true
+                    authInProgress = true
+                    statusMessage = "正在验证密码..."
                     pamPassword.respond(pendingPassword)
                     pendingPassword = ""
                     return
@@ -648,16 +692,22 @@ ShellRoot {
                 if (pamPassword.responseVisible) {
                     pamPassword.respond(userName)
                 } else {
-                    statusMessage = pamPassword.message || "请输入密码"
-                    authInProgress = false
+                    if (!pamFace.active && !passwordSubmitInProgress) {
+                        statusMessage = pamPassword.message || "请输入密码"
+                    }
+                    authInProgress = pamFace.active || passwordSubmitInProgress
                 }
             } else {
-                statusMessage = pamPassword.message
+                if (passwordSubmitInProgress || !pamFace.active) {
+                    statusMessage = pamPassword.message
+                }
             }
         }
 
         onCompleted: function(result) {
-            authInProgress = false
+            console.log("pamPassword completed:", result)
+            passwordSubmitInProgress = false
+            authInProgress = pamFace.active
             statusMessage = ""
             if (result === PamResult.Success) {
                 sessionLock.locked = false
@@ -668,7 +718,9 @@ ShellRoot {
         }
 
         onError: function(err) {
-            authInProgress = false
+            console.log("pamPassword error:", err)
+            passwordSubmitInProgress = false
+            authInProgress = pamFace.active
             statusMessage = ""
             errorMessage = "认证错误"
             errorClearTimer.restart()
@@ -681,6 +733,24 @@ ShellRoot {
         id: errorClearTimer
         interval: 3000
         onTriggered: errorMessage = ""
+    }
+
+    Timer {
+        id: faceAuthTimeoutTimer
+        interval: 5500
+        repeat: false
+        onTriggered: {
+            if (phase === "locked" && (faceAuthRequested || pamFace.active)) {
+                root.markFaceAuthFailed(true)
+            }
+        }
+    }
+
+    Timer {
+        id: faceRetryDelayTimer
+        interval: 180
+        repeat: false
+        onTriggered: root.beginFaceAuth("正在重新进行人脸识别...")
     }
 
     // ==================== Transition Animation ====================
@@ -1499,8 +1569,8 @@ ShellRoot {
 
                             // Face recognition status
                             property string faceAuthStatus: {
-                                if (pamFace.active) return "scanning"
-                                if (errorMessage.length > 0) return "failed"
+                                if (faceAuthFailed) return "failed"
+                                if (pamFace.active || faceAuthRequested) return "scanning"
                                 return ""
                             }
 
@@ -1527,6 +1597,19 @@ ShellRoot {
                                     }
 
                                     Behavior on border.color { ColorAnimation { duration: 200 } }
+                                }
+
+                                // Failure pulse halo
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 126
+                                    height: 126
+                                    radius: 63
+                                    color: "transparent"
+                                    border.width: 3
+                                    border.color: "#f87171"
+                                    opacity: rightPanel.faceAuthStatus === "failed" ? (0.32 + 0.36 * faceFailurePulse) : 0
+                                    visible: rightPanel.faceAuthStatus === "failed"
                                 }
 
                                 // Scanning ring animation (pulsing outward)
@@ -1640,8 +1723,14 @@ ShellRoot {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        enabled: !pamPassword.active && !pamPassword.responseRequired
-                                        onClicked: root.startAuth()
+                                        enabled: faceAuthFailed || (!pamFace.active && !faceAuthRequested)
+                                        onClicked: {
+                                            if (faceAuthFailed) {
+                                                root.retryFaceAuth()
+                                            } else {
+                                                root.startAuth()
+                                            }
+                                        }
                                     }
                                 }
 
@@ -1697,6 +1786,56 @@ ShellRoot {
                                     font.pixelSize: 12
                                     color: root.secondaryColor
                                     visible: statusMessage.length > 0
+                                }
+                            }
+
+                            Rectangle {
+                                id: faceRetryButton
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: 140
+                                height: 34
+                                radius: 17
+                                color: faceRetryMouse.containsMouse ? Qt.rgba(248, 113, 113, 0.26) : Qt.rgba(248, 113, 113, 0.18)
+                                border.width: 1
+                                border.color: Qt.rgba(248, 113, 113, 0.45)
+                                opacity: faceAuthFailed ? 1 : 0
+                                visible: opacity > 0
+
+                                Behavior on opacity { NumberAnimation { duration: 180 } }
+                                Behavior on color { ColorAnimation { duration: 150 } }
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+
+                                    Text {
+                                        text: faceAuthRequested ? "\uf110" : "\uf2f1"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 12
+                                        color: root.textColor
+
+                                        RotationAnimator on rotation {
+                                            running: faceAuthRequested
+                                            from: 0; to: 360
+                                            duration: 900
+                                            loops: Animation.Infinite
+                                        }
+                                    }
+
+                                    Text {
+                                        text: "重试人脸"
+                                        font.pixelSize: 12
+                                        color: root.textColor
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: faceRetryMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: faceAuthFailed || (!pamFace.active && !faceAuthRequested)
+                                    onClicked: root.retryFaceAuth()
                                 }
                             }
 
@@ -1769,14 +1908,14 @@ ShellRoot {
 
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        text: pamPassword.active ? "\uf110" : "\uf054"
+                                        text: passwordSubmitInProgress ? "\uf110" : "\uf054"
                                         font.family: "Symbols Nerd Font Mono"
                                         font.pixelSize: 14
                                         color: root.primaryColor
-                                        visible: passwordField.text.length > 0 || pamPassword.active
+                                        visible: passwordField.text.length > 0 || passwordSubmitInProgress
 
                                         RotationAnimator on rotation {
-                                            running: pamPassword.active
+                                            running: passwordSubmitInProgress
                                             from: 0; to: 360
                                             duration: 1000
                                             loops: Animation.Infinite
@@ -1785,7 +1924,7 @@ ShellRoot {
                                         MouseArea {
                                             anchors.fill: parent
                                             anchors.margins: -12
-                                            enabled: !authInProgress && passwordField.text.length > 0
+                                            enabled: passwordField.text.length > 0
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 root.startAuthWithPassword(passwordField.text)
@@ -1833,7 +1972,7 @@ ShellRoot {
                             Row {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 spacing: 16
-                                visible: !authInProgress && !pamPassword.responseRequired && passwordField.text.length === 0
+                                visible: !pamFace.active && !passwordSubmitInProgress && !pamPassword.responseRequired && passwordField.text.length === 0
 
                                 Text {
                                     text: "点击头像进行人脸识别"
@@ -2272,25 +2411,26 @@ ShellRoot {
     }
 
     function startAuth() {
-        if (pamPassword.active) return
-
-        if (pamFace.active) {
-            pamFace.abort()
-        }
+        console.log("startAuth called", "requested=", faceAuthRequested, "pamFace.active=", pamFace.active, "pamPassword.active=", pamPassword.active, "phase=", phase)
+        if (phase !== "locked") return
 
         errorMessage = ""
-        pendingPassword = ""
-        authInProgress = true
-        statusMessage = "正在进行人脸识别..."
-        pamFace.start()
+        faceAuthFailed = false
+        if (!pamPassword.active && !pamPassword.responseRequired) {
+            pamPassword.start()
+        }
+
+        if (faceAuthRequested || pamFace.active) return
+
+        root.beginFaceAuth("正在进行人脸识别...")
     }
 
     function startAuthWithPassword(password) {
+        console.log("startAuthWithPassword called", "pamFace.active=", pamFace.active, "pamPassword.active=", pamPassword.active, "responseRequired=", pamPassword.responseRequired)
         errorMessage = ""
-
-        if (pamFace.active) {
-            pamFace.abort()
-        }
+        passwordSubmitInProgress = true
+        authInProgress = true
+        statusMessage = "正在验证密码..."
 
         if (pamPassword.responseRequired) {
             pamPassword.respond(password)
@@ -2304,5 +2444,54 @@ ShellRoot {
 
         pendingPassword = password
         pamPassword.start()
+    }
+
+    function retryFaceAuth() {
+        console.log("retryFaceAuth called", "pamFace.active=", pamFace.active, "phase=", phase)
+        if (phase !== "locked") return
+        errorMessage = ""
+        faceAuthFailed = false
+        faceAuthRequested = true
+        authInProgress = true
+        statusMessage = "正在重新进行人脸识别..."
+
+        if (pamFace.active) {
+            pamFace.abort()
+            faceRetryDelayTimer.restart()
+            return
+        }
+
+        root.beginFaceAuth("正在重新进行人脸识别...")
+    }
+
+    function beginFaceAuth(message) {
+        console.log("beginFaceAuth called", "pamFace.active=", pamFace.active, "requested=", faceAuthRequested, "phase=", phase)
+        if (phase !== "locked") return
+        if (pamFace.active) {
+            faceRetryDelayTimer.restart()
+            return
+        }
+
+        faceAuthFailed = false
+        statusMessage = message
+        faceAuthRequested = true
+        authInProgress = true
+        faceAuthTimeoutTimer.restart()
+        if (!pamFace.start()) {
+            root.markFaceAuthFailed(false)
+        }
+    }
+
+    function markFaceAuthFailed(abortActive) {
+        console.log("markFaceAuthFailed called", "abortActive=", abortActive, "pamFace.active=", pamFace.active)
+        faceAuthTimeoutTimer.stop()
+        faceAuthRequested = false
+        faceAuthFailed = true
+        authInProgress = passwordSubmitInProgress
+        statusMessage = "人脸识别失败，点击重试"
+        faceFailurePulseAnim.restart()
+        if (abortActive && pamFace.active) {
+            pamFace.abort()
+        }
     }
 }

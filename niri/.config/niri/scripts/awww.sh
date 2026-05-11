@@ -12,6 +12,10 @@ sleep 0.5
 
 DEFAULT_WALLPAPER="$HOME/.cache/current_wallpaper"
 
+get_outputs() {
+    awww query 2>/dev/null | awk -F': ' '/^: / && NF >= 3 { print $2 }'
+}
+
 set_wallpaper() {
     local output="$1"
     local wallpaper="$2"
@@ -32,10 +36,15 @@ set_wallpaper() {
         --transition-fps 60
 }
 
-if awww query | grep -q ": eDP-1:"; then
-    set_wallpaper "eDP-1" "$HOME/.cache/current_wallpaper_eDP-1"
-fi
+outputs=()
+for _ in {1..10}; do
+    mapfile -t outputs < <(get_outputs)
+    if [[ ${#outputs[@]} -gt 0 ]]; then
+        break
+    fi
+    sleep 0.2
+done
 
-if awww query | grep -q ": HDMI-A-1:"; then
-    set_wallpaper "HDMI-A-1" "$HOME/.cache/current_wallpaper_HDMI-A-1"
-fi
+for output in "${outputs[@]}"; do
+    set_wallpaper "$output" "$HOME/.cache/current_wallpaper_${output}"
+done
