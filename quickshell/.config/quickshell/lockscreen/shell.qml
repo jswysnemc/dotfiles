@@ -28,11 +28,19 @@ ShellRoot {
     property bool faceAuthRequested: false
     property bool faceAuthFailed: false
     property bool passwordSubmitInProgress: false
+    property bool pendingFaceAuthOnLock: false
     property real faceFailurePulse: 0.0
+    readonly property bool faceAuthOnStart: {
+        var value = (Quickshell.env("LOCK_FACE_ON_START") || "").toLowerCase()
+        return value === "1" || value === "true" || value === "yes" || value === "on"
+    }
+    readonly property string faceTriggerPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/qs-lock-face-trigger"
+    property string lastFaceTriggerToken: ""
+    property double lockscreenStartedAtMs: Date.now()
 
     onPhaseChanged: {
         if (phase === "locked") {
-            Qt.callLater(startAuth)
+            Qt.callLater(enterLockedPhase)
         }
     }
 
@@ -605,6 +613,20 @@ ShellRoot {
 
     property bool screenshotReady: screenshotLoader.status === Image.Ready
 
+    FileView {
+        id: faceTriggerFile
+        path: root.faceTriggerPath
+        watchChanges: true
+
+        onLoaded: root.handleFaceTrigger(faceTriggerFile.text())
+        onFileChanged: faceTriggerFile.reload()
+        onLoadFailed: function(error) {
+            if (error !== FileViewError.FileNotFound) {
+                console.log("face trigger file load failed:", error)
+            }
+        }
+    }
+
     Component.onCompleted: {
         lunarProcess.running = true
         wallpaperProcess.running = true
@@ -612,7 +634,7 @@ ShellRoot {
         weatherCacheLoader.running = true
         refreshPlayersList()
         if (phase === "locked") {
-            Qt.callLater(startAuth)
+            Qt.callLater(enterLockedPhase)
         }
     }
 
@@ -2410,15 +2432,59 @@ ShellRoot {
         }
     }
 
+    function enterLockedPhase() {
+        console.log("enterLockedPhase called", "pendingFaceAuthOnLock=", pendingFaceAuthOnLock, "faceAuthOnStart=", faceAuthOnStart, "phase=", phase)
+        if (phase !== "locked") return
+
+        root.ensurePasswordAuth()
+        if (pendingFaceAuthOnLock || faceAuthOnStart) {
+            pendingFaceAuthOnLock = false
+            root.startAuth()
+        }
+    }
+
+    function ensurePasswordAuth() {
+        console.log("ensurePasswordAuth called", "pamPassword.active=", pamPassword.active, "responseRequired=", pamPassword.responseRequired, "phase=", phase)
+        if (phase !== "locked") return
+
+        errorMessage = ""
+        if (!pamPassword.active && !pamPassword.responseRequired) {
+            pamPassword.start()
+        }
+    }
+
+    function requestFaceAuthFromSignal() {
+        console.log("requestFaceAuthFromSignal called", "phase=", phase)
+        if (phase !== "locked") {
+            pendingFaceAuthOnLock = true
+            return
+        }
+
+        root.startAuth()
+    }
+
+    function handleFaceTrigger(contents) {
+        if (typeof contents === "function") {
+            contents = contents()
+        }
+
+        var token = String(contents || "").trim()
+        if (token.length === 0 || token === lastFaceTriggerToken) return
+
+        var timestamp = parseInt(token.split(/\s+/)[0])
+        if (!isNaN(timestamp) && timestamp < lockscreenStartedAtMs) return
+
+        lastFaceTriggerToken = token
+
+        root.requestFaceAuthFromSignal()
+    }
+
     function startAuth() {
         console.log("startAuth called", "requested=", faceAuthRequested, "pamFace.active=", pamFace.active, "pamPassword.active=", pamPassword.active, "phase=", phase)
         if (phase !== "locked") return
 
-        errorMessage = ""
+        root.ensurePasswordAuth()
         faceAuthFailed = false
-        if (!pamPassword.active && !pamPassword.responseRequired) {
-            pamPassword.start()
-        }
 
         if (faceAuthRequested || pamFace.active) return
 

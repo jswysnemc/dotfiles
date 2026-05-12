@@ -1,12 +1,60 @@
 #!/usr/bin/env bash
 # QuickShell Lockscreen launcher
-# Usage: qs-lock
+# Usage: qs-lock [--face]
+
+set -u
+
+face_on_start=0
+case "${1:-}" in
+    --face|--face-on-start)
+        face_on_start=1
+        shift
+        ;;
+    "")
+        ;;
+    *)
+        echo "Usage: qs-lock [--face]" >&2
+        exit 2
+        ;;
+esac
+
+case "${LOCK_FACE_ON_START:-}" in
+    1|true|TRUE|yes|YES|on|ON)
+        face_on_start=1
+        ;;
+esac
+
+runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
+face_trigger_file="${runtime_dir}/qs-lock-face-trigger"
+
+lockscreen_running() {
+    pgrep -x quickshell >/dev/null && pgrep -xaf quickshell | grep -q 'lockscreen'
+}
+
+signal_face_auth() {
+    mkdir -p "$runtime_dir"
+    printf '%s wake\n' "$(date +%s%3N)" > "$face_trigger_file"
+}
 
 # Prevent multiple instances - check for actual quickshell process with lockscreen config
 # Use -x to match exact program name "quickshell" and filter by command line
-if pgrep -x quickshell >/dev/null && pgrep -xaf quickshell | grep -q 'lockscreen'; then
+if lockscreen_running; then
+    if (( face_on_start )); then
+        signal_face_auth
+        echo "Face auth requested"
+        exit 0
+    fi
+
     echo "Lockscreen already running"
     exit 0
 fi
 
-exec quickshell -p ~/.config/quickshell/lockscreen
+mkdir -p "$runtime_dir"
+: > "$face_trigger_file"
+
+if (( face_on_start )); then
+    export LOCK_FACE_ON_START=1
+    export LOCK_GRACE_TIMEOUT="${LOCK_GRACE_TIMEOUT:-0}"
+fi
+
+exec quickshell -p "$HOME/.config/quickshell/lockscreen"

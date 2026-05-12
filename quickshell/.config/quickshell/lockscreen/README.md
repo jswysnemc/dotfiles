@@ -20,14 +20,16 @@
 
 本锁屏使用两个独立的 PAM 配置：
 
-### 1. `/etc/pam.d/sudo` - 人脸识别 + 密码
+### 1. `/etc/pam.d/qs-lock-face` - 人脸识别 + 密码
 
-```
+```bash
+sudo tee /etc/pam.d/qs-lock-face << 'EOF'
 #%PAM-1.0
-auth sufficient pam_howdy.so
-auth include system-auth
-account include system-auth
-session include system-auth
+auth       sufficient pam_howdy.so
+auth       include    system-auth
+account    include    system-auth
+session    include    system-auth
+EOF
 ```
 
 ### 2. `/etc/pam.d/qs-lock` - 仅密码 (需手动创建)
@@ -44,7 +46,7 @@ EOF
 
 **为什么需要两个配置？**
 
-- 点击头像时使用 `sudo` 配置，启动人脸识别
+- 点击头像或恢复路径使用 `qs-lock-face` 配置，启动人脸识别
 - 输入密码时使用 `qs-lock` 配置，跳过人脸识别直接验证密码
 - 这样可以在人脸识别过程中随时切换到密码认证，无需等待 howdy 超时
 
@@ -53,6 +55,7 @@ EOF
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `LOCK_GRACE_TIMEOUT` | Grace period 时长（秒） | 5 |
+| `LOCK_FACE_ON_START` | 启动后进入真锁屏时自动触发人脸识别 | 关闭 |
 
 ## 使用方法
 
@@ -62,7 +65,12 @@ qs-lock
 
 # 带 grace period
 LOCK_GRACE_TIMEOUT=30 qs-lock
+
+# 显式触发人脸识别（用于休眠/熄屏恢复）
+qs-lock --face
 ```
+
+普通进入锁屏不会自动触发人脸识别。点击头像、`qs-lock --face`、休眠恢复、熄屏恢复会触发人脸识别。
 
 ## Grace Period 操作
 
@@ -88,10 +96,14 @@ GRACE_DURATION=30     # Grace period 时长
 DPMS_TIMEOUT=120      # 空闲多久后关闭显示器
 
 LOCK_CMD="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=${GRACE_DURATION} qs-lock"
+LOCK_CMD_IMMEDIATE="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=0 qs-lock"
+WAKE_FACE_CMD="niri msg action power-on-monitors; qs-lock --face"
 
 exec swayidle \
     timeout $IDLE_TIMEOUT  "$LOCK_CMD" \
     timeout $DPMS_TIMEOUT  'niri msg action power-off-monitors' \
-        resume             'niri msg action power-on-monitors' \
-    lock                   "$LOCK_CMD"
+        resume             "$WAKE_FACE_CMD" \
+    before-sleep           "$LOCK_CMD_IMMEDIATE" \
+    after-resume           "$WAKE_FACE_CMD" \
+    lock                   "$LOCK_CMD_IMMEDIATE"
 ```

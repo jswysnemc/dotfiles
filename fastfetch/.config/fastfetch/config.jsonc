@@ -3,28 +3,23 @@
 
   "logo": {
     "type": "builtin",
-    "source": "arch_small",
+    "source": "CachyOS_small",
     "padding": {
       "top": 1,
-      "right": 3
-    },
-    "color": {
-      "1": "36",
-      "2": "34"
+      "right": 4
     }
   },
 
   "display": {
-    "separator": "  │ ",
-    "brightColor": true,
+    "separator": "  ",
     "color": {
       "keys": "36",
       "title": "36",
-      "output": "97",
+      "output": "default",
       "separator": "90"
     },
     "key": {
-      "width": 13,
+      "width": 12,
       "type": "string"
     },
     "size": {
@@ -34,11 +29,11 @@
     "freq": {
       "ndigits": 2
     },
+    "temp": {
+      "ndigits": 0
+    },
     "percent": {
-      "type": [
-        "bar",
-        "num-color"
-      ],
+      "type": ["bar", "num-color"],
       "ndigits": 0
     },
     "bar": {
@@ -54,7 +49,7 @@
         "elapsed": "36",
         "total": "90"
       },
-      "width": 10
+      "width": 12
     }
   },
 
@@ -67,7 +62,7 @@
   "modules": [
     {
       "type": "title",
-      "format": "{#36}{user-name}{#90}@{#36}{host-name}"
+      "format": "{#36}{user-name}{#90}@{#36}{host-name}{#}"
     },
     {
       "type": "separator",
@@ -75,16 +70,16 @@
     },
     {
       "type": "os",
-      "key": " OS"
+      "key": "󰣇 OS"
+    },
+    {
+      "type": "host",
+      "key": "󰌢 Laptop"
     },
     {
       "type": "kernel",
-      "key": " Kernel",
+      "key": "󰌽 Kernel",
       "format": "{release}"
-    },
-    {
-      "type": "uptime",
-      "key": "󰅐 Uptime"
     },
     {
       "type": "packages",
@@ -92,52 +87,59 @@
       "combined": true
     },
     {
+      "type": "uptime",
+      "key": "󰅐 Uptime"
+    },
+    "break",
+    {
       "type": "wm",
-      "key": " WM",
+      "key": "󰧨 WM",
       "detectPlugin": true
     },
     {
-      "type": "display",
-      "key": "󰍹 Display",
-      "compactType": "original",
-      "preciseRefreshRate": false
+      "type": "shell",
+      "key": "󰞷 Shell"
     },
     {
       "type": "terminal",
-      "key": " Terminal"
+      "key": "󰆍 Terminal"
     },
     {
-      "type": "shell",
-      "key": " Shell"
+      "type": "terminalfont",
+      "key": "󰛖 Font"
     },
+    "break",
     {
       "type": "cpu",
-      "key": " CPU",
-      "temp": false,
+      "key": "󰻠 CPU",
       "showPeCoreCount": false
     },
     {
       "type": "gpu",
       "key": "󰢮 GPU",
-      "detectionMethod": "auto",
-      "driverSpecific": false,
-      "temp": false,
-      "format": "{name} [{type}]"
+      "format": "{name}"
     },
     {
       "type": "memory",
-      "key": " Memory"
+      "key": "󱈏 Memory"
     },
     {
-      "type": "swap",
-      "key": "󰓡 Swap"
+      "type": "command",
+      "key": "󰾆 ZRAM",
+      "text": "~/.config/fastfetch/ff-zram.sh"
+    },
+    {
+      "type": "command",
+      "key": "󰓡 Swap",
+      "text": "~/.config/fastfetch/ff-swap.sh"
     },
     {
       "type": "disk",
-      "key": " Disk",
+      "key": "󰋊 Disk",
       "folders": "/",
       "useAvailable": false
     },
+    "break",
     {
       "type": "localip",
       "key": "󰩟 IPv4",
@@ -149,20 +151,21 @@
     },
     {
       "type": "battery",
-      "key": " Battery",
-      "temp": false
+      "key": "󰁹 Battery"
     },
     {
+      "type": "datetime",
+      "key": "󰃭 Date",
+      "format": "{year}-{month-pretty}-{day-pretty}  {hour-pretty}:{minute-pretty}"
+    },
+    "break",
+    {
       "type": "colors",
-      "key": "󰏘 Palette",
+      "paddingLeft": 2,
       "symbol": "circle",
-      "paddingLeft": 1,
       "block": {
         "width": 3,
-        "range": [
-          0,
-          15
-        ]
+        "range": [0, 15]
       }
     }
   ]
