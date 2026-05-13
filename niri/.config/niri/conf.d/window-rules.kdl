@@ -109,7 +109,8 @@ window-rule {
 
 
 window-rule {
-    match app-id="(?i)kitty-float"
+    // match app-id="(?i)kitty-float"
+    match app-id="(?i)terminal-float"
     open-floating true
     default-column-width { fixed 1200; }
     default-window-height { fixed 1000; }

@@ -6,8 +6,10 @@ binds {
     Mod+Shift+Slash hotkey-overlay-title="显示快捷键帮助" { show-hotkey-overlay; }
 
     // === 程序启动 ===
-    Mod+T hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
-    Mod+Return hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
+    // Mod+T hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
+    Mod+T hotkey-overlay-title="打开终端" { spawn-sh "~/.custom/bin/terminal-launcher"; }
+    // Mod+Return hotkey-overlay-title="打开终端（kitty）" { spawn "kitty"; }
+    Mod+Return hotkey-overlay-title="打开终端" { spawn-sh "~/.custom/bin/terminal-launcher"; }
     Alt+Space hotkey-overlay-title="应用启动器" { spawn-sh "qs-popup launcher"; }
     Alt+V hotkey-overlay-title="剪贴板" { spawn-sh "qs-popup clipboard"; }
     Mod+B hotkey-overlay-title="浏览器" { spawn-sh " xdg-open \"http://\""; }
@@ -15,7 +17,8 @@ binds {
     Super+Alt+L hotkey-overlay-title="锁屏" { spawn "loginctl" "lock-session"; }
     Mod+Shift+S hotkey-overlay-title="截屏" { spawn-sh "wayfreeze & PID=$!; sleep 0.1; grim -g \"$(slurp)\" - | wl-copy; kill $PID"; }
     Alt+Ctrl+S hotkey-overlay-title="截屏标注" { spawn-sh "mark-shot --fullscreen"; }
-    Mod+Shift+Return hotkey-overlay-title="浮动终端" { spawn-sh "kitty --class kitty-float"; }
+    // Mod+Shift+Return hotkey-overlay-title="浮动终端" { spawn-sh "kitty --class kitty-float"; }
+    Mod+Shift+Return hotkey-overlay-title="浮动终端" { spawn-sh "~/.custom/bin/terminal-launcher --float"; }
     Mod+Shift+B hotkey-overlay-title="重启waybar" { spawn-sh "killall waybar ; waybar"; }
     Mod+Z hotkey-overlay-title="任务管理器" { spawn-sh "missioncenter"; }
     Mod+Shift+W hotkey-overlay-title="切换壁纸" { spawn-sh "qs-popup wallpaper"; }

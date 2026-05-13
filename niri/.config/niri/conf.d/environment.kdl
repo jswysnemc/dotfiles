@@ -39,5 +39,8 @@ environment {
     GNOME_KEYRING_CONTROL "/run/user/1000/keyring"
     SSH_AUTH_SOCK "/run/user/1000/keyring/ssh"
 
-
+    // 终端
+    // TERMINAL "ghostty"
+    TERMINAL "kitty --single-instance --instance-group=main"
+    // TERMINAL "konsole"
 }

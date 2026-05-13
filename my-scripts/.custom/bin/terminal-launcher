@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+FLOAT_CLASS="terminal-float"
+GHOSTTY_FLOAT_CLASS="com.snemc.${FLOAT_CLASS}"
+float=false
+command_args=()
+
+usage() {
+    cat <<'EOF'
+Usage: terminal-launcher [--float|-f] [--] [command...]
+
+Launch the terminal defined by $TERMINAL. If $TERMINAL is unset, legacy
+$TERMNIAL is used. If both are unset, the script picks the first installed
+supported terminal.
+
+Examples:
+  terminal-launcher
+  terminal-launcher --float
+  terminal-launcher -- btop
+  terminal-launcher --float -- nmtui
+EOF
+}
+
+while (($# > 0)); do
+    case "$1" in
+        --float|-f)
+            float=true
+            shift
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            command_args=("$@")
+            break
+            ;;
+        *)
+            command_args=("$@")
+            break
+            ;;
+    esac
+done
+
+terminal_spec="${TERMINAL:-${TERMNIAL:-}}"
+
+if [[ -z "$terminal_spec" ]]; then
+    for candidate in ghostty kitty foot footclient alacritty wezterm konsole gnome-terminal kgx xterm; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            terminal_spec="$candidate"
+            break
+        fi
+    done
+fi
+
+if [[ -z "$terminal_spec" ]]; then
+    echo "terminal-launcher: no supported terminal found; set TERMINAL" >&2
+    exit 127
+fi
+
+# Split simple command specs like "kitty --single-instance". Quoted shell syntax
+# in TERMINAL is intentionally not evaluated.
+read -r -a terminal_cmd <<< "$terminal_spec"
+terminal_bin="${terminal_cmd[0]}"
+terminal_name="$(basename "$terminal_bin")"
+
+if ! command -v "$terminal_bin" >/dev/null 2>&1; then
+    echo "terminal-launcher: terminal not found: $terminal_bin" >&2
+    exit 127
+fi
+
+has_command=false
+if ((${#command_args[@]} > 0)); then
+    has_command=true
+fi
+
+case "$terminal_name" in
+    ghostty)
+        args=("${terminal_cmd[@]}")
+        $float && args+=("--class=$GHOSTTY_FLOAT_CLASS")
+        $has_command && args+=("-e" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    kitty)
+        args=("${terminal_cmd[@]}")
+        $float && args+=("--class" "$FLOAT_CLASS")
+        $has_command && args+=("-e" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    foot|footclient)
+        args=("${terminal_cmd[@]}")
+        $float && args+=("--app-id" "$FLOAT_CLASS")
+        $has_command && args+=("${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    alacritty)
+        args=("${terminal_cmd[@]}")
+        $float && args+=("--class" "$FLOAT_CLASS,$FLOAT_CLASS")
+        $has_command && args+=("-e" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    wezterm)
+        args=("${terminal_cmd[@]}")
+        if [[ " ${terminal_cmd[*]} " != *" start "* ]]; then
+            args+=("start")
+        fi
+        $float && args+=("--class" "$FLOAT_CLASS")
+        $has_command && args+=("--" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    konsole)
+        args=("${terminal_cmd[@]}")
+        $float && args+=("--name" "$FLOAT_CLASS")
+        $has_command && args+=("-e" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    gnome-terminal)
+        args=("${terminal_cmd[@]}")
+        $float && args+=("--class=$FLOAT_CLASS")
+        $has_command && args+=("--" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    kgx)
+        args=("${terminal_cmd[@]}")
+        $has_command && args+=("--" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    xterm)
+        args=("${terminal_cmd[@]}")
+        $float && args+=("-class" "$FLOAT_CLASS")
+        $has_command && args+=("-e" "${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+    *)
+        args=("${terminal_cmd[@]}")
+        $has_command && args+=("${command_args[@]}")
+        exec "${args[@]}"
+        ;;
+esac

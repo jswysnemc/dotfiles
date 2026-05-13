@@ -13,3 +13,4 @@ matugen:~/.config/matugen
 quickshell:~/.config/quickshell
 electron-flags:~/.config/*-flags.conf
 fastfetch:~/.config/fastfetch
+ghostty:~/.config/ghostty

@@ -2,6 +2,8 @@ export PATH=$HOME/.custom/bin:$PATH
 export PATH=$PATH:$HOME/.local/share/cargo/bin
 export PATH=$PATH:$HOME/.local/bin
 
+export TERMINAL=ghostty
+
 # pnpm
 export PNPM_HOME="$HOME/.local/share/pnpm"
 case ":$PATH:" in

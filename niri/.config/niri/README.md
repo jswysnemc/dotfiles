@@ -31,7 +31,8 @@ paru -S brightnessctl wireplumber pipewire \
     hyprpolkitagent xdg-desktop-portal xdg-desktop-portal-kde
 
 # 应用程序
-paru -S kitty firefox dolphin btop
+paru -S ghostty firefox dolphin btop
+# kitty 旧配置：paru -S kitty firefox dolphin btop
 
 # 可选：截图编辑工具
 paru -S markpix-bin  # AUR
@@ -173,7 +174,8 @@ EOF
 | CopyQ | 浮动，固定 800x600 |
 | Waybar | 启用模糊 (2 次通过，半径 4) |
 | Clash Verge | 浮动 |
-| kitty-float | 浮动，固定 1200x1000 |
+| terminal-float | 浮动，固定 1200x1000 |
+<!-- kitty 旧配置：| kitty-float | 浮动，固定 1200x1000 | -->
 | Mission Center | 浮动，固定 1200x1000 |
 | Firefox 画中画 | 浮动 |
 | GSR UI / Waydroid | 全屏浮动，禁用焦点环/阴影 |
@@ -185,7 +187,8 @@ EOF
 
 | 快捷键 | 功能 |
 |--------|------|
-| `Mod+T` / `Mod+Return` | 终端 (kitty) |
+| `Mod+T` / `Mod+Return` | 终端 (`terminal-launcher`) |
+<!-- kitty 旧配置：| `Mod+T` / `Mod+Return` | 终端 (kitty) | -->
 | `Alt+Space` | 应用启动器 (quickshell launcher) |
 | `Alt+V` | 剪贴板 (quickshell clipboard) |
 | `Mod+B` | 浏览器 (Firefox) |
@@ -310,6 +313,10 @@ X11 和 Wayland 剪贴板双向同步：
 
 使用 Rofi 选择和设置壁纸，支持缩略图预览、视频首帧提取、matugen 主题生成。可选传入 TARGET_OUTPUT 参数为指定显示器设置壁纸，仅对主显示器触发主题生成。
 
+### terminal-launcher - 终端启动器
+
+读取 `TERMINAL` 变量选择终端，并兼容旧拼写 `TERMNIAL`。支持 `--float` 使用 `terminal-float` 类名打开浮动终端；Ghostty 实际使用合法 app-id `com.snemc.terminal-float`。也支持 `terminal-launcher -- btop` 这类带命令启动。
+
 ### niri-monitor-switch.sh - 显示器配置切换
 
 使用 Fuzzel 菜单交互式选择显示器分辨率和刷新率。
@@ -321,7 +328,8 @@ X11 和 Wayland 剪贴板双向同步：
 | 包名 | 用途 |
 |------|------|
 | `niri` | Wayland 窗口管理器 |
-| `kitty` | 终端模拟器 |
+| `ghostty` | 终端模拟器 |
+<!-- kitty 旧配置：| `kitty` | 终端模拟器 | -->
 | `waybar` | 状态栏 |
 | `awww` | 壁纸管理 |
 | `swayidle` | 空闲管理 |

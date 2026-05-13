@@ -126,9 +126,11 @@
     },
     "custom/app-term": {
         "format": "",
-        "tooltip-format": "左键:终端 (Kitty)\n右键:以浮动方式打开终端",
-        "on-click": "kitty",
-        "on-click-right": "kitty --class kitty-float"
+        "tooltip-format": "左键:终端 ($TERMINAL)\n右键:以浮动方式打开终端",
+        // "on-click": "kitty",
+        "on-click": "~/.custom/bin/terminal-launcher",
+        // "on-click-right": "kitty --class kitty-float",
+        "on-click-right": "~/.custom/bin/terminal-launcher --float"
     },
     // --- 快捷方式抽屉 ---
     "group/shortcuts": {
@@ -256,7 +258,8 @@
         "interval": 2,
         "tooltip": true,
         "tooltip-format": "󰻠 CPU 使用率: {usage}%",
-        "on-click": "kitty -e btop"
+        // "on-click": "kitty -e btop"
+        "on-click": "~/.custom/bin/terminal-launcher -- btop"
     },
     // 温度组件：利用 format-critical 配合 CSS 变色
     "temperature": {
@@ -276,7 +279,8 @@
         "interval": 5,
         "tooltip": true,
         "tooltip-format": "󰍛 内存\n已用: {used:.1f}G / {total:.1f}G ({percentage}%)\n交换: {swapUsed:.1f}G / {swapTotal:.1f}G",
-        "on-click": "kitty -e btop"
+        // "on-click": "kitty -e btop"
+        "on-click": "~/.custom/bin/terminal-launcher -- btop"
     },
     // --- 网络模块 (Network) ---
     "network": {
@@ -296,7 +300,8 @@
             "󰤥",
             "󰤨"
         ],
-        "on-click-right": "kitty -e nmtui",
+        // "on-click-right": "kitty -e nmtui",
+        "on-click-right": "~/.custom/bin/terminal-launcher -- nmtui",
         "on-click": "~/.local/bin/qs-popup wifi"
     },
     // --- 蓝牙模块 (Bluetooth) ---

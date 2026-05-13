@@ -126,6 +126,11 @@ echo "Hello" | gtrans :zh
 - **用法**：直接执行，延迟 1 秒后运行登录脚本。
 - **依赖**：`wifi_login`、`notify-send`。
 
+### 1.1. terminal-launcher
+- **目的**：读取 `TERMINAL` 变量选择终端，兼容旧拼写 `TERMNIAL`，并适配 Ghostty、Kitty、Foot、Alacritty、WezTerm、Konsole、GNOME Terminal 等终端。
+- **用法**：`terminal-launcher`、`terminal-launcher --float`、`terminal-launcher -- btop`。
+- **浮动**：`--float` 会尽量设置窗口类名或 app-id 为 `terminal-float`。Ghostty 使用合法 GTK app-id `com.snemc.terminal-float`，由窗口管理器规则匹配 `terminal-float`。
+
 ### 2. wfreeze
 - **目的**：二进制工具（如 Wayland 截屏或冻结工具）。从名称推测，与 Wayland 显示相关。
 - **用法** Wayland 截屏或冻结工具。
