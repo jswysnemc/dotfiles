@@ -14,7 +14,7 @@ conda() {
   # 这会设置好 PATH 和其他必要的环境变量
   if [ -f /opt/miniconda3/etc/profile.d/conda.sh ]; then
     source /opt/miniconda3/etc/profile.d/conda.sh
-  else
+else
     echo "Error: conda.sh not found at /opt/miniconda3/etc/profile.d/conda.sh"
     return 1
   fi
