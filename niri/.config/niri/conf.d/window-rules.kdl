@@ -225,3 +225,28 @@ window-rule {
     default-floating-position x=0 y=0 relative-to="top-right"
     open-floating true
 }
+
+// --- Steam 游戏：黑神话：悟空 ---
+window-rule {
+    match app-id="^steam_app_2358720$"
+
+    open-fullscreen true
+    default-column-width { proportion 1.0; }
+    opacity 1.0
+
+    background-effect {
+        blur false
+        noise 0
+        saturation 1
+    }
+
+    focus-ring {
+        off
+    }
+    border {
+        off
+    }
+    shadow {
+        off
+    }
+}

@@ -228,8 +228,15 @@ ShellRoot {
     Process {
         id: refreshCache
         command: ["bash", "-c", `
+            cache_file="$1"
             apps='[]'
-            for f in /usr/share/applications/*.desktop ~/.local/share/applications/*.desktop; do
+
+            scan_desktop_dir() {
+                [ -d "$1" ] || return
+                find "$1" -type f -name '*.desktop' -print0
+            }
+
+            while IFS= read -r -d '' f; do
                 [ -f "$f" ] || continue
                 name=$(grep -m1 '^Name=' "$f" 2>/dev/null | cut -d= -f2-)
                 [ -z "$name" ] && continue
@@ -254,10 +261,26 @@ ShellRoot {
                 terminal=$(grep -m1 '^Terminal=' "$f" 2>/dev/null | cut -d= -f2-)
                 [ "$terminal" = "true" ] && term="true" || term="false"
                 apps=$(echo "$apps" | jq --arg n "$name" --arg g "$generic" --arg i "$icon" --arg e "$exec" --arg k "$keywords" --argjson t "$term" '. + [{"name":$n,"genericName":$g,"icon":$i,"exec":$e,"keywords":($k|split(";")|map(select(.!=""))),"terminal":$t}]')
-            done
-            echo "$apps" | jq -c 'unique_by(.name)|sort_by(.name|ascii_downcase)' > ` + root.cacheFile + `
-            cat ` + root.cacheFile
-        ]
+            done < <(
+                xdg_data_home="$XDG_DATA_HOME"
+                [ -z "$xdg_data_home" ] && xdg_data_home="$HOME/.local/share"
+                scan_desktop_dir "$xdg_data_home/applications"
+                [ "$xdg_data_home" = "$HOME/.local/share" ] || scan_desktop_dir "$HOME/.local/share/applications"
+
+                xdg_data_dirs="$XDG_DATA_DIRS"
+                [ -z "$xdg_data_dirs" ] && xdg_data_dirs="/usr/local/share:/usr/share"
+                old_ifs=$IFS
+                IFS=:
+                for data_dir in $xdg_data_dirs; do
+                    scan_desktop_dir "$data_dir/applications"
+                done
+                IFS=$old_ifs
+            )
+
+            mkdir -p "$(dirname "$cache_file")"
+            echo "$apps" | jq -c 'unique_by([.name, .exec])|sort_by(.name|ascii_downcase)' > "$cache_file"
+            cat "$cache_file"
+        `, "qs-launcher-refresh", root.cacheFile]
         stdout: SplitParser {
             splitMarker: ""
             onRead: data => {

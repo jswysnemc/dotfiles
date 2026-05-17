@@ -83,12 +83,34 @@ CachyOS = " "
 [custom.zsh_startup]
 description = "显示 Zsh 的总启动时间 (仅首次)"
 command = 'echo "$STARSHIP_STARTUP_TIME "'
-# `when` 不再需要判断 shell 类型，因为它只会在 Zsh 中运行
-# when = '[ -n $STARSHIP_SHOW_STARTUP ]'
-when = 'test "$STARSHIP_SHOW_STARTUP" = "true"'
+when = 'test "$STARSHIP_SHOW_STARTUP" = "true" && test "$STARSHIP_SHELL" = "zsh"'
 format = '[$output]($style) '
 style = "bold green"
 shell = "zsh"
+
+[custom.fish_startup]
+description = "显示 Fish 的配置加载时间 (仅首次)"
+command = 'echo "$STARSHIP_STARTUP_TIME "'
+when = 'test "$STARSHIP_SHOW_STARTUP" = "true"; and test "$STARSHIP_SHELL" = "fish"'
+format = '[$output]($style) '
+style = "bold green"
+shell = "fish"
+
+[custom.bash_startup]
+description = "显示 Bash 的配置加载时间 (仅首次)"
+command = 'echo "$STARSHIP_STARTUP_TIME "'
+when = 'test "$STARSHIP_SHOW_STARTUP" = "true" && test "$STARSHIP_STARTUP_SHELL" = "bash"'
+format = '[$output]($style) '
+style = "bold green"
+shell = "bash"
+
+[custom.brush_startup]
+description = "显示 Brush 的配置加载时间 (仅首次)"
+command = 'echo "$STARSHIP_STARTUP_TIME "'
+when = 'test "$STARSHIP_SHOW_STARTUP" = "true" && test "$STARSHIP_STARTUP_SHELL" = "brush"'
+format = '[$output]($style) '
+style = "bold green"
+shell = "bash"
 
 
 [aws]
