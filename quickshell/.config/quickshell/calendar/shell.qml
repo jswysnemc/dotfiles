@@ -5,6 +5,7 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
+import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -489,6 +490,14 @@ ShellRoot {
                     z: 10
                 }
 
+                // Aurora 装饰
+                Commons.AuroraBackground {
+                    anchors.fill: parent
+                    intensity: 0.26
+                    orbScale: 1.5
+                    z: 0
+                }
+
                 // 顶部 Aurora 渐变条
                 Rectangle {
                     anchors.left: parent.left
@@ -537,61 +546,151 @@ ShellRoot {
                     anchors.margins: Theme.spacingL
                     spacing: Theme.spacingM
 
-                    // Header: Today's info
+                    // === Header: Today's info — Hero ===
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 60
-                        radius: Theme.radiusM
-                        color: Theme.surface
-                        border.color: Theme.outline
-                        border.width: 1
+                        implicitHeight: 124
+                        radius: Theme.radiusL
+                        color: Theme.alpha(Theme.surface, 0.65)
+                        border.color: Theme.alpha(Theme.primary, 0.32)
+                        border.width: 1.5
+
+                        // 顶部 Aurora 条
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            height: 3
+                            radius: 1.5
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: Theme.primary }
+                                GradientStop { position: 0.5; color: Theme.secondary }
+                                GradientStop { position: 1.0; color: Theme.tertiary }
+                            }
+                        }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: Theme.spacingM
-                            spacing: Theme.spacingM
+                            anchors.margins: Theme.spacingL
+                            spacing: Theme.spacingL
 
+                            // 巨型日期
                             Text {
                                 text: root.todayDay
-                                font.pixelSize: 36
-                                font.bold: true
+                                font.pixelSize: 84
+                                font.weight: Font.Black
+                                font.letterSpacing: -3
                                 color: Theme.primary
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            // 垂直分隔
+                            Rectangle {
+                                Layout.preferredWidth: 2
+                                Layout.preferredHeight: 64
+                                Layout.alignment: Qt.AlignVCenter
+                                radius: 1
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: Theme.alpha(Theme.primary, 0.0) }
+                                    GradientStop { position: 0.5; color: Theme.alpha(Theme.primary, 0.4) }
+                                    GradientStop { position: 1.0; color: Theme.alpha(Theme.primary, 0.0) }
+                                }
                             }
 
                             ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: 2
+                                Layout.alignment: Qt.AlignVCenter
+                                spacing: Theme.spacingS
 
-                                Text {
-                                    text: root.todayYear + "年" + root.todayMonth + "月 " + root.todayWeekday
-                                    font.pixelSize: Theme.fontSizeM
-                                    color: Theme.textPrimary
+                                // 年月 + 星期 chip
+                                RowLayout {
+                                    spacing: Theme.spacingS
+
+                                    Text {
+                                        text: root.todayYear + "年" + root.todayMonth + "月"
+                                        font.pixelSize: Theme.fontSizeL
+                                        font.weight: Font.Bold
+                                        color: Theme.textPrimary
+                                    }
+
+                                    Rectangle {
+                                        implicitWidth: weekdayLabel.implicitWidth + Theme.spacingM
+                                        implicitHeight: 22
+                                        radius: 11
+                                        color: Theme.alpha(Theme.primary, 0.18)
+                                        Text {
+                                            id: weekdayLabel
+                                            anchors.centerIn: parent
+                                            text: root.todayWeekday
+                                            font.pixelSize: Theme.fontSizeXS
+                                            font.weight: Font.Medium
+                                            color: Theme.primary
+                                        }
+                                    }
                                 }
 
-                                Text {
-                                    text: root.todayLunar + (root.todayFestival ? " · " + root.todayFestival : "")
-                                    font.pixelSize: Theme.fontSizeS
-                                    color: root.todayFestival ? Theme.warning : Theme.textMuted
+                                // 农历 + 节日
+                                RowLayout {
                                     visible: root.todayLunar !== ""
+                                    spacing: Theme.spacingS
+
+                                    Text {
+                                        text: root.todayLunar
+                                        font.pixelSize: Theme.fontSizeS
+                                        color: Theme.textMuted
+                                    }
+
+                                    Rectangle {
+                                        visible: root.todayFestival !== ""
+                                        implicitWidth: festLabel.implicitWidth + Theme.spacingM
+                                        implicitHeight: 22
+                                        radius: 11
+                                        color: Theme.alpha(Theme.warning, 0.2)
+                                        border.color: Theme.alpha(Theme.warning, 0.4)
+                                        border.width: 1
+                                        Text {
+                                            id: festLabel
+                                            anchors.centerIn: parent
+                                            text: root.todayFestival
+                                            font.pixelSize: Theme.fontSizeXS
+                                            font.weight: Font.Medium
+                                            color: Theme.warning
+                                        }
+                                    }
                                 }
                             }
 
-                            // Go to today button
+                            // Today pill
                             Rectangle {
-                                width: 32; height: 32; radius: Theme.radiusM
-                                color: todayMouse.containsMouse ? Theme.surfaceVariant : "transparent"
+                                Layout.alignment: Qt.AlignVCenter
+                                implicitWidth: todayBtnLabel.implicitWidth + Theme.spacingM * 2 + 18
+                                implicitHeight: 32
+                                radius: 16
+                                color: todayMouse.containsMouse ? Theme.alpha(Theme.primary, 0.22) : Theme.alpha(Theme.primary, 0.12)
+                                border.color: Theme.alpha(Theme.primary, 0.4)
+                                border.width: 1
                                 visible: root.currentYear !== root.todayYear || root.currentMonth !== root.todayMonth
-                                scale: todayMouse.containsMouse ? 1.1 : 1.0
-
+                                scale: todayMouse.containsMouse ? 1.05 : 1.0
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                 Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 
-                                Text {
+                                RowLayout {
                                     anchors.centerIn: parent
-                                    text: "\uf073"
-                                    font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: Theme.iconSizeM
-                                    color: Theme.primary
+                                    spacing: 6
+                                    Text {
+                                        text: "\uf073"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 11
+                                        color: Theme.primary
+                                    }
+                                    Text {
+                                        id: todayBtnLabel
+                                        text: "今天"
+                                        font.pixelSize: Theme.fontSizeS
+                                        font.weight: Font.Medium
+                                        color: Theme.primary
+                                    }
                                 }
 
                                 MouseArea {
@@ -603,23 +702,21 @@ ShellRoot {
                                 }
                             }
 
-                            // Close button
+                            // Close
                             Rectangle {
-                                width: 32; height: 32; radius: Theme.radiusM
-                                color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                                Layout.alignment: Qt.AlignVCenter
+                                width: 32; height: 32; radius: 16
+                                color: closeMa.containsMouse ? Theme.alpha(Theme.error, 0.18) : "transparent"
                                 scale: closeMa.containsMouse ? 1.1 : 1.0
-
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                 Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-
                                 Text {
                                     anchors.centerIn: parent
                                     text: "\uf00d"
                                     font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: Theme.iconSizeM
-                                    color: Theme.textSecondary
+                                    font.pixelSize: 13
+                                    color: closeMa.containsMouse ? Theme.error : Theme.textSecondary
                                 }
-
                                 MouseArea {
                                     id: closeMa
                                     anchors.fill: parent
@@ -630,8 +727,6 @@ ShellRoot {
                             }
                         }
                     }
-
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
 
                     // Month navigation
                     RowLayout {
