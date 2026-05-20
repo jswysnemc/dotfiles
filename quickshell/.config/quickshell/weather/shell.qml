@@ -1,9 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
+import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -52,14 +54,12 @@ ShellRoot {
     property int cachedTime: 0
 
     function fetchWeather() {
-        // Check if cache is valid and skip refresh
         let now = Date.now()
         if (weatherData && cachedLat === latitude && cachedLon === longitude && (now - cachedTime) < cacheMaxAge) {
             loading = false
             refreshing = false
             return
         }
-        // If we have cached data, show it while refreshing in background
         if (weatherData) {
             refreshing = true
         } else {
@@ -113,7 +113,6 @@ ShellRoot {
         }
     }
 
-    // IP geolocation process
     Process {
         id: geolocateProc
         command: ["curl", "-s", "http://ip-api.com/json/?fields=status,city,lat,lon"]
@@ -137,7 +136,6 @@ ShellRoot {
         onExited: (code) => { if (code !== 0) root.locating = false }
     }
 
-    // Location search process
     Process {
         id: searchProc
         command: ["echo"]
@@ -155,7 +153,6 @@ ShellRoot {
         onExited: (code) => { if (code !== 0) root.searching = false }
     }
 
-    // Config load process
     Process {
         id: loadConfigProc
         command: ["cat", root.configPath]
@@ -174,19 +171,16 @@ ShellRoot {
         onExited: (code) => { if (code !== 0) root.fetchWeather() }
     }
 
-    // Config save process
     Process {
         id: saveConfigProc
         command: ["echo"]
     }
 
-    // Cache save process
     Process {
         id: saveCacheProc
         command: ["echo"]
     }
 
-    // Cache load process
     Process {
         id: loadCacheProc
         command: ["cat", root.cachePath]
@@ -208,14 +202,14 @@ ShellRoot {
     }
 
     function getWeatherIcon(code) {
-        if (code === 0) return "\ue30d"
-        if (code <= 3) return "\ue302"
-        if (code <= 48) return "\ue303"
-        if (code <= 57) return "\ue309"
-        if (code <= 67) return "\ue308"
-        if (code <= 77) return "\ue30a"
-        if (code <= 86) return "\ue308"
-        return "\ue30f"
+        if (code === 0) return ""
+        if (code <= 3) return ""
+        if (code <= 48) return ""
+        if (code <= 57) return ""
+        if (code <= 67) return ""
+        if (code <= 77) return ""
+        if (code <= 86) return ""
+        return ""
     }
 
     function getWeatherDesc(code) {
@@ -229,7 +223,7 @@ ShellRoot {
 
     function formatTemp(t) {
         if (!useCelsius) t = t * 9 / 5 + 32
-        return Math.round(t) + "\u00b0" + (useCelsius ? "C" : "F")
+        return Math.round(t) + "°" + (useCelsius ? "C" : "F")
     }
 
     function getDayName(dateStr, idx) {
@@ -286,7 +280,6 @@ ShellRoot {
         enterAnimation.start()
     }
 
-    // ============ Animations ============
     ParallelAnimation {
         id: enterAnimation
         NumberAnimation { target: root; property: "panelOpacity"; from: 0; to: 1; duration: 250; easing.type: Easing.OutCubic }
@@ -324,7 +317,6 @@ ShellRoot {
             anchors.left: true
             anchors.right: true
 
-
             Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
 
             MouseArea {
@@ -344,17 +336,44 @@ ShellRoot {
                 anchors.bottomMargin: root.anchorBottom ? root.marginB : 0
                 anchors.leftMargin: root.anchorLeft ? root.marginL : 0
                 anchors.rightMargin: root.anchorRight ? root.marginR : 0
-                width: 360
-                height: root.showSettings ? 450 : panelRect.implicitHeight
-                color: Theme.background
-                radius: Theme.radiusL
-                border.color: Theme.outline
-                border.width: 1
+                width: 420
+                height: root.showSettings ? 520 : panelRect.implicitHeight
+                color: Theme.alpha(Theme.background, 0.88)
+                radius: Theme.radiusXL + 4
+                border.color: Theme.glassBorder
+                border.width: 1.5
                 implicitHeight: mainCol.implicitHeight + Theme.spacingXL * 2
+                clip: true
 
                 opacity: root.panelOpacity
                 scale: root.panelScale
                 transform: Translate { y: root.panelY }
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Theme.shadowColor
+                    shadowBlur: 1.0
+                    shadowVerticalOffset: 16
+                }
+
+                // 玻璃内描边
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.glassHighlight
+                    z: 30
+                }
+
+                // Aurora 背景
+                Commons.AuroraBackground {
+                    anchors.fill: parent
+                    intensity: 0.32
+                    orbScale: 1.4
+                    z: 0
+                }
 
                 MouseArea {
                     anchors.fill: parent
@@ -366,92 +385,147 @@ ShellRoot {
                     anchors.fill: parent
                     anchors.margins: Theme.spacingXL
                     spacing: Theme.spacingL
+                    z: 5
 
-                    // Loading (only when no cached data)
-                    Rectangle {
+                    // Loading
+                    ColumnLayout {
                         visible: root.loading && root.weatherData === null
-                        Layout.fillWidth: true; height: 200; color: "transparent"
-                        ColumnLayout {
-                            anchors.centerIn: parent; spacing: Theme.spacingM
-                            Text { text: "\uf110"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 36; color: Theme.primary; Layout.alignment: Qt.AlignHCenter
-                                RotationAnimation on rotation { running: true; from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
-                            }
-                            Text { text: "正在获取天气..."; font.pixelSize: Theme.fontSizeM; color: Theme.textMuted }
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 200
+                        Layout.alignment: Qt.AlignCenter
+                        spacing: Theme.spacingM
+                        Text { text: ""; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 36; color: Theme.primary; Layout.alignment: Qt.AlignHCenter
+                            RotationAnimation on rotation { running: true; from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
                         }
+                        Text { text: "正在获取天气..."; font.pixelSize: Theme.fontSizeM; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
                     }
 
-                    // Error (only when no cached data)
-                    Rectangle {
+                    // Error
+                    ColumnLayout {
                         visible: !root.loading && root.errorMsg !== "" && root.weatherData === null
-                        Layout.fillWidth: true; height: 150; color: "transparent"
-                        ColumnLayout {
-                            anchors.centerIn: parent; spacing: Theme.spacingM
-                            Text { text: "\uf071"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 36; color: Theme.error; Layout.alignment: Qt.AlignHCenter }
-                            Text { text: root.errorMsg; font.pixelSize: Theme.fontSizeM; color: Theme.textMuted }
-                            Rectangle {
-                                Layout.alignment: Qt.AlignHCenter; width: 80; height: 32; radius: Theme.radiusM; color: Theme.primary
-                                Text { anchors.centerIn: parent; text: "重试"; font.pixelSize: Theme.fontSizeS; color: Theme.background }
-                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.fetchWeather() }
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingM
+                        Text { text: ""; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 36; color: Theme.error; Layout.alignment: Qt.AlignHCenter }
+                        Text { text: root.errorMsg; font.pixelSize: Theme.fontSizeM; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
+                        Rectangle {
+                            Layout.alignment: Qt.AlignHCenter; width: 96; height: 36; radius: Theme.radiusPill
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: Theme.primary }
+                                GradientStop { position: 1.0; color: Theme.secondary }
                             }
+                            Text { anchors.centerIn: parent; text: "重试"; font.pixelSize: Theme.fontSizeM; font.bold: true; color: "#ffffff" }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.fetchWeather() }
                         }
                     }
 
-                    // Content (show when we have data, even if refreshing)
+                    // ===== 主内容 =====
                     ColumnLayout {
                         visible: root.weatherData !== null
                         Layout.fillWidth: true
                         spacing: Theme.spacingL
 
-                        RowLayout {
+                        // === HERO ===
+                        Item {
                             Layout.fillWidth: true
-                            spacing: Theme.spacingL
+                            implicitHeight: 160
 
-                            Text { text: root.weatherData ? root.getWeatherIcon(root.weatherData.current.weather_code) : ""; font.family: "Weather Icons"; font.pixelSize: 64; color: Theme.primary }
+                            // 半透明大图标做背景
+                            Text {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.rightMargin: -6
+                                text: root.weatherData ? root.getWeatherIcon(root.weatherData.current.weather_code) : ""
+                                font.family: "Weather Icons"
+                                font.pixelSize: 150
+                                color: Theme.alpha(Theme.primary, 0.55)
+                            }
 
                             ColumnLayout {
-                                Layout.fillWidth: true; spacing: Theme.spacingXS
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: -10
+
                                 RowLayout {
-                                    spacing: Theme.spacingS
-                                    Text { text: "位置"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
+                                    spacing: 4
                                     Text {
-                                        text: root.locationName
-                                        font.pixelSize: Theme.fontSizeM
-                                        color: locNameMa.containsMouse ? Theme.primary : Theme.textSecondary
-                                        MouseArea {
-                                            id: locNameMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.showSettings = true
-                                        }
+                                        text: root.weatherData ? Math.round(root.useCelsius ? root.weatherData.current.temperature_2m : root.weatherData.current.temperature_2m * 9 / 5 + 32) : ""
+                                        font.pixelSize: 104
+                                        font.weight: Font.Black
+                                        font.letterSpacing: -5
+                                        color: Theme.textPrimary
                                     }
                                     Text {
-                                        text: "\uf013"
-                                        font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: 12
-                                        color: settingsMa.containsMouse ? Theme.primary : Theme.textMuted
-                                        MouseArea {
-                                            id: settingsMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.showSettings = true
-                                        }
+                                        Layout.alignment: Qt.AlignTop
+                                        Layout.topMargin: 18
+                                        text: "°" + (root.useCelsius ? "C" : "F")
+                                        font.pixelSize: 32
+                                        font.weight: Font.Bold
+                                        color: Theme.primary
                                     }
                                 }
-                                Text { text: root.weatherData ? root.formatTemp(root.weatherData.current.temperature_2m) : ""; font.pixelSize: Theme.fontSizeHuge; font.weight: Font.Bold; color: Theme.textPrimary }
-                                Text { text: root.weatherData ? root.getWeatherDesc(root.weatherData.current.weather_code) : ""; font.pixelSize: Theme.fontSizeM; color: Theme.textMuted }
+
+                                Text {
+                                    text: root.weatherData ? root.getWeatherDesc(root.weatherData.current.weather_code) : ""
+                                    font.pixelSize: Theme.fontSizeL
+                                    font.weight: Font.Medium
+                                    color: Theme.textSecondary
+                                }
+                            }
+                        }
+
+                        // === 位置 + 刷新 ===
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingS
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 34
+                                radius: Theme.radiusPill
+                                color: Theme.alpha(Theme.surface, 0.7)
+                                border.color: locChipMa.containsMouse ? Theme.primary : Theme.glassBorder
+                                border.width: 1
+                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Theme.spacingM
+                                    anchors.rightMargin: Theme.spacingM
+                                    spacing: Theme.spacingS
+                                    Text { text: ""; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 12; color: Theme.primary }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.locationName
+                                        font.pixelSize: Theme.fontSizeS
+                                        font.weight: Font.Medium
+                                        color: Theme.textPrimary
+                                        elide: Text.ElideRight
+                                    }
+                                    Text { text: ""; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 11; color: Theme.textMuted }
+                                }
+                                MouseArea {
+                                    id: locChipMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.showSettings = true
+                                }
                             }
 
                             Rectangle {
-                                width: 32; height: 32; radius: Theme.radiusM
-                                color: refreshMa.containsMouse ? Theme.surfaceVariant : "transparent"
+                                Layout.preferredWidth: 34; Layout.preferredHeight: 34
+                                radius: 17
+                                color: refreshMa.containsMouse ? Theme.alpha(Theme.primary, 0.2) : Theme.alpha(Theme.surface, 0.7)
+                                border.color: Theme.glassBorder
+                                border.width: 1
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+
                                 Text {
-                                    id: refreshIcon
                                     anchors.centerIn: parent
-                                    text: "\uf021"
+                                    text: ""
                                     font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: Theme.iconSizeM
+                                    font.pixelSize: 13
                                     color: root.refreshing ? Theme.primary : Theme.textSecondary
                                     RotationAnimation on rotation {
                                         running: root.refreshing
@@ -466,73 +540,106 @@ ShellRoot {
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-                                        root.cachedTime = 0  // Force refresh
+                                        root.cachedTime = 0
                                         root.fetchWeather()
                                     }
                                 }
                             }
                         }
 
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: Theme.spacingM
+                        // === Bento 指标 ===
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 3
+                            rowSpacing: Theme.spacingS
+                            columnSpacing: Theme.spacingS
 
-                            ColumnLayout {
-                                spacing: 2
-                                Text { text: "体感"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
-                                Text { text: root.weatherData ? root.formatTemp(root.weatherData.current.apparent_temperature) : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
+                            StatTile {
+                                icon: ""
+                                label: "体感"
+                                value: root.weatherData ? root.formatTemp(root.weatherData.current.apparent_temperature) : "-"
+                                tone: Theme.warning
                             }
-                            ColumnLayout {
-                                spacing: 2
-                                Text { text: "湿度"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
-                                Text { text: root.weatherData ? root.weatherData.current.relative_humidity_2m + "%" : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
+                            StatTile {
+                                icon: ""
+                                label: "湿度"
+                                value: root.weatherData ? root.weatherData.current.relative_humidity_2m + "%" : "-"
+                                tone: Theme.tertiary
                             }
-                            ColumnLayout {
-                                spacing: 2
-                                Text { text: "风速"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
-                                Text { text: root.weatherData ? Math.round(root.weatherData.current.wind_speed_10m) + " km/h" : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
+                            StatTile {
+                                icon: ""
+                                label: "风速"
+                                value: root.weatherData ? Math.round(root.weatherData.current.wind_speed_10m) + " km/h" : "-"
+                                tone: Theme.secondary
                             }
-                            Item { Layout.fillWidth: true }
-                            ColumnLayout {
-                                spacing: 2
-                                Text { text: "最高 / 最低"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
-                                Text { text: root.weatherData && root.weatherData.daily ? root.formatTemp(root.weatherData.daily.temperature_2m_max[0]) + " / " + root.formatTemp(root.weatherData.daily.temperature_2m_min[0]) : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
+                            StatTile {
+                                icon: ""
+                                label: "日出"
+                                value: root.weatherData && root.weatherData.daily ? root.weatherData.daily.sunrise[0].split("T")[1] : "-"
+                                tone: Theme.primary
+                            }
+                            StatTile {
+                                icon: ""
+                                label: "日落"
+                                value: root.weatherData && root.weatherData.daily ? root.weatherData.daily.sunset[0].split("T")[1] : "-"
+                                tone: Theme.alpha(Theme.primary, 0.7)
+                            }
+                            StatTile {
+                                icon: ""
+                                label: "高/低"
+                                value: root.weatherData && root.weatherData.daily ? Math.round(root.weatherData.daily.temperature_2m_max[0]) + "°/" + Math.round(root.weatherData.daily.temperature_2m_min[0]) + "°" : "-"
+                                tone: Theme.error
                             }
                         }
 
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: Theme.spacingM
+                        // === 7 天预报 ===
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingS
 
-                            Text { text: "\uf185"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 14; color: Theme.primary }
-                            Text { text: root.weatherData && root.weatherData.daily ? root.weatherData.daily.sunrise[0].split("T")[1] : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
-                            Item { width: Theme.spacingM }
-                            Text { text: "\uf186"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 14; color: Theme.textMuted }
-                            Text { text: root.weatherData && root.weatherData.daily ? root.weatherData.daily.sunset[0].split("T")[1] : ""; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary }
-                        }
-
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
-
-                        Text { text: "7 天预报"; font.pixelSize: Theme.fontSizeM; font.weight: Font.DemiBold; color: Theme.textPrimary }
-
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: Theme.spacingS
-
-                            Repeater {
-                                model: root.weatherData && root.weatherData.daily ? Math.min(7, root.weatherData.daily.time.length) : 0
-
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Text {
+                                    text: "7 天预报"
+                                    font.pixelSize: Theme.fontSizeM
+                                    font.weight: Font.DemiBold
+                                    color: Theme.textPrimary
+                                }
+                                Item { Layout.fillWidth: true }
                                 Rectangle {
-                                    Layout.fillWidth: true; height: 90; radius: Theme.radiusM
-                                    color: index === 0 ? Theme.alpha(Theme.primary, 0.15) : Theme.surface
-                                    border.color: index === 0 ? Theme.primary : Theme.outline; border.width: 1
+                                    width: 36; height: 4
+                                    radius: 2
+                                    gradient: Gradient {
+                                        orientation: Gradient.Horizontal
+                                        GradientStop { position: 0.0; color: Theme.primary }
+                                        GradientStop { position: 1.0; color: Theme.tertiary }
+                                    }
+                                }
+                            }
 
-                                    ColumnLayout {
-                                        anchors.fill: parent; anchors.margins: Theme.spacingS; spacing: Theme.spacingXS
-                                        Text { text: root.getDayName(root.weatherData.daily.time[index], index); font.pixelSize: Theme.fontSizeXS; font.weight: Font.Medium; color: index === 0 ? Theme.primary : Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
-                                        Text { text: root.getWeatherIcon(root.weatherData.daily.weather_code[index]); font.family: "Weather Icons"; font.pixelSize: 20; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
-                                        Text { text: Math.round(root.weatherData.daily.temperature_2m_max[index]) + "\u00b0"; font.pixelSize: Theme.fontSizeS; font.weight: Font.DemiBold; color: Theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
-                                        RowLayout {
-                                            Layout.alignment: Qt.AlignHCenter; spacing: 2
-                                            Text { text: Math.round(root.weatherData.daily.temperature_2m_min[index]) + "\u00b0"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
-                                            Text { visible: root.weatherData.daily.precipitation_probability_max[index] > 0; text: root.weatherData.daily.precipitation_probability_max[index] + "%"; font.pixelSize: 9; color: Theme.primary }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                Repeater {
+                                    model: root.weatherData && root.weatherData.daily ? Math.min(7, root.weatherData.daily.time.length) : 0
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        height: 102
+                                        radius: Theme.radiusM
+                                        color: index === 0 ? Theme.alpha(Theme.primary, 0.18) : Theme.alpha(Theme.surface, 0.7)
+                                        border.color: index === 0 ? Theme.primary : Theme.alpha(Theme.outline, 0.3)
+                                        border.width: 1
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: Theme.spacingS
+                                            spacing: Theme.spacingXS
+                                            Text { text: root.getDayName(root.weatherData.daily.time[index], index); font.pixelSize: Theme.fontSizeXS; font.weight: Font.Medium; color: index === 0 ? Theme.primary : Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
+                                            Text { text: root.getWeatherIcon(root.weatherData.daily.weather_code[index]); font.family: "Weather Icons"; font.pixelSize: 22; color: index === 0 ? Theme.primary : Theme.textSecondary; Layout.alignment: Qt.AlignHCenter }
+                                            Text { text: Math.round(root.weatherData.daily.temperature_2m_max[index]) + "°"; font.pixelSize: Theme.fontSizeM; font.weight: Font.Bold; color: Theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
+                                            Text { text: Math.round(root.weatherData.daily.temperature_2m_min[index]) + "°"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
                                         }
                                     }
                                 }
@@ -545,15 +652,15 @@ ShellRoot {
                 Rectangle {
                     visible: root.showSettings
                     anchors.fill: parent
-                    color: Theme.background
-                    radius: Theme.radiusL
+                    color: Theme.alpha(Theme.background, 0.97)
+                    radius: parent.radius
+                    z: 40
 
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: Theme.spacingXL
                         spacing: Theme.spacingL
 
-                        // Header
                         RowLayout {
                             Layout.fillWidth: true
                             Text {
@@ -564,54 +671,27 @@ ShellRoot {
                             }
                             Item { Layout.fillWidth: true }
                             Rectangle {
-                                width: 28; height: 28; radius: Theme.radiusM
+                                width: 28; height: 28; radius: 14
                                 color: closeSetMa.containsMouse ? Theme.surfaceVariant : "transparent"
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "\uf00d"
-                                    font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: 14
-                                    color: Theme.textSecondary
-                                }
-                                MouseArea {
-                                    id: closeSetMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: { root.showSettings = false; root.searchResults = [] }
-                                }
+                                Text { anchors.centerIn: parent; text: ""; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 14; color: Theme.textSecondary }
+                                MouseArea { id: closeSetMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.showSettings = false; root.searchResults = [] } }
                             }
                         }
 
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
 
-                        // Current location
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: Theme.spacingM
-                            Text {
-                                text: "\uf041"
-                                font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: 16
-                                color: Theme.primary
-                            }
+                            Text { text: ""; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 16; color: Theme.primary }
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 2
-                                Text {
-                                    text: "当前位置"
-                                    font.pixelSize: Theme.fontSizeXS
-                                    color: Theme.textMuted
-                                }
-                                Text {
-                                    text: root.locationName
-                                    font.pixelSize: Theme.fontSizeM
-                                    color: Theme.textPrimary
-                                }
+                                Text { text: "当前位置"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted }
+                                Text { text: root.locationName; font.pixelSize: Theme.fontSizeM; color: Theme.textPrimary }
                             }
                         }
 
-                        // Auto locate button
                         Rectangle {
                             Layout.fillWidth: true
                             height: 40
@@ -625,40 +705,20 @@ ShellRoot {
                                 anchors.margins: Theme.spacingM
                                 spacing: Theme.spacingM
                                 Text {
-                                    text: root.locating ? "\uf110" : "\uf192"
+                                    text: root.locating ? "" : ""
                                     font.family: "Symbols Nerd Font Mono"
                                     font.pixelSize: 14
                                     color: Theme.primary
-                                    RotationAnimation on rotation {
-                                        running: root.locating
-                                        from: 0; to: 360
-                                        duration: 1000
-                                        loops: Animation.Infinite
-                                    }
+                                    RotationAnimation on rotation { running: root.locating; from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
                                 }
-                                Text {
-                                    text: root.locating ? "定位中..." : "自动定位"
-                                    font.pixelSize: Theme.fontSizeM
-                                    color: Theme.textPrimary
-                                }
+                                Text { text: root.locating ? "定位中..." : "自动定位"; font.pixelSize: Theme.fontSizeM; color: Theme.textPrimary }
                             }
-                            MouseArea {
-                                id: autoLocMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (!root.locating) root.geolocate()
-                            }
+                            MouseArea { id: autoLocMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: if (!root.locating) root.geolocate() }
                         }
 
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
 
-                        // Search input
-                        Text {
-                            text: "搜索城市"
-                            font.pixelSize: Theme.fontSizeS
-                            color: Theme.textMuted
-                        }
+                        Text { text: "搜索城市"; font.pixelSize: Theme.fontSizeS; color: Theme.textMuted }
 
                         Rectangle {
                             Layout.fillWidth: true
@@ -673,16 +733,11 @@ ShellRoot {
                                 anchors.margins: Theme.spacingM
                                 spacing: Theme.spacingS
                                 Text {
-                                    text: root.searching ? "\uf110" : "\uf002"
+                                    text: root.searching ? "" : ""
                                     font.family: "Symbols Nerd Font Mono"
                                     font.pixelSize: 14
                                     color: Theme.textMuted
-                                    RotationAnimation on rotation {
-                                        running: root.searching
-                                        from: 0; to: 360
-                                        duration: 1000
-                                        loops: Animation.Infinite
-                                    }
+                                    RotationAnimation on rotation { running: root.searching; from: 0; to: 360; duration: 1000; loops: Animation.Infinite }
                                 }
                                 TextInput {
                                     id: searchInput
@@ -690,10 +745,7 @@ ShellRoot {
                                     font.pixelSize: Theme.fontSizeM
                                     color: Theme.textPrimary
                                     clip: true
-                                    onTextChanged: {
-                                        root.searchQuery = text
-                                        searchTimer.restart()
-                                    }
+                                    onTextChanged: { root.searchQuery = text; searchTimer.restart() }
                                     Text {
                                         anchors.fill: parent
                                         text: "输入城市名称..."
@@ -711,7 +763,6 @@ ShellRoot {
                             onTriggered: root.searchLocation(root.searchQuery)
                         }
 
-                        // Search results
                         Flickable {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -738,39 +789,18 @@ ShellRoot {
                                             anchors.fill: parent
                                             anchors.margins: Theme.spacingM
                                             spacing: Theme.spacingM
-                                            Text {
-                                                text: "\uf041"
-                                                font.family: "Symbols Nerd Font Mono"
-                                                font.pixelSize: 14
-                                                color: Theme.textMuted
-                                            }
+                                            Text { text: ""; font.family: "Symbols Nerd Font Mono"; font.pixelSize: 14; color: Theme.textMuted }
                                             ColumnLayout {
                                                 Layout.fillWidth: true
                                                 spacing: 2
-                                                Text {
-                                                    text: modelData.name
-                                                    font.pixelSize: Theme.fontSizeM
-                                                    color: Theme.textPrimary
-                                                }
-                                                Text {
-                                                    text: (modelData.admin1 || "") + (modelData.country ? ", " + modelData.country : "")
-                                                    font.pixelSize: Theme.fontSizeXS
-                                                    color: Theme.textMuted
-                                                    visible: text !== ""
-                                                }
+                                                Text { text: modelData.name; font.pixelSize: Theme.fontSizeM; color: Theme.textPrimary }
+                                                Text { text: (modelData.admin1 || "") + (modelData.country ? ", " + modelData.country : ""); font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted; visible: text !== "" }
                                             }
                                         }
-                                        MouseArea {
-                                            id: resultMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.selectLocation(modelData)
-                                        }
+                                        MouseArea { id: resultMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.selectLocation(modelData) }
                                     }
                                 }
 
-                                // Empty hint
                                 Text {
                                     visible: root.searchResults.length === 0 && root.searchQuery.length >= 2 && !root.searching
                                     Layout.alignment: Qt.AlignHCenter
@@ -781,6 +811,63 @@ ShellRoot {
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // Bento 指标单元
+            component StatTile: Rectangle {
+                property string icon: ""
+                property string label: ""
+                property string value: ""
+                property color tone: Theme.primary
+
+                Layout.fillWidth: true
+                implicitHeight: 56
+                radius: Theme.radiusM
+                color: Theme.alpha(Theme.surface, 0.65)
+                border.color: Theme.alpha(tone, 0.3)
+                border.width: 1
+
+                Rectangle {
+                    width: 3
+                    height: parent.height * 0.6
+                    radius: 1.5
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: parent.tone
+                }
+
+                ColumnLayout {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: Theme.spacingM
+                    anchors.rightMargin: Theme.spacingS
+                    spacing: 0
+
+                    RowLayout {
+                        spacing: 4
+                        Text {
+                            text: parent.parent.parent.icon
+                            font.family: "Symbols Nerd Font Mono"
+                            font.pixelSize: 10
+                            color: parent.parent.parent.tone
+                        }
+                        Text {
+                            text: parent.parent.parent.label
+                            font.pixelSize: 9
+                            color: Theme.textMuted
+                            font.letterSpacing: 0.5
+                        }
+                    }
+                    Text {
+                        text: parent.parent.value
+                        font.pixelSize: Theme.fontSizeM
+                        font.weight: Font.Bold
+                        color: Theme.textPrimary
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
                     }
                 }
             }

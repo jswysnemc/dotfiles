@@ -1,9 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
+import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -271,10 +273,10 @@ ShellRoot {
              Rectangle {
                 id: mainContainer
                 anchors.centerIn: parent
-                implicitWidth: contentCol.implicitWidth + Theme.spacingXL * 2
-                implicitHeight: contentCol.implicitHeight + Theme.spacingXL * 2
+                implicitWidth: 520
+                implicitHeight: 520
                 color: Theme.alpha(Theme.background, 0.88)
-                radius: Theme.radiusXL + 4
+                radius: 260
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
@@ -282,9 +284,9 @@ ShellRoot {
                 layer.enabled: true
                 layer.effect: MultiEffect {
                     shadowEnabled: true
-                    shadowColor: Theme.alpha("#000000", 0.2)
+                    shadowColor: Theme.alpha("#000000", 0.28)
                     shadowBlur: 1.0
-                    shadowVerticalOffset: 16
+                    shadowVerticalOffset: 18
                 }
 
                 // 玻璃高光
@@ -297,6 +299,14 @@ ShellRoot {
                     z: 10
                 }
 
+                // Aurora 装饰球
+                Commons.AuroraBackground {
+                    anchors.fill: parent
+                    intensity: 0.35
+                    orbScale: 1.0
+                    z: 0
+                }
+
                 // 动画属性
                 opacity: root.containerOpacity
                 scale: root.containerScale
@@ -307,55 +317,87 @@ ShellRoot {
                     onClicked: function(mouse) { mouse.accepted = true }
                 }
 
-                ColumnLayout {
-                    id: contentCol
-                    anchors.centerIn: parent
-                    spacing: Theme.spacingL
+                // 当前选中的动作
+                readonly property var currentAction: root.actions[root.selectedIndex]
 
-                    // Title
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: root.confirmMode ? "确认操作" : "电源菜单"
-                        font.pixelSize: Theme.fontSizeL
-                        font.bold: true
-                        color: Theme.textPrimary
+                // ===== 确认对话框 (覆盖在轨道上方) =====
+                Item {
+                    anchors.fill: parent
+                    visible: root.confirmMode
+                    opacity: root.confirmMode ? 1 : 0
+                    z: 30
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.parent.radius
+                        color: Theme.alpha(Theme.background, 0.65)
                     }
 
-                    // Confirm dialog
                     ColumnLayout {
-                        visible: root.confirmMode
-                        Layout.alignment: Qt.AlignHCenter
-                        spacing: Theme.spacingM
+                        anchors.centerIn: parent
+                        spacing: Theme.spacingXL
 
-                        // 确认对话框入场动画
-                        opacity: root.confirmMode ? 1 : 0
-                        scale: root.confirmMode ? 1 : 0.9
-                        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                        Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+                        Rectangle {
+                            Layout.alignment: Qt.AlignHCenter
+                            width: 100; height: 100; radius: 50
+                            color: {
+                                var action = root.actions.find(a => a.id === root.confirmAction)
+                                return action ? Theme.alpha(action.color, 0.18) : Theme.alpha(Theme.error, 0.18)
+                            }
+                            border.width: 2
+                            border.color: {
+                                var action = root.actions.find(a => a.id === root.confirmAction)
+                                return action ? action.color : Theme.error
+                            }
+                            Text {
+                                anchors.centerIn: parent
+                                text: {
+                                    var action = root.actions.find(a => a.id === root.confirmAction)
+                                    return action ? action.icon : ""
+                                }
+                                font.family: "Symbols Nerd Font Mono"
+                                font.pixelSize: 44
+                                color: {
+                                    var action = root.actions.find(a => a.id === root.confirmAction)
+                                    return action ? action.color : Theme.error
+                                }
+                            }
+                        }
+
+                        Text {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "确定要"
+                            font.pixelSize: Theme.fontSizeM
+                            color: Theme.textMuted
+                        }
 
                         Text {
                             Layout.alignment: Qt.AlignHCenter
                             text: {
                                 var action = root.actions.find(a => a.id === root.confirmAction)
-                                return action ? "确定要" + action.name + "吗？" : ""
+                                return action ? action.name : ""
                             }
-                            font.pixelSize: Theme.fontSizeM
-                            color: Theme.textSecondary
+                            font.pixelSize: 36
+                            font.weight: Font.Black
+                            color: {
+                                var action = root.actions.find(a => a.id === root.confirmAction)
+                                return action ? action.color : Theme.error
+                            }
                         }
 
                         RowLayout {
                             Layout.alignment: Qt.AlignHCenter
-                            spacing: Theme.spacingM
+                            Layout.topMargin: Theme.spacingL
+                            spacing: Theme.spacingL
 
                             Rectangle {
-                                width: 80
-                                height: 36
-                                radius: Theme.radiusM
+                                width: 100; height: 44
+                                radius: Theme.radiusPill
                                 color: cancelHover.hovered ? Theme.surfaceVariant : Theme.surface
                                 border.color: Theme.outline
                                 border.width: 1
-                                scale: cancelTap.pressed ? 0.95 : (cancelHover.hovered ? 1.03 : 1.0)
-
+                                scale: cancelTap.pressed ? 0.95 : (cancelHover.hovered ? 1.04 : 1.0)
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                 Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
@@ -365,182 +407,225 @@ ShellRoot {
                                     font.pixelSize: Theme.fontSizeM
                                     color: Theme.textSecondary
                                 }
-
                                 HoverHandler { id: cancelHover }
                                 TapHandler { id: cancelTap; onTapped: root.cancelConfirm() }
                             }
 
                             Rectangle {
-                                width: 80
-                                height: 36
-                                radius: Theme.radiusM
+                                width: 100; height: 44
+                                radius: Theme.radiusPill
                                 color: {
                                     var action = root.actions.find(a => a.id === root.confirmAction)
                                     return action ? (confirmHover.hovered ? Theme.alpha(action.color, 0.8) : action.color) : Theme.error
                                 }
-                                scale: confirmTap.pressed ? 0.95 : (confirmHover.hovered ? 1.03 : 1.0)
-
+                                scale: confirmTap.pressed ? 0.95 : (confirmHover.hovered ? 1.04 : 1.0)
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                 Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    shadowEnabled: true
+                                    shadowColor: {
+                                        var action = root.actions.find(a => a.id === root.confirmAction)
+                                        return action ? Theme.alpha(action.color, 0.5) : Theme.alpha(Theme.error, 0.5)
+                                    }
+                                    shadowBlur: 0.8
+                                    shadowVerticalOffset: 6
+                                }
 
                                 Text {
                                     anchors.centerIn: parent
                                     text: "确定"
                                     font.pixelSize: Theme.fontSizeM
                                     font.bold: true
-                                    color: Theme.surface
+                                    color: "#ffffff"
                                 }
-
                                 HoverHandler { id: confirmHover }
                                 TapHandler { id: confirmTap; onTapped: root.executeAction(root.confirmAction) }
                             }
                         }
                     }
+                }
 
-                    // Action buttons
-                    RowLayout {
-                        visible: !root.confirmMode
-                        Layout.alignment: Qt.AlignHCenter
-                        spacing: Theme.spacingM
+                // ===== 轨道布局 =====
+                Item {
+                    id: orbital
+                    anchors.fill: parent
+                    visible: !root.confirmMode
+                    z: 20
 
-                        Repeater {
-                            model: root.actions
+                    readonly property real centerX: width / 2
+                    readonly property real centerY: height / 2
+                    readonly property real orbitRadius: 180
+                    readonly property int btnCount: root.actions.length
+
+                    // 中央 Hub
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 200; height: 200
+                        radius: 100
+                        color: Theme.alpha(Theme.surface, 0.8)
+                        border.width: 1.5
+                        border.color: mainContainer.currentAction ? Theme.alpha(mainContainer.currentAction.color, 0.45) : Theme.glassBorder
+
+                        Behavior on border.color { ColorAnimation { duration: 220 } }
+
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: mainContainer.currentAction ? Theme.alpha(mainContainer.currentAction.color, 0.55) : Theme.shadowColor
+                            shadowBlur: 1.0
+                            shadowVerticalOffset: 0
+                            shadowOpacity: 0.7
+                        }
+
+                        ColumnLayout {
+                            anchors.centerIn: parent
+                            spacing: Theme.spacingS
 
                             Rectangle {
-                                id: actionBtn
-                                required property var modelData
-                                required property int index
+                                Layout.alignment: Qt.AlignHCenter
+                                width: 76; height: 76; radius: 38
+                                color: mainContainer.currentAction ? Theme.alpha(mainContainer.currentAction.color, 0.15) : Theme.surface
+                                Behavior on color { ColorAnimation { duration: 220 } }
 
-                                width: 80
-                                height: 90
-                                radius: Theme.radiusL
-                                color: {
-                                    if (root.selectedIndex === index) {
-                                        return Theme.alpha(modelData.color, 0.15)
-                                    }
-                                    return btnHover.hovered ? Theme.surfaceVariant : Theme.surface
-                                }
-                                border.color: root.selectedIndex === index ? modelData.color : Theme.outline
-                                border.width: root.selectedIndex === index ? 2 : 1
-
-                                // 交错入场动画
-                                opacity: 0
-                                scale: 0.7
-                                transform: Translate { id: btnTranslate; y: 20 }
-
-                                Component.onCompleted: btnEnterAnim.start()
-
-                                ParallelAnimation {
-                                    id: btnEnterAnim
-
-                                    PauseAnimation { duration: actionBtn.index * 60 }
-
-                                    SequentialAnimation {
-                                        PauseAnimation { duration: actionBtn.index * 60 }
-                                        NumberAnimation {
-                                            target: actionBtn
-                                            property: "opacity"
-                                            to: 1
-                                            duration: 250
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
-
-                                    SequentialAnimation {
-                                        PauseAnimation { duration: actionBtn.index * 60 }
-                                        NumberAnimation {
-                                            target: actionBtn
-                                            property: "scale"
-                                            to: 1.0
-                                            duration: 300
-                                            easing.type: Easing.OutBack
-                                            easing.overshoot: 1.5
-                                        }
-                                    }
-
-                                    SequentialAnimation {
-                                        PauseAnimation { duration: actionBtn.index * 60 }
-                                        NumberAnimation {
-                                            target: btnTranslate
-                                            property: "y"
-                                            to: 0
-                                            duration: 250
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
+                                // 呼吸脉冲
+                                property real pulse: 1.0
+                                scale: pulse
+                                SequentialAnimation on pulse {
+                                    loops: Animation.Infinite
+                                    NumberAnimation { to: 1.08; duration: 1100; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1.0;  duration: 1100; easing.type: Easing.InOutSine }
                                 }
 
-                                // 悬停/选中缩放
-                                property real hoverScale: btnTap.pressed ? 0.95 : (btnHover.hovered ? 1.08 : 1.0)
-                                Behavior on hoverScale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-
-                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
-
-                                ColumnLayout {
+                                Text {
                                     anchors.centerIn: parent
-                                    spacing: Theme.spacingS
-                                    scale: actionBtn.hoverScale
+                                    text: mainContainer.currentAction ? mainContainer.currentAction.icon : ""
+                                    font.family: "Symbols Nerd Font Mono"
+                                    font.pixelSize: 36
+                                    color: mainContainer.currentAction ? mainContainer.currentAction.color : Theme.primary
 
-                                    Rectangle {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        width: 48
-                                        height: 48
-                                        radius: 24
-                                        color: Theme.alpha(actionBtn.modelData.color, 0.1)
-
-                                        // 选中时的脉冲效果
-                                        property real pulseScale: 1.0
-                                        scale: pulseScale
-
-                                        SequentialAnimation on pulseScale {
-                                            running: root.selectedIndex === actionBtn.index
-                                            loops: Animation.Infinite
-                                            NumberAnimation { to: 1.08; duration: 600; easing.type: Easing.InOutSine }
-                                            NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
-                                        }
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: actionBtn.modelData.icon
-                                            font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: 22
-                                            color: actionBtn.modelData.color
-                                        }
-                                    }
-
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: actionBtn.modelData.name
-                                        font.pixelSize: Theme.fontSizeS
-                                        color: root.selectedIndex === actionBtn.index ? actionBtn.modelData.color : Theme.textSecondary
-
-                                        Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                                    }
+                                    Behavior on color { ColorAnimation { duration: 220 } }
                                 }
+                            }
 
-                                HoverHandler {
-                                    id: btnHover
-                                    onHoveredChanged: {
-                                        if (hovered) root.selectedIndex = actionBtn.index
-                                    }
-                                }
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: mainContainer.currentAction ? mainContainer.currentAction.name : ""
+                                font.pixelSize: 22
+                                font.weight: Font.Black
+                                color: Theme.textPrimary
+                            }
 
-                                TapHandler {
-                                    id: btnTap
-                                    onTapped: root.confirmAndExecute(actionBtn.modelData.id)
-                                }
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "Enter 确认"
+                                font.pixelSize: Theme.fontSizeXS
+                                color: Theme.textMuted
+                                opacity: 0.7
                             }
                         }
                     }
 
-                    // Hint
+                    // 轨道线圈
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: orbital.orbitRadius * 2 + 56
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Theme.alpha(Theme.outline, 0.45)
+                    }
+
+                    // 5 个动作按钮 (圆周分布)
+                    Repeater {
+                        model: root.actions
+
+                        Rectangle {
+                            id: actionBtn
+                            required property var modelData
+                            required property int index
+
+                            readonly property real angle: -Math.PI / 2 + index * (2 * Math.PI / orbital.btnCount)
+                            readonly property bool isSelected: root.selectedIndex === index
+
+                            width: 68; height: 68
+                            radius: 34
+                            x: orbital.centerX + Math.cos(angle) * orbital.orbitRadius - width / 2
+                            y: orbital.centerY + Math.sin(angle) * orbital.orbitRadius - height / 2
+
+                            color: isSelected ? Theme.alpha(modelData.color, 0.2) : Theme.alpha(Theme.surface, 0.85)
+                            border.color: isSelected ? modelData.color : Theme.alpha(Theme.outline, 0.5)
+                            border.width: isSelected ? 2 : 1
+                            scale: isSelected ? 1.12 : (btnHover.hovered ? 1.06 : 1.0)
+
+                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
+                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+                            // 交错入场
+                            opacity: 0
+                            transform: Scale { id: btnInitScale; origin.x: actionBtn.width / 2; origin.y: actionBtn.height / 2; xScale: 0.4; yScale: 0.4 }
+                            Component.onCompleted: btnEnter.start()
+
+                            SequentialAnimation {
+                                id: btnEnter
+                                PauseAnimation { duration: 80 + actionBtn.index * 60 }
+                                ParallelAnimation {
+                                    NumberAnimation { target: actionBtn; property: "opacity"; to: 1.0; duration: 300 }
+                                    NumberAnimation { target: btnInitScale; property: "xScale"; to: 1.0; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+                                    NumberAnimation { target: btnInitScale; property: "yScale"; to: 1.0; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+                                }
+                            }
+
+                            // 选中时的光圈
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: parent.width + 16
+                                height: parent.height + 16
+                                radius: width / 2
+                                color: "transparent"
+                                border.width: 2
+                                border.color: actionBtn.modelData.color
+                                opacity: actionBtn.isSelected ? 0.6 : 0
+                                visible: opacity > 0
+                                scale: actionBtn.isSelected ? 1.0 : 0.7
+
+                                Behavior on opacity { NumberAnimation { duration: 200 } }
+                                Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: actionBtn.modelData.icon
+                                font.family: "Symbols Nerd Font Mono"
+                                font.pixelSize: 26
+                                color: actionBtn.modelData.color
+                            }
+
+                            HoverHandler {
+                                id: btnHover
+                                onHoveredChanged: {
+                                    if (hovered) root.selectedIndex = actionBtn.index
+                                }
+                            }
+
+                            TapHandler {
+                                onTapped: root.confirmAndExecute(actionBtn.modelData.id)
+                            }
+                        }
+                    }
+
+                    // 提示
                     Text {
-                        visible: !root.confirmMode
-                        Layout.alignment: Qt.AlignHCenter
-                        text: "方向键选择 | Enter 确认 | Esc 取消"
-                        font.pixelSize: Theme.fontSizeS
+                        anchors.bottom: parent.bottom
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottomMargin: Theme.spacingL
+                        text: "← →  选择  ·  Enter 确认  ·  Esc 取消"
+                        font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
+                        opacity: 0.7
                     }
                 }
             }

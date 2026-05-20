@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -197,14 +198,49 @@ ShellRoot {
                 anchors.centerIn: parent
                 width: Math.min(parent.width * 0.8, 900)
                 height: Math.min(parent.height * 0.9, 730)
-                color: Theme.background
-                radius: Theme.radiusXL
-                border.color: Theme.outline
-                border.width: 1
+                color: Theme.alpha(Theme.background, 0.9)
+                radius: Theme.radiusXL + 4
+                border.color: Theme.glassBorder
+                border.width: 1.5
 
                 opacity: root.panelOpacity
                 scale: root.panelScale
                 transform: Translate { y: root.panelY }
+
+                // 高级光影
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Theme.shadowColor
+                    shadowBlur: 1.0
+                    shadowVerticalOffset: 20
+                }
+
+                // 玻璃内描边
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.glassHighlight
+                    z: 10
+                }
+
+                // 顶部 Aurora 渐变条
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    height: 3
+                    radius: 1.5
+                    z: 11
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: Theme.secondary }
+                        GradientStop { position: 0.5; color: Theme.primary }
+                        GradientStop { position: 1.0; color: Theme.tertiary }
+                    }
+                }
 
                 MouseArea {
                     anchors.fill: parent

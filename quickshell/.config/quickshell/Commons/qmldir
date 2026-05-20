@@ -6,3 +6,5 @@ AnimatedButton 1.0 AnimatedButton.qml
 AnimatedToggle 1.0 AnimatedToggle.qml
 LoadingSpinner 1.0 LoadingSpinner.qml
 SlideNotification 1.0 SlideNotification.qml
+GlowOrb 1.0 GlowOrb.qml
+AuroraBackground 1.0 AuroraBackground.qml

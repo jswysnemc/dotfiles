@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -201,11 +202,46 @@ ShellRoot {
             Rectangle {
                 id: panelContent
                 anchors.fill: parent
-                color: Theme.background
-                radius: Theme.radiusL
-                border.color: Theme.outline
-                border.width: 1
+                color: Theme.alpha(Theme.background, 0.88)
+                radius: Theme.radiusXL
+                border.color: Theme.glassBorder
+                border.width: 1.5
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
+
+                // 高级光影
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Theme.shadowColor
+                    shadowBlur: 0.9
+                    shadowVerticalOffset: 14
+                }
+
+                // 玻璃内描边
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.glassHighlight
+                    z: 10
+                }
+
+                // 顶部 Aurora 渐变条
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    height: 3
+                    radius: 1.5
+                    z: 11
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: Theme.error }
+                        GradientStop { position: 0.5; color: Theme.warning }
+                        GradientStop { position: 1.0; color: Theme.primary }
+                    }
+                }
 
                 MouseArea { anchors.fill: parent; onClicked: function(e) { e.accepted = true } }
 

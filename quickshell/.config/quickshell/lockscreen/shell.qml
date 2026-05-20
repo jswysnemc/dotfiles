@@ -1863,6 +1863,7 @@ ShellRoot {
 
                             // Password input
                             Rectangle {
+                                id: passwordCard
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 width: parent.width
                                 height: 52
@@ -1872,6 +1873,17 @@ ShellRoot {
                                 border.width: passwordField.activeFocus ? 2 : 1
 
                                 Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                                // 聚焦时的发光光晕
+                                layer.enabled: passwordField.activeFocus
+                                layer.effect: MultiEffect {
+                                    shadowEnabled: true
+                                    shadowColor: root.primaryColor
+                                    shadowBlur: 1.0
+                                    shadowHorizontalOffset: 0
+                                    shadowVerticalOffset: 0
+                                    shadowOpacity: 0.6
+                                }
 
                                 Rectangle {
                                     anchors.fill: parent

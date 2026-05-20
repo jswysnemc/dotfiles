@@ -1,9 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
+import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -14,16 +16,30 @@ ShellRoot {
     property bool shouldShow: false
     property bool initialized: false
 
-    // Check if welcome was already shown
+    // ============ Animation State ============
+    property real heroOpacity: 0
+    property real heroY: 40
+    property real bgOpacity: 0
+
     Component.onCompleted: {
         checkMarker.running = true
+    }
+
+    onShouldShowChanged: {
+        if (shouldShow) enterAnimation.start()
+    }
+
+    ParallelAnimation {
+        id: enterAnimation
+        NumberAnimation { target: root; property: "bgOpacity"; from: 0; to: 1; duration: 420; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "heroOpacity"; from: 0; to: 1; duration: 520; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "heroY"; from: 40; to: 0; duration: 620; easing.type: Easing.OutBack; easing.overshoot: 0.6 }
     }
 
     Process {
         id: checkMarker
         command: ["test", "-f", root.markerFile]
         onExited: (code, status) => {
-            // code 0 means file exists, skip welcome
             root.shouldShow = (code !== 0)
             root.initialized = true
         }
@@ -62,372 +78,258 @@ ShellRoot {
             Shortcut { sequence: "Return"; onActivated: root.dismiss() }
             Shortcut { sequence: "Space"; onActivated: root.dismiss() }
 
-            // Background overlay
+            // 全屏渐变背景
             Rectangle {
                 anchors.fill: parent
-                color: Theme.alpha(Theme.background, 0.85)
-
+                opacity: root.bgOpacity
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Theme.alpha(Theme.background, 0.92) }
+                    GradientStop { position: 1.0; color: Theme.alpha(Theme.surfaceVariant, 0.92) }
+                }
                 MouseArea {
                     anchors.fill: parent
                     onClicked: root.dismiss()
                 }
             }
 
-            // Main card
-            Rectangle {
-                anchors.centerIn: parent
-                width: Math.min(560, parent.width - 40)
-                height: mainCol.implicitHeight + Theme.spacingXL * 2
-                color: Theme.background
-                radius: Theme.radiusXL
-                border.color: Theme.outline
-                border.width: 1
+            // 漂浮的 aurora 装饰球
+            Commons.AuroraBackground {
+                anchors.fill: parent
+                intensity: 0.35 * root.bgOpacity
+                orbScale: 1.8
+            }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: (mouse) => mouse.accepted = true
-                }
+            // Hero 内容
+            Item {
+                anchors.centerIn: parent
+                width: Math.min(820, parent.width - 80)
+                height: heroCol.implicitHeight
+                opacity: root.heroOpacity
+                transform: Translate { y: root.heroY }
 
                 ColumnLayout {
-                    id: mainCol
+                    id: heroCol
                     anchors.fill: parent
-                    anchors.margins: Theme.spacingXL
-                    spacing: Theme.spacingL
+                    spacing: Theme.spacingXL
 
-                    // Header
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingM
+                    // Logo / 图标
+                    Rectangle {
+                        Layout.alignment: Qt.AlignHCenter
+                        width: 96; height: 96
+                        radius: 48
+                        color: "transparent"
+                        border.color: Theme.alpha(Theme.primary, 0.35)
+                        border.width: 1.5
+
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: Theme.alpha(Theme.primary, 0.7)
+                            shadowBlur: 1.0
+                            shadowVerticalOffset: 0
+                            shadowOpacity: 0.7
+                        }
 
                         Text {
-                            text: "\uf005"
+                            anchors.centerIn: parent
+                            text: ""
                             font.family: "Symbols Nerd Font Mono"
-                            font.pixelSize: 24
+                            font.pixelSize: 44
                             color: Theme.primary
                         }
-
-                        Text {
-                            text: "欢迎使用"
-                            font.pixelSize: Theme.fontSizeHuge
-                            font.bold: true
-                            color: Theme.textPrimary
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Rectangle {
-                            width: 32; height: 32; radius: Theme.radiusM
-                            color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "\uf00d"
-                                font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: Theme.iconSizeM
-                                color: Theme.textSecondary
-                            }
-
-                            MouseArea {
-                                id: closeMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.dismiss()
-                            }
-                        }
                     }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: Theme.outline
-                        opacity: 0.6
-                    }
-
-                    // Intro text
+                    // 巨型标题
                     Text {
-                        Layout.fillWidth: true
-                        text: "niri + QuickShell"
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "欢迎使用"
+                        font.pixelSize: 72
+                        font.weight: Font.Black
+                        font.letterSpacing: -1
+                        color: Theme.textPrimary
+                    }
+
+                    // 副标题
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "niri · QuickShell"
                         font.pixelSize: Theme.fontSizeL
-                        font.bold: true
-                        color: Theme.primary
+                        font.letterSpacing: 6
+                        color: Theme.textMuted
                     }
 
+                    // 一行的关键描述
                     Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.maximumWidth: 580
                         Layout.fillWidth: true
-                        text: "滚动平铺式 Wayland 混成器，配合自定义 Shell 组件。"
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "滚动平铺式 Wayland 混成器，配合自定义 Shell 组件"
                         font.pixelSize: Theme.fontSizeM
                         color: Theme.textSecondary
                         wrapMode: Text.WordWrap
                     }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: Theme.outline
-                        opacity: 0.3
-                    }
-
-                    // Quick tips section
-                    Text {
-                        Layout.fillWidth: true
-                        text: "常用快捷键"
-                        font.pixelSize: Theme.fontSizeL
-                        font.bold: true
-                        color: Theme.textPrimary
-                    }
-
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: Theme.spacingL
-                        rowSpacing: Theme.spacingM
-
-                        // Keybindings help
-                        HelpItem {
-                            keys: "Super + Shift + /"
-                            desc: "显示快捷键帮助"
-                            icon: "\uf11c"
-                        }
-
-                        // Launcher
-                        HelpItem {
-                            keys: "Alt + Space"
-                            desc: "应用启动器"
-                            icon: "\uf002"
-                        }
-
-                        // Terminal
-                        HelpItem {
-                            keys: "Super + Return"
-                            desc: "打开终端"
-                            icon: "\uf120"
-                        }
-
-                        // Close window
-                        HelpItem {
-                            keys: "Super + C"
-                            desc: "关闭窗口"
-                            icon: "\uf00d"
-                        }
-
-                        // Screenshot
-                        HelpItem {
-                            keys: "Super + Shift + S"
-                            desc: "区域截屏"
-                            icon: "\uf030"
-                        }
-
-                        // Overview
-                        HelpItem {
-                            keys: "Super + O"
-                            desc: "概览视图"
-                            icon: "\uf0c9"
-                        }
-
-                        // Clipboard
-                        HelpItem {
-                            keys: "Alt + V"
-                            desc: "剪贴板历史"
-                            icon: "\uf328"
-                        }
-
-                        // Power menu
-                        HelpItem {
-                            keys: "电源键"
-                            desc: "电源菜单"
-                            icon: "\uf011"
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: Theme.outline
-                        opacity: 0.3
-                    }
-
-                    // Window tips
-                    Text {
-                        Layout.fillWidth: true
-                        text: "窗口操作"
-                        font.pixelSize: Theme.fontSizeL
-                        font.bold: true
-                        color: Theme.textPrimary
-                    }
-
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: Theme.spacingL
-                        rowSpacing: Theme.spacingM
-
-                        HelpItem {
-                            keys: "Super + H/J/K/L"
-                            desc: "移动焦点"
-                            icon: "\uf0b2"
-                        }
-
-                        HelpItem {
-                            keys: "Super + Ctrl + H/L"
-                            desc: "移动窗口"
-                            icon: "\uf047"
-                        }
-
-                        HelpItem {
-                            keys: "Super + F"
-                            desc: "最大化列"
-                            icon: "\uf065"
-                        }
-
-                        HelpItem {
-                            keys: "Super + V"
-                            desc: "浮动/平铺切换"
-                            icon: "\uf24d"
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: Theme.outline
-                        opacity: 0.3
-                    }
-
-                    // Resources
-                    Text {
-                        Layout.fillWidth: true
-                        text: "帮助资源"
-                        font.pixelSize: Theme.fontSizeL
-                        font.bold: true
-                        color: Theme.textPrimary
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
+                    // 关键快捷键 chips
+                    Flow {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 720
+                        Layout.maximumWidth: 720
                         spacing: Theme.spacingM
+                        Layout.topMargin: Theme.spacingL
 
-                        LinkButton {
-                            text: "\uf059  niri 文档"
+                        ShortcutChip { icon: ""; keys: "Alt + Space"; desc: "启动器" }
+                        ShortcutChip { icon: ""; keys: "Super + Return"; desc: "终端" }
+                        ShortcutChip { icon: ""; keys: "Alt + V"; desc: "剪贴板" }
+                        ShortcutChip { icon: ""; keys: "Super + Shift + S"; desc: "截屏" }
+                        ShortcutChip { icon: ""; keys: "Super + O"; desc: "概览" }
+                        ShortcutChip { icon: ""; keys: "Super + Shift + /"; desc: "全部快捷键" }
+                    }
+
+                    // 资源链接
+                    RowLayout {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: Theme.spacingL
+                        Layout.topMargin: Theme.spacingL
+
+                        LinkChip {
+                            text: "  niri 文档"
                             onClicked: Qt.openUrlExternally("https://yalter.github.io/niri/")
                         }
-
-                        LinkButton {
-                            text: "\uf02d  QuickShell"
+                        LinkChip {
+                            text: "  QuickShell"
                             onClicked: Qt.openUrlExternally("https://deepwiki.com/quickshell-mirror/quickshell/2-getting-started")
                         }
-
-                        LinkButton {
-                            text: "\uf09b  配置仓库"
+                        LinkChip {
+                            text: "  配置仓库"
                             onClicked: Qt.openUrlExternally("https://github.com/jswysnemc/dotfiles")
                         }
                     }
 
+                    // 大号开始按钮
                     Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: Theme.outline
-                        opacity: 0.3
-                    }
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.topMargin: Theme.spacingXL
+                        width: 220
+                        height: 52
+                        radius: Theme.radiusPill
+                        scale: startMa.containsMouse ? 1.05 : 1.0
+                        opacity: startMa.containsMouse ? 1.0 : 0.94
 
-                    // Footer
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingM
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: Theme.primary }
+                            GradientStop { position: 0.5; color: Theme.secondary }
+                            GradientStop { position: 1.0; color: Theme.tertiary }
+                        }
+
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                        Behavior on opacity { NumberAnimation { duration: 160 } }
+
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: Theme.alpha(Theme.primary, 0.55)
+                            shadowBlur: 1.0
+                            shadowVerticalOffset: 8
+                        }
 
                         Text {
-                            text: "按任意键或点击外部区域继续"
-                            font.pixelSize: Theme.fontSizeS
-                            color: Theme.textMuted
+                            anchors.centerIn: parent
+                            text: "开始使用  "
+                            font.family: "Symbols Nerd Font Mono"
+                            font.pixelSize: Theme.fontSizeL
+                            font.bold: true
+                            color: "#ffffff"
                         }
 
-                        Item { Layout.fillWidth: true }
-
-                        Rectangle {
-                            width: startBtn.implicitWidth + Theme.spacingL * 2
-                            height: 36
-                            radius: Theme.radiusPill
-                            color: startMa.containsMouse ? Theme.alpha(Theme.primary, 0.9) : Theme.primary
-
-                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
-
-                            Text {
-                                id: startBtn
-                                anchors.centerIn: parent
-                                text: "开始使用"
-                                font.pixelSize: Theme.fontSizeM
-                                font.bold: true
-                                color: Theme.surface
-                            }
-
-                            MouseArea {
-                                id: startMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.dismiss()
-                            }
+                        MouseArea {
+                            id: startMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.dismiss()
                         }
+                    }
+
+                    // 提示
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.topMargin: Theme.spacingS
+                        text: "Esc / Enter / 空格 / 点击任意位置  继续"
+                        font.pixelSize: Theme.fontSizeXS
+                        color: Theme.textMuted
+                        opacity: 0.7
                     }
                 }
             }
         }
     }
 
-    // Helper component for keybinding tips
-    component HelpItem: RowLayout {
+    // 快捷键 chip
+    component ShortcutChip: Rectangle {
+        property string icon: ""
         property string keys: ""
         property string desc: ""
-        property string icon: ""
 
-        Layout.fillWidth: true
-        spacing: Theme.spacingS
+        implicitWidth: chipRow.implicitWidth + Theme.spacingL * 2
+        implicitHeight: 38
+        radius: Theme.radiusPill
+        color: Theme.alpha(Theme.background, 0.55)
+        border.color: Theme.glassBorder
+        border.width: 1
 
-        Text {
-            text: icon
-            font.family: "Symbols Nerd Font Mono"
-            font.pixelSize: Theme.iconSizeS
-            color: Theme.primary
-            Layout.preferredWidth: 20
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Theme.shadowColor
+            shadowBlur: 0.6
+            shadowVerticalOffset: 4
         }
 
-        Rectangle {
-            Layout.preferredWidth: kbdText.implicitWidth + Theme.spacingM
-            height: 22
-            radius: Theme.radiusS
-            color: Theme.surfaceVariant
-            border.color: Theme.outline
-            border.width: 1
+        RowLayout {
+            id: chipRow
+            anchors.centerIn: parent
+            spacing: Theme.spacingS
 
             Text {
-                id: kbdText
-                anchors.centerIn: parent
+                text: icon
+                font.family: "Symbols Nerd Font Mono"
+                font.pixelSize: Theme.iconSizeS
+                color: Theme.primary
+            }
+
+            Text {
                 text: keys
                 font.pixelSize: Theme.fontSizeXS
                 font.family: "monospace"
                 color: Theme.textPrimary
             }
-        }
 
-        Text {
-            text: desc
-            font.pixelSize: Theme.fontSizeS
-            color: Theme.textSecondary
-            Layout.fillWidth: true
-            elide: Text.ElideRight
+            Rectangle {
+                width: 1; height: 14
+                color: Theme.outline
+                opacity: 0.5
+            }
+
+            Text {
+                text: desc
+                font.pixelSize: Theme.fontSizeS
+                color: Theme.textSecondary
+            }
         }
     }
 
-    // Helper component for link buttons
-    component LinkButton: Rectangle {
+    // 链接 chip
+    component LinkChip: Rectangle {
         property alias text: linkText.text
         signal clicked()
 
-        width: linkText.implicitWidth + Theme.spacingM * 2
-        height: 28
-        radius: Theme.radiusM
-        color: linkMa.containsMouse ? Theme.surfaceVariant : "transparent"
-        border.color: linkMa.containsMouse ? Theme.outline : "transparent"
+        implicitWidth: linkText.implicitWidth + Theme.spacingL * 2
+        implicitHeight: 32
+        radius: Theme.radiusPill
+        color: linkMa.containsMouse ? Theme.alpha(Theme.primary, 0.15) : "transparent"
+        border.color: linkMa.containsMouse ? Theme.primary : Theme.alpha(Theme.outline, 0.6)
         border.width: 1
 
         Behavior on color { ColorAnimation { duration: Theme.animFast } }

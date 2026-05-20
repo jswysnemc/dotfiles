@@ -16,6 +16,15 @@ var textSecondary = "{{colors.on_surface_variant.dark.hex}}"
 var textMuted = "{{colors.outline.dark.hex}}"
 var outline = "{{colors.outline_variant.dark.hex}}"
 
+// Glassmorphism 3.0 (Vibrant & Deep, dark tuned)
+var glassBg = alpha("#000000", 0.55)
+var glassBorder = alpha(primary, 0.35)
+var glassHighlight = alpha("#ffffff", 0.12)
+var shadowColor = alpha("#000000", 0.55)
+var ambientShadow = alpha(primary, 0.2)
+var accentGlow = alpha(primary, 0.45)
+var auroraGradient = [primary, secondary]
+
 // Font sizes
 var fontSizeXS = 10
 var fontSizeS = 11

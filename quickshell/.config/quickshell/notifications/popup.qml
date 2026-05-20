@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -172,10 +173,45 @@ ShellRoot {
             Rectangle {
                 id: contentContainer
                 anchors.fill: parent
-                color: Theme.surface
+                color: Theme.alpha(Theme.surface, 0.92)
                 radius: Theme.radiusL
-                border.color: Theme.outline
-                border.width: 1
+                border.color: Theme.glassBorder
+                border.width: 1.5
+
+                // 高级光影
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Theme.shadowColor
+                    shadowBlur: 0.9
+                    shadowVerticalOffset: 12
+                }
+
+                // 玻璃内描边
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.glassHighlight
+                    z: 10
+                }
+
+                // 左侧主题色脉冲条
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 3
+                    radius: 1.5
+                    z: 11
+                    gradient: Gradient {
+                        orientation: Gradient.Vertical
+                        GradientStop { position: 0.0; color: Theme.primary }
+                        GradientStop { position: 0.5; color: Theme.secondary }
+                        GradientStop { position: 1.0; color: Theme.tertiary }
+                    }
+                }
 
                 // 动画属性
                 opacity: root.notifOpacity
