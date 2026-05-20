@@ -5,6 +5,7 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
+import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -479,6 +480,14 @@ ShellRoot {
                     }
                 }
 
+                // Aurora 装饰球
+                Commons.AuroraBackground {
+                    anchors.fill: parent
+                    intensity: 0.28
+                    orbScale: 1.6
+                    z: 0
+                }
+
                 // 动画属性
                 opacity: root.containerOpacity
                 scale: root.containerScale
@@ -498,40 +507,56 @@ ShellRoot {
                     anchors.margins: Theme.spacingXL
                     spacing: Theme.spacingL
 
-                    // Header row
+                    // Header row — Hero
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingM
 
-                        // Search box
+                        // Hero search box
                         Rectangle {
+                            id: searchBox
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 44
-                            radius: Theme.radiusXL
-                            color: Theme.surface
-                            border.color: searchInput.activeFocus ? Theme.primary : Theme.outline
+                            Layout.preferredHeight: 60
+                            radius: 30
+                            color: Theme.alpha(Theme.surface, 0.7)
+                            border.color: searchInput.activeFocus ? Theme.primary : Theme.glassBorder
                             border.width: searchInput.activeFocus ? 2 : 1
 
                             Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
                             Behavior on border.width { NumberAnimation { duration: Theme.animFast } }
 
+                            // 聚焦发光
+                            layer.enabled: searchInput.activeFocus
+                            layer.effect: MultiEffect {
+                                shadowEnabled: true
+                                shadowColor: Theme.alpha(Theme.primary, 0.55)
+                                shadowBlur: 1.0
+                                shadowHorizontalOffset: 0
+                                shadowVerticalOffset: 0
+                                shadowOpacity: 0.75
+                            }
+
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: Theme.spacingM
+                                anchors.leftMargin: Theme.spacingL
+                                anchors.rightMargin: Theme.spacingL
                                 spacing: Theme.spacingM
 
                                 Text {
                                     text: "\uf002"
                                     font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: 16
-                                    color: Theme.textMuted
+                                    font.pixelSize: 22
+                                    color: searchInput.activeFocus ? Theme.primary : Theme.textMuted
+                                    Behavior on color { ColorAnimation { duration: Theme.animFast } }
                                 }
 
                                 TextInput {
                                     id: searchInput
                                     Layout.fillWidth: true
-                                    font.pixelSize: Theme.fontSizeL
+                                    font.pixelSize: 20
+                                    font.weight: Font.Medium
                                     color: Theme.textPrimary
+                                    verticalAlignment: TextInput.AlignVCenter
                                     clip: true
                                     focus: true
                                     activeFocusOnTab: true
@@ -577,29 +602,40 @@ ShellRoot {
                                     }
 
                                     Text {
-                                        anchors.fill: parent
+                                        anchors.verticalCenter: parent.verticalCenter
                                         text: "搜索应用..."
-                                        font.pixelSize: Theme.fontSizeL
+                                        font.pixelSize: 20
+                                        font.weight: Font.Medium
                                         color: Theme.textMuted
                                         visible: !searchInput.text
+                                        opacity: 0.7
                                     }
                                 }
 
-                                Text {
+                                Rectangle {
                                     visible: root.searchText !== ""
-                                    text: root.filteredApps.length + " 个"
-                                    font.pixelSize: Theme.fontSizeS
-                                    color: Theme.textMuted
+                                    Layout.preferredWidth: countText.implicitWidth + Theme.spacingM
+                                    Layout.preferredHeight: 24
+                                    radius: 12
+                                    color: Theme.alpha(Theme.primary, 0.2)
+                                    Text {
+                                        id: countText
+                                        anchors.centerIn: parent
+                                        text: root.filteredApps.length + " 个"
+                                        font.pixelSize: Theme.fontSizeS
+                                        font.weight: Font.Medium
+                                        color: Theme.primary
+                                    }
                                 }
                             }
                         }
 
-                        // Size toggle button
+                        // Hero size toggle
                         Rectangle {
-                            width: 44; height: 44
-                            radius: Theme.radiusL
-                            color: sizeHover.hovered ? Theme.alpha(Theme.textPrimary, 0.08) : Theme.surface
-                            border.color: Theme.outline
+                            width: 60; height: 60
+                            radius: 30
+                            color: sizeHover.hovered ? Theme.alpha(Theme.primary, 0.18) : Theme.alpha(Theme.surface, 0.7)
+                            border.color: Theme.glassBorder
                             border.width: 1
                             scale: sizeHover.hovered ? 1.05 : 1.0
 
@@ -610,10 +646,9 @@ ShellRoot {
                                 anchors.centerIn: parent
                                 text: root.isFullscreen ? "\uf066" : "\uf065"
                                 font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: 16
-                                color: Theme.textSecondary
+                                font.pixelSize: 20
+                                color: sizeHover.hovered ? Theme.primary : Theme.textSecondary
 
-                                // 图标切换动画
                                 Behavior on text {
                                     SequentialAnimation {
                                         NumberAnimation { target: parent; property: "scale"; to: 0.8; duration: 80 }
