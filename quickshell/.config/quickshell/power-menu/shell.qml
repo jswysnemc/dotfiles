@@ -207,7 +207,7 @@ ShellRoot {
             required property ShellScreen modelData
             screen: modelData
 
-            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.3 * root.bgOpacity)
+            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.45 * root.bgOpacity)
             WlrLayershell.namespace: "qs-power-menu-bg"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -268,15 +268,34 @@ ShellRoot {
                 }
             }
 
-            Rectangle {
+             Rectangle {
                 id: mainContainer
                 anchors.centerIn: parent
                 implicitWidth: contentCol.implicitWidth + Theme.spacingXL * 2
                 implicitHeight: contentCol.implicitHeight + Theme.spacingXL * 2
-                color: Theme.background
-                radius: Theme.radiusXL
-                border.color: Theme.outline
-                border.width: 1
+                color: Theme.alpha(Theme.background, 0.88)
+                radius: Theme.radiusXL + 4
+                border.color: Theme.glassBorder
+                border.width: 1.5
+
+                // 高级光影效果 (Power Menu Special Shadow)
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Theme.alpha("#000000", 0.2)
+                    shadowBlur: 1.0
+                    shadowVerticalOffset: 16
+                }
+
+                // 玻璃高光
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.glassHighlight
+                    z: 10
+                }
 
                 // 动画属性
                 opacity: root.containerOpacity

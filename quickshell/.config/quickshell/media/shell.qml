@@ -429,23 +429,41 @@ ShellRoot {
                 anchors.bottomMargin: root.anchorBottom ? root.marginB : 0
                 anchors.leftMargin: root.anchorLeft ? root.marginL : 0
                 anchors.rightMargin: root.anchorRight ? root.marginR : 0
-                width: 380
+                width: 400
                 height: panelRect.implicitHeight
-                color: Theme.background
-                radius: Theme.radiusL
-                border.color: Theme.outline
+                color: Theme.alpha(Theme.background, 0.82)
+                radius: Theme.radiusXL
+                border.color: Theme.glassBorder
+                border.width: 1.5
+
+                // 多层发光阴影 (Premium Shadow)
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Theme.shadowColor
+                    shadowBlur: 0.8
+                    shadowVerticalOffset: 12
+                    shadowHorizontalOffset: 0
+                }
 
                 // Wait for initialization before showing
                 opacity: root.initialized ? root.panelOpacity : 0
                 scale: root.panelScale
                 transform: Translate { y: root.panelY }
                 Behavior on opacity { NumberAnimation { duration: 150 } }
-                border.width: 1
-                implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
 
                 MouseArea {
                     anchors.fill: parent
                     onClicked: function(mouse) { mouse.accepted = true }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusXL
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.glassHighlight
+                    z: 10
                 }
 
                 // Background art blur effect
@@ -453,13 +471,13 @@ ShellRoot {
                     anchors.fill: parent
                     clip: true
                     visible: root.artUrl !== ""
-                    opacity: 0.15
+                    opacity: 0.25
 
                     Behavior on opacity { NumberAnimation { duration: Theme.animSlow } }
 
                     Image {
                         anchors.fill: parent
-                        anchors.margins: -40
+                        anchors.margins: -60
                         source: root.artUrl
                         fillMode: Image.PreserveAspectCrop
                         layer.enabled: true
@@ -467,15 +485,10 @@ ShellRoot {
                             blurEnabled: true
                             blurMax: 64
                             blur: 1.0
+                            contrast: 0.1
+                            saturation: 0.2
                         }
                     }
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: Theme.background
-                    opacity: 0.85
-                    radius: Theme.radiusL
                 }
 
                 ColumnLayout {
@@ -690,10 +703,19 @@ ShellRoot {
                                             sourceItem: Rectangle {
                                                 width: 98
                                                 height: 98
-                                                radius: Theme.radiusM - 1
+                                                radius: Theme.radiusXL - 4
                                             }
                                         }
                                     }
+                                }
+
+                                // Cover Shadow
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    shadowEnabled: true
+                                    shadowColor: Theme.alpha(Theme.primary, 0.3)
+                                    shadowBlur: 0.6
+                                    shadowVerticalOffset: 4
                                 }
 
                                 Text {

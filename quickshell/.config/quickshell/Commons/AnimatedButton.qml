@@ -21,9 +21,9 @@ Rectangle {
     property color activeColor: normalColor
 
     // 动画配置
-    property int animDuration: 120
-    property real hoverScale: 1.0
-    property real pressScale: 0.96
+    property int animDuration: 180
+    property real hoverScale: 1.05
+    property real pressScale: 0.92
     property bool enableRipple: true
 
     // 状态

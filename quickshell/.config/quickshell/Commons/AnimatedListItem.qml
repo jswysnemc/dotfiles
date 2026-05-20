@@ -14,10 +14,10 @@ Item {
     property alias contentItem: contentLoader.item
 
     // 动画配置
-    property int enterDuration: 250
-    property real enterScale: 0.8
+    property int enterDuration: 450
+    property real enterScale: 0.85
     property real enterOpacity: 0
-    property real enterY: 12
+    property real enterY: 16
 
     // 悬停效果
     property bool hoverEnabled: true

@@ -607,7 +607,7 @@ ShellRoot {
             margins.bottom: root.anchorBottom ? root.marginB : 0
             margins.left: root.anchorLeft ? root.marginL : 0
             margins.right: root.anchorRight ? root.marginR : 0
-            implicitWidth: 380
+            implicitWidth: 400
             implicitHeight: Math.min(720, panelRect.implicitHeight)
 
 
@@ -618,14 +618,33 @@ ShellRoot {
                 onClicked: root.closeWithAnimation()
             }
 
-            Rectangle {
+             Rectangle {
                 id: panelRect
                 anchors.fill: parent
-                color: Theme.background
-                radius: Theme.radiusL
-                border.color: Theme.outline
-                border.width: 1
+                color: Theme.alpha(Theme.background, 0.85)
+                radius: Theme.radiusXL
+                border.color: Theme.glassBorder
+                border.width: 1.5
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
+
+                // 高级光影效果
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Theme.shadowColor
+                    shadowBlur: 0.8
+                    shadowVerticalOffset: 12
+                }
+
+                // 顶部内发光高光
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.glassHighlight
+                    z: 10
+                }
 
                 // 动画属性
                 opacity: root.panelOpacity
