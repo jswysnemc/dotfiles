@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -423,6 +424,14 @@ ShellRoot {
                     z: 10
                 }
 
+                // Aurora 装饰
+                Commons.AuroraBackground {
+                    anchors.fill: parent
+                    intensity: 0.25
+                    orbScale: 1.4
+                    z: 0
+                }
+
                 opacity: root.panelOpacity
                 scale: root.panelScale
                 transform: Translate { y: root.panelY }
@@ -535,151 +544,196 @@ ShellRoot {
                         Layout.fillWidth: true
                         currentIndex: root.currentTab
 
-                        // ============ Volumes Tab ============
+                        // ============ Volumes Tab — Bento ============
                         ColumnLayout {
-                            spacing: Theme.spacingL
+                            spacing: Theme.spacingM
 
-                            // Brightness Section
-                            ColumnLayout {
+                            // === Brightness hero card ===
+                            Rectangle {
                                 Layout.fillWidth: true
-                                spacing: Theme.spacingS
+                                implicitHeight: 96
+                                radius: Theme.radiusL
+                                color: Theme.alpha(Theme.surface, 0.7)
+                                border.color: Theme.alpha(Theme.warning, 0.3)
+                                border.width: 1
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacingS
-
-                                    Text {
-                                        text: "\uf185"
-                                        font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: Theme.iconSizeS
-                                        color: Theme.warning
-                                    }
-
-                                    Text {
-                                        text: "亮度"
-                                        font.pixelSize: Theme.fontSizeM
-                                        font.bold: true
-                                        color: Theme.textPrimary
-                                    }
-
-                                    Item { Layout.fillWidth: true }
-
-                                    Text {
-                                        text: Math.round((root.brightness / root.maxBrightness) * 100) + "%"
-                                        font.pixelSize: Theme.fontSizeS
-                                        color: Theme.textMuted
-                                    }
+                                // 左侧 tone 条
+                                Rectangle {
+                                    width: 4
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    anchors.margins: Theme.spacingM
+                                    radius: 2
+                                    color: Theme.warning
                                 }
 
-                                Rectangle {
-                                    id: brightnessSlider
-                                    Layout.fillWidth: true
-                                    height: 8
-                                    radius: 4
-                                    color: Theme.surfaceVariant
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: Theme.spacingM
+                                    anchors.leftMargin: Theme.spacingL + 8
+                                    spacing: Theme.spacingS
 
-                                    property real value: root.brightness / root.maxBrightness
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.spacingS
 
-                                    Rectangle {
-                                        id: brightnessFill
-                                        width: brightnessSlider.value * parent.width
-                                        height: parent.height
-                                        radius: 4
-                                        color: Theme.warning
-
-                                        Behavior on width { NumberAnimation { duration: 50 } }
-                                    }
-
-                                    Rectangle {
-                                        x: Math.max(0, Math.min(brightnessFill.width - width / 2, parent.width - width))
-                                        y: -4
-                                        width: 16; height: 16; radius: 8
-                                        color: Theme.warning
-                                        border.color: Theme.surface
-                                        border.width: 2
-                                        scale: brightnessMa.pressed ? 1.2 : (brightnessMa.containsMouse ? 1.1 : 1.0)
-
-                                        Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-                                    }
-
-                                    MouseArea {
-                                        id: brightnessMa
-                                        anchors.fill: parent
-                                        anchors.margins: -8
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-
-                                        onPressed: (mouse) => {
-                                            root.setBrightness(Math.max(0, Math.min(1, mouse.x / parent.width)) * 100)
+                                        Text {
+                                            text: "\uf185"
+                                            font.family: "Symbols Nerd Font Mono"
+                                            font.pixelSize: 14
+                                            color: Theme.warning
                                         }
-                                        onPositionChanged: (mouse) => {
-                                            if (pressed) root.setBrightness(Math.max(0, Math.min(1, mouse.x / parent.width)) * 100)
+                                        Text {
+                                            text: "亮度"
+                                            font.pixelSize: Theme.fontSizeS
+                                            font.weight: Font.Medium
+                                            font.letterSpacing: 0.5
+                                            color: Theme.textMuted
+                                        }
+                                        Item { Layout.fillWidth: true }
+                                        Text {
+                                            text: Math.round((root.brightness / root.maxBrightness) * 100) + "%"
+                                            font.pixelSize: 28
+                                            font.weight: Font.Black
+                                            color: Theme.textPrimary
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        id: brightnessSlider
+                                        Layout.fillWidth: true
+                                        height: 6
+                                        radius: 3
+                                        color: Theme.alpha(Theme.warning, 0.18)
+
+                                        property real value: root.brightness / root.maxBrightness
+
+                                        Rectangle {
+                                            id: brightnessFill
+                                            width: brightnessSlider.value * parent.width
+                                            height: parent.height
+                                            radius: 3
+                                            gradient: Gradient {
+                                                orientation: Gradient.Horizontal
+                                                GradientStop { position: 0.0; color: Theme.alpha(Theme.warning, 0.7) }
+                                                GradientStop { position: 1.0; color: Theme.warning }
+                                            }
+                                            Behavior on width { NumberAnimation { duration: 50 } }
+                                        }
+
+                                        Rectangle {
+                                            x: Math.max(0, Math.min(brightnessFill.width - width / 2, parent.width - width))
+                                            y: -5
+                                            width: 16; height: 16; radius: 8
+                                            color: Theme.warning
+                                            border.color: Theme.surface
+                                            border.width: 2
+                                            scale: brightnessMa.pressed ? 1.25 : (brightnessMa.containsMouse ? 1.15 : 1.0)
+                                            Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+                                        }
+
+                                        MouseArea {
+                                            id: brightnessMa
+                                            anchors.fill: parent
+                                            anchors.margins: -8
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onPressed: (mouse) => {
+                                                root.setBrightness(Math.max(0, Math.min(1, mouse.x / parent.width)) * 100)
+                                            }
+                                            onPositionChanged: (mouse) => {
+                                                if (pressed) root.setBrightness(Math.max(0, Math.min(1, mouse.x / parent.width)) * 100)
+                                            }
                                         }
                                     }
                                 }
                             }
 
-                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.4 }
-
-                            // Output Volume Section
-                            ColumnLayout {
+                            // === Output card ===
+                            Rectangle {
                                 Layout.fillWidth: true
-                                spacing: Theme.spacingS
+                                implicitHeight: 104
+                                radius: Theme.radiusL
+                                color: Theme.alpha(Theme.surface, 0.7)
+                                border.color: Theme.alpha(root.outputMuted ? Theme.error : Theme.primary, 0.3)
+                                border.width: 1
                                 opacity: root.sink ? 1.0 : 0.5
 
-                                RowLayout {
-                                    Layout.fillWidth: true
+                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
+
+                                Rectangle {
+                                    width: 4
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    anchors.margins: Theme.spacingM
+                                    radius: 2
+                                    color: root.outputMuted ? Theme.error : Theme.primary
+                                    Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                }
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: Theme.spacingM
+                                    anchors.leftMargin: Theme.spacingL + 8
                                     spacing: Theme.spacingS
 
-                                    Rectangle {
-                                        width: 28; height: 28; radius: Theme.radiusM
-                                        color: outMuteMa.containsMouse ? Theme.surfaceVariant : "transparent"
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: root.outputMuted ? "\uf026" :
-                                                  root.outputVolume < 0.01 ? "\uf026" :
-                                                  root.outputVolume < 0.5 ? "\uf027" : "\uf028"
-                                            font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: Theme.iconSizeM
-                                            color: root.outputMuted ? Theme.error : Theme.primary
-                                        }
-
-                                        MouseArea {
-                                            id: outMuteMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.toggleOutputMute()
-                                        }
-                                    }
-
-                                    ColumnLayout {
+                                    RowLayout {
                                         Layout.fillWidth: true
-                                        spacing: 0
+                                        spacing: Theme.spacingS
 
-                                        Text {
-                                            text: "输出音量"
-                                            font.pixelSize: Theme.fontSizeM
-                                            font.bold: true
-                                            color: Theme.textPrimary
+                                        Rectangle {
+                                            width: 30; height: 30; radius: 15
+                                            color: outMuteMa.containsMouse ? Theme.alpha(root.outputMuted ? Theme.error : Theme.primary, 0.18) : "transparent"
+                                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: root.outputMuted ? "\uf026" :
+                                                      root.outputVolume < 0.01 ? "\uf026" :
+                                                      root.outputVolume < 0.5 ? "\uf027" : "\uf028"
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: 16
+                                                color: root.outputMuted ? Theme.error : Theme.primary
+                                            }
+
+                                            MouseArea {
+                                                id: outMuteMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.toggleOutputMute()
+                                            }
                                         }
 
-                                        Text {
-                                            text: root.sink?.description ?? "无输出设备"
-                                            font.pixelSize: Theme.fontSizeXS
-                                            color: Theme.textMuted
-                                            elide: Text.ElideRight
+                                        ColumnLayout {
                                             Layout.fillWidth: true
+                                            spacing: -2
+
+                                            Text {
+                                                text: "输出"
+                                                font.pixelSize: Theme.fontSizeS
+                                                font.weight: Font.Medium
+                                                font.letterSpacing: 0.5
+                                                color: Theme.textMuted
+                                            }
+                                            Text {
+                                                text: root.sink?.description ?? "无输出设备"
+                                                font.pixelSize: Theme.fontSizeXS
+                                                color: Theme.textSecondary
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+
+                                        Text {
+                                            text: Math.round(root.localOutputVolume * 100) + "%"
+                                            font.pixelSize: 28
+                                            font.weight: Font.Black
+                                            color: root.outputMuted ? Theme.error : Theme.textPrimary
                                         }
                                     }
-
-                                    Text {
-                                        text: Math.round(root.localOutputVolume * 100) + "%"
-                                        font.pixelSize: Theme.fontSizeS
-                                        color: root.outputMuted ? Theme.error : Theme.textMuted
-                                    }
-                                }
 
                                 Rectangle {
                                     id: outputSlider
@@ -753,65 +807,87 @@ ShellRoot {
                                 }
                             }
 
-                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.4 }
-
-                            // Input Volume Section
-                            ColumnLayout {
+                            // === Input card ===
+                            Rectangle {
                                 Layout.fillWidth: true
-                                spacing: Theme.spacingS
+                                implicitHeight: 104
+                                radius: Theme.radiusL
+                                color: Theme.alpha(Theme.surface, 0.7)
+                                border.color: Theme.alpha(root.inputMuted ? Theme.error : Theme.secondary, 0.3)
+                                border.width: 1
                                 opacity: root.source ? 1.0 : 0.5
+                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
-                                RowLayout {
-                                    Layout.fillWidth: true
+                                Rectangle {
+                                    width: 4
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    anchors.margins: Theme.spacingM
+                                    radius: 2
+                                    color: root.inputMuted ? Theme.error : Theme.secondary
+                                    Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                }
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: Theme.spacingM
+                                    anchors.leftMargin: Theme.spacingL + 8
                                     spacing: Theme.spacingS
 
-                                    Rectangle {
-                                        width: 28; height: 28; radius: Theme.radiusM
-                                        color: inMuteMa.containsMouse ? Theme.surfaceVariant : "transparent"
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: root.inputMuted ? "\uf131" : "\uf130"
-                                            font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: Theme.iconSizeM
-                                            color: root.inputMuted ? Theme.error : Theme.secondary
-                                        }
-
-                                        MouseArea {
-                                            id: inMuteMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.toggleInputMute()
-                                        }
-                                    }
-
-                                    ColumnLayout {
+                                    RowLayout {
                                         Layout.fillWidth: true
-                                        spacing: 0
+                                        spacing: Theme.spacingS
 
-                                        Text {
-                                            text: "输入音量"
-                                            font.pixelSize: Theme.fontSizeM
-                                            font.bold: true
-                                            color: Theme.textPrimary
+                                        Rectangle {
+                                            width: 30; height: 30; radius: 15
+                                            color: inMuteMa.containsMouse ? Theme.alpha(root.inputMuted ? Theme.error : Theme.secondary, 0.18) : "transparent"
+                                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: root.inputMuted ? "\uf131" : "\uf130"
+                                                font.family: "Symbols Nerd Font Mono"
+                                                font.pixelSize: 16
+                                                color: root.inputMuted ? Theme.error : Theme.secondary
+                                            }
+
+                                            MouseArea {
+                                                id: inMuteMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.toggleInputMute()
+                                            }
                                         }
 
-                                        Text {
-                                            text: root.source?.description ?? "无输入设备"
-                                            font.pixelSize: Theme.fontSizeXS
-                                            color: Theme.textMuted
-                                            elide: Text.ElideRight
+                                        ColumnLayout {
                                             Layout.fillWidth: true
+                                            spacing: -2
+
+                                            Text {
+                                                text: "输入"
+                                                font.pixelSize: Theme.fontSizeS
+                                                font.weight: Font.Medium
+                                                font.letterSpacing: 0.5
+                                                color: Theme.textMuted
+                                            }
+                                            Text {
+                                                text: root.source?.description ?? "无输入设备"
+                                                font.pixelSize: Theme.fontSizeXS
+                                                color: Theme.textSecondary
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+
+                                        Text {
+                                            text: Math.round(root.localInputVolume * 100) + "%"
+                                            font.pixelSize: 28
+                                            font.weight: Font.Black
+                                            color: root.inputMuted ? Theme.error : Theme.textPrimary
                                         }
                                     }
-
-                                    Text {
-                                        text: Math.round(root.localInputVolume * 100) + "%"
-                                        font.pixelSize: Theme.fontSizeS
-                                        color: root.inputMuted ? Theme.error : Theme.textMuted
-                                    }
-                                }
 
                                 Rectangle {
                                     id: inputSlider
