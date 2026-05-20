@@ -5,7 +5,6 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
-import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -17,6 +16,7 @@ ShellRoot {
     property real containerOpacity: 0
     property real containerScale: 0.92
     property real containerY: 20
+    property bool blurActive: true
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "center"
@@ -385,6 +385,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -401,6 +402,24 @@ ShellRoot {
             WlrLayershell.namespace: "quickshell-launcher"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? mainContainer : null
+                radius: Theme.radiusXL + 4
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onContainerScaleChanged() { blurRegion.changed() }
+                function onContainerYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: mainContainer
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -464,34 +483,16 @@ ShellRoot {
                     z: 10
                 }
 
-                // 顶部 Aurora 渐变条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.primary }
-                        GradientStop { position: 0.5; color: Theme.tertiary }
-                        GradientStop { position: 1.0; color: Theme.secondary }
-                    }
-                }
-
                 // Aurora 装饰球
-                Commons.AuroraBackground {
+                AuroraBackground {
                     anchors.fill: parent
                     intensity: 0.28
                     orbScale: 1.6
                     z: 0
                 }
 
-                // 动画属性
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.containerOpacity
-                scale: root.containerScale
-                transform: Translate { y: root.containerY }
 
                 Behavior on width { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
                 Behavior on height { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }

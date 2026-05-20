@@ -5,7 +5,6 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
-import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -17,6 +16,8 @@ ShellRoot {
     property real containerOpacity: 0
     property real containerScale: 0.85
     property real containerY: 25
+    property bool blurActive: true
+    readonly property int menuSize: 520
 
     // Position from environment
     property string posEnv: Quickshell.env("QS_POS") || "center"
@@ -143,6 +144,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -155,6 +157,7 @@ ShellRoot {
     function executeAction(actionId) {
         var action = actions.find(a => a.id === actionId)
         if (action) {
+            root.blurActive = false
             cmdProcess.command = ["bash", "-c", action.cmd]
             cmdProcess.running = true
         }
@@ -172,6 +175,7 @@ ShellRoot {
     function cancelConfirm() {
         // If triggered from waybar (direct action), quit on cancel
         if (directAction) {
+            root.blurActive = false
             Qt.quit()
         } else {
             confirmMode = false
@@ -245,6 +249,24 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? mainContainer : null
+                shape: RegionShape.Ellipse
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onContainerScaleChanged() { blurRegion.changed() }
+                function onContainerYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: mainContainer
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -273,10 +295,10 @@ ShellRoot {
              Rectangle {
                 id: mainContainer
                 anchors.centerIn: parent
-                implicitWidth: 520
-                implicitHeight: 520
+                width: root.menuSize
+                height: root.menuSize
                 color: Theme.alpha(Theme.background, 0.88)
-                radius: 260
+                radius: width / 2
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
@@ -299,18 +321,33 @@ ShellRoot {
                     z: 10
                 }
 
-                // Aurora 装饰球
-                Commons.AuroraBackground {
+                // Aurora 装饰球需要单独圆形遮罩，否则会在圆外露出外接矩形。
+                Item {
                     anchors.fill: parent
-                    intensity: 0.35
-                    orbScale: 1.0
                     z: 0
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        maskEnabled: true
+                        maskThresholdMin: 0.5
+                        maskSpreadAtMin: 1.0
+                        maskSource: ShaderEffectSource {
+                            sourceItem: Rectangle {
+                                width: mainContainer.width
+                                height: mainContainer.height
+                                radius: width / 2
+                            }
+                        }
+                    }
+
+                    AuroraBackground {
+                        anchors.fill: parent
+                        intensity: 0.35
+                        orbScale: 1.0
+                    }
                 }
 
-                // 动画属性
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.containerOpacity
-                scale: root.containerScale
-                transform: Translate { y: root.containerY }
 
                 MouseArea {
                     anchors.fill: parent

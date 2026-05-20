@@ -5,7 +5,6 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
-import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -16,6 +15,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
@@ -401,6 +401,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -443,6 +444,24 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? panelRect : null
+                radius: Theme.radiusXL
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: panelRect
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: root.anchorTop && !root.anchorVCenter
             anchors.bottom: root.anchorBottom
             anchors.left: root.anchorLeft
@@ -491,33 +510,15 @@ ShellRoot {
                 }
 
                 // Aurora 装饰
-                Commons.AuroraBackground {
+                AuroraBackground {
                     anchors.fill: parent
                     intensity: 0.26
                     orbScale: 1.5
                     z: 0
                 }
 
-                // 顶部 Aurora 渐变条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.primary }
-                        GradientStop { position: 0.5; color: Theme.secondary }
-                        GradientStop { position: 1.0; color: Theme.tertiary }
-                    }
-                }
-
-                // 动画属性
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -554,21 +555,6 @@ ShellRoot {
                         color: Theme.alpha(Theme.surface, 0.65)
                         border.color: Theme.alpha(Theme.primary, 0.32)
                         border.width: 1.5
-
-                        // 顶部 Aurora 条
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            height: 3
-                            radius: 1.5
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: Theme.primary }
-                                GradientStop { position: 0.5; color: Theme.secondary }
-                                GradientStop { position: 1.0; color: Theme.tertiary }
-                            }
-                        }
 
                         RowLayout {
                             anchors.fill: parent
@@ -702,29 +688,6 @@ ShellRoot {
                                 }
                             }
 
-                            // Close
-                            Rectangle {
-                                Layout.alignment: Qt.AlignVCenter
-                                width: 32; height: 32; radius: 16
-                                color: closeMa.containsMouse ? Theme.alpha(Theme.error, 0.18) : "transparent"
-                                scale: closeMa.containsMouse ? 1.1 : 1.0
-                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                                Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "\uf00d"
-                                    font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: 13
-                                    color: closeMa.containsMouse ? Theme.error : Theme.textSecondary
-                                }
-                                MouseArea {
-                                    id: closeMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.closeWithAnimation()
-                                }
-                            }
                         }
                     }
 

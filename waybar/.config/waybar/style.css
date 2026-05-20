@@ -345,8 +345,9 @@ tooltip label {
     color: @text-sub;
 }
 
-/* 剪贴板 */
-#custom-clipboard {
+/* 剪贴板 / 待办 */
+#custom-clipboard,
+#custom-todo {
     background-color: @base-bg;
     color: @text-main;
     padding: 0 8px;
@@ -357,8 +358,21 @@ tooltip label {
     border-radius: 12px;
 }
 
-#custom-clipboard:hover {
+#custom-clipboard:hover,
+#custom-todo:hover {
     background-color: @hover-bg;
+}
+
+#custom-todo.pending {
+    color: @highlight;
+}
+
+#custom-todo.done {
+    color: @accent-green;
+}
+
+#custom-todo.empty {
+    color: @text-sub;
 }
 
 /* 蓝牙 */

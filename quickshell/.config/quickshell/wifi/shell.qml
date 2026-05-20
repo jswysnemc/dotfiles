@@ -15,6 +15,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
@@ -183,6 +184,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -600,6 +602,24 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: root.showPasswordDialog ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? panelRect : null
+                radius: Theme.radiusXL
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: panelRect
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: root.anchorTop && !root.anchorVCenter
             anchors.bottom: root.anchorBottom
             anchors.left: root.anchorLeft
@@ -647,10 +667,8 @@ ShellRoot {
                     z: 10
                 }
 
-                // 动画属性
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent

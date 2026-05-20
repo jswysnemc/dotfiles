@@ -27,7 +27,7 @@ show_help() {
     echo "  wallpaper      - Wallpaper selector"
     echo "  close-confirm  - Close window confirmation"
     echo "  window-switcher - Window switcher with fzf-style filter"
-    echo "  todo           - Todo list / sticky notes"
+    echo "  todo           - Todo list"
     echo "  control-center - Unified control center"
     echo ""
     echo "Options:"
@@ -156,12 +156,24 @@ parse_args() {
     done
 }
 
+component_pids() {
+    local shell_path="$1"
+    local real_shell_path
+    real_shell_path="$(realpath "$shell_path" 2>/dev/null || printf '%s' "$shell_path")"
+
+    pgrep -x quickshell -a 2>/dev/null | awk -v path="$shell_path" -v real_path="$real_shell_path" '
+        index($0, path) || index($0, real_path) { print $1 }
+    '
+}
+
 toggle_popup() {
     local name="$1"
     local shell_path="$QS_CONFIG_DIR/$name/shell.qml"
+    local pids
 
-    if pgrep -f "quickshell.*$name/shell.qml" > /dev/null; then
-        pkill -f "quickshell.*$name/shell.qml"
+    pids="$(component_pids "$shell_path")"
+    if [[ -n "$pids" ]]; then
+        kill $pids 2>/dev/null || true
     else
         if [[ -f "$shell_path" ]]; then
             read_config "$name"
@@ -178,7 +190,7 @@ toggle_popup() {
             QS_MARGIN_L="$QS_MARGIN_L" \
             QS_TARGET_OUTPUT="$QS_TARGET_OUTPUT" \
             QS_TARGET_WINDOW_JSON="$QS_TARGET_WINDOW_JSON" \
-            quickshell -p "$shell_path" &
+            setsid -f quickshell -p "$shell_path" >/dev/null 2>&1
         else
             notify-send "QuickShell" "Component not found: $shell_path"
             exit 1
@@ -242,7 +254,7 @@ case "$COMPONENT" in
     window-switcher|windows|ws|switcher)
         toggle_popup "window-switcher"
         ;;
-    todo|todos|note|notes)
+    todo|todos)
         toggle_popup "todo"
         ;;
     ai-launcher|ai)

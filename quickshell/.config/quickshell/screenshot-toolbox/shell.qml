@@ -14,6 +14,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
     readonly property string initialPickedColor: Quickshell.env("QS_PICKED_COLOR") || ""
     property string activePage: initialPickedColor ? "color" : "main"
     property string pickedColor: ""
@@ -137,6 +138,7 @@ ShellRoot {
         }
 
         root.isClosing = true
+        root.blurActive = false
 
         if (mode === "color") {
             actionProc.command = ["bash", "-c", "setsid \"$1\" color-page >/dev/null 2>&1 &", "qs-shot-color", root.scriptPath]
@@ -149,6 +151,7 @@ ShellRoot {
     function runActionWithArg(mode, arg) {
         if (root.isClosing) return
         root.isClosing = true
+        root.blurActive = false
 
         actionProc.command = ["bash", "-c", "setsid \"$1\" \"$2\" \"$3\" >/dev/null 2>&1 &", "qs-shot-arg", root.scriptPath, mode, arg]
         actionProc.running = true
@@ -271,6 +274,7 @@ ShellRoot {
     function closeWithAnimation() {
         if (root.isClosing) return
         root.isClosing = true
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -328,6 +332,24 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? card : null
+                radius: Theme.radiusXL + 4
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: card
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -358,9 +380,8 @@ ShellRoot {
                 color: Theme.alpha(Theme.background, 0.9)
                 border.color: Theme.glassBorder
                 border.width: 1.5
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 // 高级光影
                 layer.enabled: true
@@ -379,22 +400,6 @@ ShellRoot {
                     border.width: 1
                     border.color: Theme.glassHighlight
                     z: 10
-                }
-
-                // 顶部 Aurora 渐变条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.tertiary }
-                        GradientStop { position: 0.5; color: Theme.primary }
-                        GradientStop { position: 1.0; color: Theme.secondary }
-                    }
                 }
 
                 MouseArea {

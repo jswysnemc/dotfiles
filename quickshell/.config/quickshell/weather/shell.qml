@@ -5,7 +5,6 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
-import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -16,6 +15,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
@@ -296,6 +296,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -312,6 +313,24 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? panelRect : null
+                radius: Theme.radiusXL + 4
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: panelRect
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -345,9 +364,8 @@ ShellRoot {
                 implicitHeight: mainCol.implicitHeight + Theme.spacingXL * 2
                 clip: true
 
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 layer.enabled: true
                 layer.effect: MultiEffect {
@@ -368,7 +386,7 @@ ShellRoot {
                 }
 
                 // Aurora 背景
-                Commons.AuroraBackground {
+                AuroraBackground {
                     anchors.fill: parent
                     intensity: 0.32
                     orbScale: 1.4

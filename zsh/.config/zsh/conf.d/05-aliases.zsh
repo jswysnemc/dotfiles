@@ -31,6 +31,9 @@ css() {
     chat session switch "$(chat --no-color session list | fzf | awk '{print ($1=="*" ? $2 : $1)}')"
 }
 
+
+alias xo="xdg-open"
+
 # 如果你在仓库中看到这个别名,别学我
 alias claude="claude --dangerously-skip-permissions"
 

@@ -5,7 +5,6 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
-import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -93,7 +92,7 @@ ShellRoot {
             }
 
             // 漂浮的 aurora 装饰球
-            Commons.AuroraBackground {
+            AuroraBackground {
                 anchors.fill: parent
                 intensity: 0.35 * root.bgOpacity
                 orbScale: 1.8

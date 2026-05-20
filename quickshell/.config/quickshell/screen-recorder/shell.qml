@@ -30,6 +30,7 @@ ShellRoot {
     // ============ State ============
     property bool isRecording: false
     property string duration: "00:00"
+    property bool blurActive: true
 
     // Settings
     property string codec: "libx264"
@@ -75,6 +76,10 @@ ShellRoot {
     function stopRecording() { stopProc.running = true }
     function forceStop() { forceStopProc.running = true }
     function openOutputDir() { openDirProc.running = true }
+    function quitWithBlurDisabled() {
+        root.blurActive = false
+        Qt.quit()
+    }
 
     // ============ Processes ============
     Process {
@@ -124,17 +129,17 @@ ShellRoot {
     Process {
         id: fullscreenProc
         command: ["bash", "-c", "RECORD_MODE=full MENU_BACKEND=none setsid ~/.config/waybar/scripts/wf-recorder.sh start &"]
-        onExited: Qt.quit()
+        onExited: root.quitWithBlurDisabled()
     }
     Process {
         id: regionProc
         command: ["bash", "-c", "setsid bash -lc 'sleep 0.15; RECORD_MODE=region MENU_BACKEND=none exec ~/.config/waybar/scripts/wf-recorder.sh start' >/dev/null 2>&1 &"]
-        onExited: Qt.quit()
+        onExited: root.quitWithBlurDisabled()
     }
     Process {
         id: gifMarkerProc
         command: ["bash", "-c", "setsid bash -lc 'sleep 0.15; GIF_MODE=1 RECORD_MODE=region MENU_BACKEND=none exec ~/.config/waybar/scripts/wf-recorder.sh start' >/dev/null 2>&1 &"]
-        onExited: Qt.quit()
+        onExited: root.quitWithBlurDisabled()
     }
     Process {
         id: stopProc
@@ -172,7 +177,7 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             anchors.top: true; anchors.bottom: true; anchors.left: true; anchors.right: true
-            MouseArea { anchors.fill: parent; onClicked: Qt.quit() }
+            MouseArea { anchors.fill: parent; onClicked: root.quitWithBlurDisabled() }
         }
     }
 
@@ -186,6 +191,22 @@ ShellRoot {
             WlrLayershell.namespace: "quickshell-recorder"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? panelContent : null
+                radius: Theme.radiusXL
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: panelContent
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: root.anchorTop && !root.anchorVCenter
             anchors.bottom: root.anchorBottom
             anchors.left: root.anchorLeft
@@ -197,7 +218,7 @@ ShellRoot {
             implicitWidth: 360
             implicitHeight: panelContent.implicitHeight + Theme.spacingL * 2
 
-            Shortcut { sequence: "Escape"; onActivated: Qt.quit() }
+            Shortcut { sequence: "Escape"; onActivated: root.quitWithBlurDisabled() }
 
             Rectangle {
                 id: panelContent
@@ -225,22 +246,6 @@ ShellRoot {
                     border.width: 1
                     border.color: Theme.glassHighlight
                     z: 10
-                }
-
-                // 顶部 Aurora 渐变条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.error }
-                        GradientStop { position: 0.5; color: Theme.warning }
-                        GradientStop { position: 1.0; color: Theme.primary }
-                    }
                 }
 
                 MouseArea { anchors.fill: parent; onClicked: function(e) { e.accepted = true } }
@@ -288,7 +293,7 @@ ShellRoot {
                             width: 28; height: 28; radius: Theme.radiusS
                             color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
                             Text { anchors.centerIn: parent; text: "\uf00d"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeS; color: Theme.textSecondary }
-                            MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.quit() }
+                            MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.quitWithBlurDisabled() }
                         }
                     }
 

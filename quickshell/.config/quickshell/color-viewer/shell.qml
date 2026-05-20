@@ -14,6 +14,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
     readonly property string pickedColor: normalizeHex(Quickshell.env("QS_PICKED_COLOR") || "")
 
     Component.onCompleted: {
@@ -103,6 +104,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -163,6 +165,24 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? dialog : null
+                radius: Theme.radiusXL + 4
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: dialog
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -184,9 +204,8 @@ ShellRoot {
                 color: Theme.alpha(Theme.background, 0.88)
                 border.color: Theme.glassBorder
                 border.width: 1.5
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 // 高级光影
                 layer.enabled: true
@@ -205,22 +224,6 @@ ShellRoot {
                     border.width: 1
                     border.color: Theme.glassHighlight
                     z: 10
-                }
-
-                // 顶部当前色 Aurora 渐变条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.primary }
-                        GradientStop { position: 0.5; color: root.pickedColor }
-                        GradientStop { position: 1.0; color: Theme.secondary }
-                    }
                 }
 
                 MouseArea {

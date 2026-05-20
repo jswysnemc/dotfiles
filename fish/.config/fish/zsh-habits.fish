@@ -1,7 +1,7 @@
 # Environment and command defaults migrated from the zsh setup.
 set -gx EDITOR nvim
 set -gx VISUAL nvim
-set -gx TERMINAL ghostty
+set -gx TERMINAL "kitty --single-instance --instance-group=main"
 set -gx CRYPTOGRAPHY_OPENSSL_NO_LEGACY 1
 set -gx PNPM_HOME "$HOME/.local/share/pnpm"
 

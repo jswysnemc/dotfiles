@@ -16,6 +16,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
@@ -92,6 +93,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -401,6 +403,24 @@ ShellRoot {
             WlrLayershell.namespace: "quickshell-media"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? panelRect : null
+                radius: Theme.radiusXL
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: panelRect
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -430,7 +450,8 @@ ShellRoot {
                 anchors.leftMargin: root.anchorLeft ? root.marginL : 0
                 anchors.rightMargin: root.anchorRight ? root.marginR : 0
                 width: 400
-                height: panelRect.implicitHeight
+                implicitHeight: Math.max(root.hasPlayer ? 520 : 250, mainCol.implicitHeight + Theme.spacingL * 2)
+                height: Math.min(implicitHeight, panel.height - root.marginT - root.marginB - 16)
                 color: Theme.alpha(Theme.background, 0.82)
                 radius: Theme.radiusXL
                 border.color: Theme.glassBorder
@@ -448,8 +469,6 @@ ShellRoot {
 
                 // Wait for initialization before showing
                 opacity: root.initialized ? root.panelOpacity : 0
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
                 Behavior on opacity { NumberAnimation { duration: 150 } }
 
                 MouseArea {

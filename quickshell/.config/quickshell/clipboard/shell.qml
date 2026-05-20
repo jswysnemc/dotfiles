@@ -15,6 +15,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "center"
@@ -2035,6 +2036,7 @@ ShellRoot {
     function closeWithAnimation() {
         if (root.closing) return
         root.closing = true
+        root.blurActive = false
         root.stopBackgroundWork()
         root.panelOpacity = 0
         Qt.quit()
@@ -2053,6 +2055,24 @@ ShellRoot {
             WlrLayershell.namespace: "quickshell-clipboard"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? mainContainer : null
+                radius: Theme.radiusXL + 4
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: mainContainer
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -2096,9 +2116,8 @@ ShellRoot {
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 // 高级光影
                 layer.enabled: true
@@ -2117,22 +2136,6 @@ ShellRoot {
                     border.width: 1
                     border.color: Theme.glassHighlight
                     z: 10
-                }
-
-                // 顶部 Aurora 渐变条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.primary }
-                        GradientStop { position: 0.5; color: Theme.tertiary }
-                        GradientStop { position: 1.0; color: Theme.secondary }
-                    }
                 }
 
                 MouseArea {

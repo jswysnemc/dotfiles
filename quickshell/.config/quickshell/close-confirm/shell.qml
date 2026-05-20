@@ -15,6 +15,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
     property var targetWindow: null
     property bool hasTargetWindow: targetWindow !== null && targetWindow !== undefined
     readonly property string targetTitle: hasTargetWindow && targetWindow.title ? targetWindow.title : "未知标题"
@@ -29,6 +30,7 @@ ShellRoot {
     }
 
     function confirmClose() {
+        root.blurActive = false
         closeProcess.running = true
     }
 
@@ -95,6 +97,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -137,6 +140,24 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? dialog : null
+                radius: Theme.radiusXL + 4
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: dialog
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
@@ -162,18 +183,8 @@ ShellRoot {
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.alpha(Theme.error, 0.2)
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 16
-                }
 
                 // 玻璃内描边
                 Rectangle {
@@ -183,22 +194,6 @@ ShellRoot {
                     border.width: 1
                     border.color: Theme.glassHighlight
                     z: 10
-                }
-
-                // 顶部错误色脉冲条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.alpha(Theme.error, 0.0) }
-                        GradientStop { position: 0.5; color: Theme.error }
-                        GradientStop { position: 1.0; color: Theme.alpha(Theme.error, 0.0) }
-                    }
                 }
 
                 MouseArea {
@@ -322,7 +317,7 @@ ShellRoot {
 
                                 Text {
                                     visible: root.hasTargetWindow && root.targetWindow.id !== undefined
-                                    text: "ID " + root.targetWindow.id
+                                    text: root.hasTargetWindow && root.targetWindow.id !== undefined ? "ID " + root.targetWindow.id : ""
                                     font.pixelSize: Theme.fontSizeS
                                     color: Theme.textSecondary
                                 }

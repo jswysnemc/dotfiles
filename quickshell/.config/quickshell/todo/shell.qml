@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
@@ -15,15 +14,14 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
 
-    property string dataFile: Quickshell.env("HOME") + "/.local/share/quickshell/notes.json"
+    property string storeScript: Qt.resolvedUrl("todo_store.py").toString().replace("file://", "")
     property var todos: []
-    property var notes: []
-    property int activeTab: 0  // 0: todos, 1: notes
-    property int editingNoteId: -1
+    property bool saveQueued: false
 
     Component.onCompleted: {
-        loadData()
+        loadProcess.running = true
         enterAnimation.start()
     }
 
@@ -44,72 +42,128 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
-    FileView {
-        id: fileView
-        path: root.dataFile
-        onTextChanged: {
-            if (text && text.length > 0) {
-                try {
-                    var data = JSON.parse(text)
-                    root.todos = data.todos || []
-                    root.notes = data.notes || []
-                } catch (e) {
-                    root.todos = []
-                    root.notes = []
-                }
-            }
+    function normalizeTodo(todo) {
+        if (!todo || typeof todo !== "object") return null
+
+        var todoText = String(todo.text || "").trim()
+        if (todoText === "") return null
+
+        return {
+            id: todo.id !== undefined ? todo.id : Date.now(),
+            text: todoText,
+            done: Boolean(todo.done),
+            createdAt: todo.createdAt || new Date().toISOString(),
+            completedAt: todo.completedAt || ""
         }
     }
 
-    function loadData() {
-        if (fileView.text && fileView.text.length > 0) {
-            try {
-                var data = JSON.parse(fileView.text)
-                todos = data.todos || []
-                notes = data.notes || []
-            } catch (e) {
-                todos = []
-                notes = []
+    function loadTodosFromText(text) {
+        try {
+            var data = JSON.parse(text || "{}")
+            var list = data.todos || []
+            var normalized = []
+
+            for (var i = 0; i < list.length; i++) {
+                var todo = normalizeTodo(list[i])
+                if (todo) normalized.push(todo)
             }
+
+            root.todos = normalized
+        } catch (e) {
+            console.log("Failed to load todos:", e)
+            root.todos = []
         }
+    }
+
+    function serializeTodos() {
+        return JSON.stringify({todos: root.todos}, null, 2)
+    }
+
+    function doneCount() {
+        var count = 0
+        for (var i = 0; i < root.todos.length; i++) {
+            if (root.todos[i].done) count += 1
+        }
+        return count
+    }
+
+    function pendingCount() {
+        return root.todos.length - doneCount()
     }
 
     function saveData() {
+        if (saveProcess.running) {
+            root.saveQueued = true
+            return
+        }
+
+        saveProcess.command = ["python3", root.storeScript, "save-json", root.serializeTodos()]
         saveProcess.running = true
+    }
+
+    Timer {
+        id: queuedSaveTimer
+        interval: 0
+        repeat: false
+        onTriggered: root.saveData()
+    }
+
+    Process {
+        id: loadProcess
+        command: ["python3", root.storeScript, "load"]
+        stdout: StdioCollector {
+            onStreamFinished: root.loadTodosFromText(text)
+        }
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) console.log("Todo load process failed:", exitCode)
+        }
     }
 
     Process {
         id: saveProcess
-        command: ["bash", "-c", "mkdir -p ~/.local/share/quickshell && cat > " + root.dataFile]
-        stdinEnabled: true
-        onStarted: {
-            write(JSON.stringify({todos: root.todos, notes: root.notes}, null, 2))
-            closeStdin()
+        command: ["true"]
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) console.log("Todo save process failed:", exitCode)
+            if (root.saveQueued) {
+                root.saveQueued = false
+                queuedSaveTimer.restart()
+            }
         }
     }
 
     // Todo functions
     function addTodo(text) {
-        if (text.trim() === "") return
-        var newTodo = {
+        var todoText = String(text || "").trim()
+        if (todoText === "") return
+
+        var newList = root.todos.slice()
+        newList.push({
             id: Date.now(),
-            text: text.trim(),
+            text: todoText,
             done: false,
-            createdAt: new Date().toISOString()
-        }
-        var newList = todos.slice()
-        newList.push(newTodo)
-        todos = newList
+            createdAt: new Date().toISOString(),
+            completedAt: ""
+        })
+        root.todos = newList
         saveData()
     }
 
     function toggleTodo(id) {
-        todos = todos.map(function(t) {
+        var now = new Date().toISOString()
+        root.todos = root.todos.map(function(t) {
             if (t.id === id) {
-                return {id: t.id, text: t.text, done: !t.done, createdAt: t.createdAt}
+                var nextDone = !t.done
+                return {
+                    id: t.id,
+                    text: t.text,
+                    done: nextDone,
+                    createdAt: t.createdAt,
+                    completedAt: nextDone ? now : ""
+                }
             }
             return t
         })
@@ -117,58 +171,12 @@ ShellRoot {
     }
 
     function deleteTodo(id) {
-        todos = todos.filter(function(t) { return t.id !== id })
+        root.todos = root.todos.filter(function(t) { return t.id !== id })
         saveData()
     }
 
     function clearCompleted() {
-        todos = todos.filter(function(t) { return !t.done })
-        saveData()
-    }
-
-    // Note functions
-    property var noteColors: ["#fef3c7", "#dbeafe", "#dcfce7", "#fce7f3", "#e0e7ff"]
-
-    function addNote() {
-        var newNote = {
-            id: Date.now(),
-            title: "新便签",
-            content: "",
-            color: noteColors[notes.length % noteColors.length],
-            createdAt: new Date().toISOString()
-        }
-        var newList = notes.slice()
-        newList.push(newNote)
-        notes = newList
-        editingNoteId = newNote.id
-        saveData()
-    }
-
-    function updateNote(id, title, content) {
-        notes = notes.map(function(n) {
-            if (n.id === id) {
-                return {id: n.id, title: title, content: content, color: n.color, createdAt: n.createdAt}
-            }
-            return n
-        })
-        saveData()
-    }
-
-    function deleteNote(id) {
-        notes = notes.filter(function(n) { return n.id !== id })
-        if (editingNoteId === id) editingNoteId = -1
-        saveData()
-    }
-
-    function cycleNoteColor(id) {
-        notes = notes.map(function(n) {
-            if (n.id === id) {
-                var idx = noteColors.indexOf(n.color)
-                var newColor = noteColors[(idx + 1) % noteColors.length]
-                return {id: n.id, title: n.title, content: n.content, color: newColor, createdAt: n.createdAt}
-            }
-            return n
-        })
+        root.todos = root.todos.filter(function(t) { return !t.done })
         saveData()
     }
 
@@ -211,14 +219,30 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? dialog : null
+                radius: Theme.radiusXL + 4
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: dialog
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: true
             anchors.bottom: true
             anchors.left: true
             anchors.right: true
 
             Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
-            Shortcut { sequence: "Ctrl+1"; onActivated: root.activeTab = 0 }
-            Shortcut { sequence: "Ctrl+2"; onActivated: root.activeTab = 1 }
 
             MouseArea {
                 anchors.fill: parent
@@ -228,16 +252,15 @@ ShellRoot {
             Rectangle {
                 id: dialog
                 anchors.centerIn: parent
-                width: 450
-                height: 520
+                width: 430
+                height: 480
                 color: Theme.alpha(Theme.background, 0.9)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 // 高级光影
                 layer.enabled: true
@@ -258,22 +281,6 @@ ShellRoot {
                     z: 10
                 }
 
-                // 顶部 Aurora 渐变条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Theme.tertiary }
-                        GradientStop { position: 0.5; color: Theme.primary }
-                        GradientStop { position: 1.0; color: Theme.secondary }
-                    }
-                }
-
                 MouseArea {
                     anchors.fill: parent
                     onClicked: function(mouse) { mouse.accepted = true }
@@ -285,426 +292,238 @@ ShellRoot {
                     anchors.margins: Theme.spacingXL
                     spacing: Theme.spacingL
 
-                    // Tab bar
+                    // Header
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: Theme.spacingS
+                        spacing: Theme.spacingM
 
-                        Repeater {
-                            model: [
-                                {icon: "\uf0ae", label: "待办", idx: 0},
-                                {icon: "\uf249", label: "便签", idx: 1}
-                            ]
+                        Rectangle {
+                            width: 44
+                            height: 44
+                            radius: Theme.radiusM
+                            color: Theme.alpha(Theme.primary, 0.14)
+                            border.color: Theme.alpha(Theme.primary, 0.3)
+                            border.width: 1
 
-                            Rectangle {
-                                required property var modelData
-                                Layout.fillWidth: true
-                                height: 40
-                                radius: Theme.radiusM
-                                color: root.activeTab === modelData.idx ? Theme.primary : (tabHover.hovered ? Theme.surfaceVariant : Theme.surface)
+                            Text {
+                                anchors.centerIn: parent
+                                text: "\uf0ae"
+                                font.family: "Symbols Nerd Font Mono"
+                                font.pixelSize: 20
+                                color: Theme.primary
+                            }
+                        }
 
-                                RowLayout {
-                                    anchors.centerIn: parent
-                                    spacing: Theme.spacingS
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
 
-                                    Text {
-                                        text: modelData.icon
-                                        font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: 16
-                                        color: root.activeTab === modelData.idx ? "#ffffff" : Theme.textSecondary
-                                    }
+                            Text {
+                                text: "待办"
+                                font.pixelSize: Theme.fontSizeXL
+                                font.bold: true
+                                color: Theme.textPrimary
+                            }
 
-                                    Text {
-                                        text: modelData.label
-                                        font.pixelSize: Theme.fontSizeM
-                                        font.bold: root.activeTab === modelData.idx
-                                        color: root.activeTab === modelData.idx ? "#ffffff" : Theme.textSecondary
-                                    }
-                                }
-
-                                HoverHandler { id: tabHover }
-                                TapHandler { onTapped: root.activeTab = modelData.idx }
+                            Text {
+                                text: root.pendingCount() + " 未完成 / " + root.doneCount() + " 已完成"
+                                font.pixelSize: Theme.fontSizeS
+                                color: Theme.textMuted
                             }
                         }
                     }
 
-                    // Content area
-                    StackLayout {
+                    // Input field
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 42
+                        color: Theme.surface
+                        radius: Theme.radiusM
+                        border.color: inputField.activeFocus ? Theme.primary : Theme.outline
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingS
+                            spacing: Theme.spacingS
+
+                            TextInput {
+                                id: inputField
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: Theme.fontSizeM
+                                color: Theme.textPrimary
+                                clip: true
+                                selectByMouse: true
+
+                                property string placeholderText: "添加新任务..."
+                                Text {
+                                    anchors.fill: parent
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: inputField.placeholderText
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSizeM
+                                    visible: !inputField.text && !inputField.activeFocus
+                                }
+
+                                Keys.onReturnPressed: {
+                                    root.addTodo(text)
+                                    text = ""
+                                }
+                            }
+
+                            Rectangle {
+                                width: 30
+                                height: 30
+                                radius: Theme.radiusS
+                                color: addBtnHover.hovered ? Theme.primary : Theme.alpha(Theme.primary, 0.82)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\uf067"
+                                    font.family: "Symbols Nerd Font Mono"
+                                    font.pixelSize: 14
+                                    color: "#ffffff"
+                                }
+
+                                HoverHandler { id: addBtnHover }
+                                TapHandler {
+                                    onTapped: {
+                                        root.addTodo(inputField.text)
+                                        inputField.text = ""
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Todo list
+                    Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        currentIndex: root.activeTab
+                        color: "transparent"
 
-                        // Tab 0: Todos
-                        ColumnLayout {
-                            spacing: Theme.spacingM
+                        ListView {
+                            id: todoList
+                            anchors.fill: parent
+                            clip: true
+                            spacing: Theme.spacingS
+                            model: root.todos
 
-                            // Input field
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 40
-                                color: Theme.surface
+                            delegate: Rectangle {
+                                required property var modelData
+                                required property int index
+                                width: todoList.width
+                                height: 44
+                                color: itemHover.hovered ? Theme.surfaceVariant : Theme.surface
                                 radius: Theme.radiusM
-                                border.color: inputField.activeFocus ? Theme.primary : Theme.outline
-                                border.width: 1
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: Theme.spacingS
-                                    spacing: Theme.spacingS
-
-                                    TextInput {
-                                        id: inputField
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        verticalAlignment: Text.AlignVCenter
-                                        font.pixelSize: Theme.fontSizeM
-                                        color: Theme.textPrimary
-                                        clip: true
-                                        selectByMouse: true
-
-                                        property string placeholderText: "添加新任务..."
-                                        Text {
-                                            anchors.fill: parent
-                                            verticalAlignment: Text.AlignVCenter
-                                            text: inputField.placeholderText
-                                            color: Theme.textMuted
-                                            font.pixelSize: Theme.fontSizeM
-                                            visible: !inputField.text && !inputField.activeFocus
-                                        }
-
-                                        Keys.onReturnPressed: {
-                                            root.addTodo(text)
-                                            text = ""
-                                        }
-                                    }
+                                    anchors.margins: Theme.spacingM
+                                    spacing: Theme.spacingM
 
                                     Rectangle {
-                                        width: 28
-                                        height: 28
+                                        width: 22
+                                        height: 22
                                         radius: Theme.radiusS
-                                        color: addBtnHover.hovered ? Theme.primary : Theme.alpha(Theme.primary, 0.8)
+                                        color: modelData.done ? Theme.success : "transparent"
+                                        border.color: modelData.done ? Theme.success : Theme.outline
+                                        border.width: 2
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: "\uf067"
+                                            text: "\uf00c"
                                             font.family: "Symbols Nerd Font Mono"
-                                            font.pixelSize: 14
+                                            font.pixelSize: 12
                                             color: "#ffffff"
+                                            visible: modelData.done
                                         }
 
-                                        HoverHandler { id: addBtnHover }
                                         TapHandler {
-                                            onTapped: {
-                                                root.addTodo(inputField.text)
-                                                inputField.text = ""
-                                            }
+                                            onTapped: root.toggleTodo(modelData.id)
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.text
+                                        font.pixelSize: Theme.fontSizeM
+                                        color: modelData.done ? Theme.textMuted : Theme.textPrimary
+                                        font.strikeout: modelData.done
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Rectangle {
+                                        width: 24
+                                        height: 24
+                                        radius: Theme.radiusS
+                                        color: deleteHover.hovered ? Theme.alpha(Theme.error, 0.1) : "transparent"
+                                        visible: itemHover.hovered
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\uf1f8"
+                                            font.family: "Symbols Nerd Font Mono"
+                                            font.pixelSize: 12
+                                            color: deleteHover.hovered ? Theme.error : Theme.textMuted
+                                        }
+
+                                        HoverHandler { id: deleteHover }
+                                        TapHandler {
+                                            onTapped: root.deleteTodo(modelData.id)
                                         }
                                     }
                                 }
+
+                                HoverHandler { id: itemHover }
                             }
 
-                            // Stats
                             Text {
-                                text: root.todos.filter(function(t) { return !t.done }).length + " 个待完成 / " + root.todos.length + " 个任务"
-                                font.pixelSize: Theme.fontSizeS
+                                anchors.centerIn: parent
+                                text: "没有待办事项\n按 Enter 添加"
+                                font.pixelSize: Theme.fontSizeM
                                 color: Theme.textMuted
-                            }
-
-                            // Todo list
-                            Rectangle {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                color: "transparent"
-
-                                ListView {
-                                    id: todoList
-                                    anchors.fill: parent
-                                    clip: true
-                                    spacing: Theme.spacingS
-                                    model: root.todos
-
-                                    delegate: Rectangle {
-                                        required property var modelData
-                                        required property int index
-                                        width: todoList.width
-                                        height: 44
-                                        color: itemHover.hovered ? Theme.surfaceVariant : Theme.surface
-                                        radius: Theme.radiusM
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: Theme.spacingM
-                                            spacing: Theme.spacingM
-
-                                            Rectangle {
-                                                width: 22
-                                                height: 22
-                                                radius: Theme.radiusS
-                                                color: modelData.done ? Theme.success : "transparent"
-                                                border.color: modelData.done ? Theme.success : Theme.outline
-                                                border.width: 2
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "\uf00c"
-                                                    font.family: "Symbols Nerd Font Mono"
-                                                    font.pixelSize: 12
-                                                    color: "#ffffff"
-                                                    visible: modelData.done
-                                                }
-
-                                                TapHandler {
-                                                    onTapped: root.toggleTodo(modelData.id)
-                                                }
-                                            }
-
-                                            Text {
-                                                Layout.fillWidth: true
-                                                text: modelData.text
-                                                font.pixelSize: Theme.fontSizeM
-                                                color: modelData.done ? Theme.textMuted : Theme.textPrimary
-                                                font.strikeout: modelData.done
-                                                elide: Text.ElideRight
-                                            }
-
-                                            Rectangle {
-                                                width: 24
-                                                height: 24
-                                                radius: Theme.radiusS
-                                                color: deleteHover.hovered ? Theme.alpha(Theme.error, 0.1) : "transparent"
-                                                visible: itemHover.hovered
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "\uf1f8"
-                                                    font.family: "Symbols Nerd Font Mono"
-                                                    font.pixelSize: 12
-                                                    color: deleteHover.hovered ? Theme.error : Theme.textMuted
-                                                }
-
-                                                HoverHandler { id: deleteHover }
-                                                TapHandler {
-                                                    onTapped: root.deleteTodo(modelData.id)
-                                                }
-                                            }
-                                        }
-
-                                        HoverHandler { id: itemHover }
-                                    }
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "没有待办事项\n按 Enter 添加"
-                                        font.pixelSize: Theme.fontSizeM
-                                        color: Theme.textMuted
-                                        horizontalAlignment: Text.AlignHCenter
-                                        visible: root.todos.length === 0
-                                    }
-                                }
-                            }
-
-                            // Clear button
-                            Rectangle {
-                                visible: root.todos.some(function(t) { return t.done })
-                                Layout.alignment: Qt.AlignRight
-                                width: clearLabel.implicitWidth + Theme.spacingL * 2
-                                height: 28
-                                radius: Theme.radiusS
-                                color: clearHover.hovered ? Theme.surfaceVariant : "transparent"
-                                border.color: Theme.outline
-                                border.width: 1
-
-                                Text {
-                                    id: clearLabel
-                                    anchors.centerIn: parent
-                                    text: "清除已完成"
-                                    font.pixelSize: Theme.fontSizeS
-                                    color: Theme.textSecondary
-                                }
-
-                                HoverHandler { id: clearHover }
-                                TapHandler { onTapped: root.clearCompleted() }
-                            }
-                        }
-
-                        // Tab 1: Notes
-                        ColumnLayout {
-                            spacing: Theme.spacingM
-
-                            // Add note button
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 40
-                                radius: Theme.radiusM
-                                color: addNoteHover.hovered ? Theme.alpha(Theme.primary, 0.1) : Theme.surface
-                                border.color: Theme.primary
-                                border.width: 1
-
-                                RowLayout {
-                                    anchors.centerIn: parent
-                                    spacing: Theme.spacingS
-
-                                    Text {
-                                        text: "\uf067"
-                                        font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: 14
-                                        color: Theme.primary
-                                    }
-
-                                    Text {
-                                        text: "新建便签"
-                                        font.pixelSize: Theme.fontSizeM
-                                        color: Theme.primary
-                                    }
-                                }
-
-                                HoverHandler { id: addNoteHover }
-                                TapHandler { onTapped: root.addNote() }
-                            }
-
-                            // Notes grid
-                            Rectangle {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                color: "transparent"
-
-                                GridView {
-                                    id: notesGrid
-                                    anchors.fill: parent
-                                    clip: true
-                                    cellWidth: (width - Theme.spacingS) / 2
-                                    cellHeight: 140
-                                    model: root.notes
-
-                                    delegate: Item {
-                                        required property var modelData
-                                        required property int index
-                                        width: notesGrid.cellWidth
-                                        height: notesGrid.cellHeight
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            anchors.margins: Theme.spacingXS
-                                            radius: Theme.radiusM
-                                            color: modelData.color
-                                            border.color: root.editingNoteId === modelData.id ? Theme.primary : "transparent"
-                                            border.width: 2
-
-                                            ColumnLayout {
-                                                anchors.fill: parent
-                                                anchors.margins: Theme.spacingS
-                                                spacing: Theme.spacingXS
-
-                                                // Header
-                                                RowLayout {
-                                                    Layout.fillWidth: true
-                                                    spacing: Theme.spacingXS
-
-                                                    TextInput {
-                                                        id: noteTitleInput
-                                                        Layout.fillWidth: true
-                                                        text: modelData.title
-                                                        font.pixelSize: Theme.fontSizeM
-                                                        font.bold: true
-                                                        color: "#374151"
-                                                        selectByMouse: true
-                                                        onTextChanged: {
-                                                            if (activeFocus) {
-                                                                root.updateNote(modelData.id, text, modelData.content)
-                                                            }
-                                                        }
-                                                        onActiveFocusChanged: {
-                                                            if (activeFocus) root.editingNoteId = modelData.id
-                                                        }
-                                                    }
-
-                                                    // Color cycle
-                                                    Rectangle {
-                                                        width: 20
-                                                        height: 20
-                                                        radius: 10
-                                                        color: colorHover.hovered ? "#00000020" : "transparent"
-
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "\uf53f"
-                                                            font.family: "Symbols Nerd Font Mono"
-                                                            font.pixelSize: 10
-                                                            color: "#6b7280"
-                                                        }
-
-                                                        HoverHandler { id: colorHover }
-                                                        TapHandler { onTapped: root.cycleNoteColor(modelData.id) }
-                                                    }
-
-                                                    // Delete
-                                                    Rectangle {
-                                                        width: 20
-                                                        height: 20
-                                                        radius: 10
-                                                        color: noteDelHover.hovered ? "#fee2e2" : "transparent"
-
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "\uf00d"
-                                                            font.family: "Symbols Nerd Font Mono"
-                                                            font.pixelSize: 10
-                                                            color: noteDelHover.hovered ? Theme.error : "#6b7280"
-                                                        }
-
-                                                        HoverHandler { id: noteDelHover }
-                                                        TapHandler { onTapped: root.deleteNote(modelData.id) }
-                                                    }
-                                                }
-
-                                                // Content
-                                                ScrollView {
-                                                    Layout.fillWidth: true
-                                                    Layout.fillHeight: true
-                                                    clip: true
-
-                                                    TextArea {
-                                                        id: noteContentArea
-                                                        text: modelData.content
-                                                        font.pixelSize: Theme.fontSizeS
-                                                        color: "#4b5563"
-                                                        wrapMode: Text.Wrap
-                                                        background: null
-                                                        placeholderText: "写点什么..."
-
-                                                        onTextChanged: {
-                                                            if (activeFocus) {
-                                                                root.updateNote(modelData.id, modelData.title, text)
-                                                            }
-                                                        }
-                                                        onActiveFocusChanged: {
-                                                            if (activeFocus) root.editingNoteId = modelData.id
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "没有便签\n点击上方按钮创建"
-                                        font.pixelSize: Theme.fontSizeM
-                                        color: Theme.textMuted
-                                        horizontalAlignment: Text.AlignHCenter
-                                        visible: root.notes.length === 0
-                                    }
-                                }
+                                horizontalAlignment: Text.AlignHCenter
+                                visible: root.todos.length === 0
                             }
                         }
                     }
 
                     // Footer
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: "Esc 关闭 | Ctrl+1 待办 | Ctrl+2 便签"
-                        font.pixelSize: Theme.fontSizeS
-                        color: Theme.textMuted
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingM
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Esc 关闭 | Enter 添加 | 点击复选框切换状态"
+                            font.pixelSize: Theme.fontSizeS
+                            color: Theme.textMuted
+                            elide: Text.ElideRight
+                        }
+
+                        Rectangle {
+                            visible: root.doneCount() > 0
+                            width: clearLabel.implicitWidth + Theme.spacingL * 2
+                            height: 28
+                            radius: Theme.radiusS
+                            color: clearHover.hovered ? Theme.surfaceVariant : "transparent"
+                            border.color: Theme.outline
+                            border.width: 1
+
+                            Text {
+                                id: clearLabel
+                                anchors.centerIn: parent
+                                text: "清除已完成"
+                                font.pixelSize: Theme.fontSizeS
+                                color: Theme.textSecondary
+                            }
+
+                            HoverHandler { id: clearHover }
+                            TapHandler { onTapped: root.clearCompleted() }
+                        }
                     }
                 }
             }

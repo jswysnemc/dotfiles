@@ -17,8 +17,8 @@ Item {
     property real orbScale: 1.0
 
     GlowOrb {
-        x: -width * 0.25
-        y: -height * 0.15
+        x: -width * 0.18
+        y: root.height * 0.10
         width: 260 * root.orbScale
         glowColor: root.colorA
         glowOpacity: root.intensity
@@ -38,7 +38,7 @@ Item {
 
     GlowOrb {
         x: root.width * 0.55
-        y: -height * 0.35
+        y: root.height * 0.08
         width: 160 * root.orbScale
         glowColor: root.colorC
         glowOpacity: root.intensity * 0.7

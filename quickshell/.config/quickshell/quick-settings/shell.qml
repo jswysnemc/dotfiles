@@ -6,7 +6,6 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Services.Pipewire
-import "../Commons" as Commons
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
@@ -17,6 +16,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
+    property bool blurActive: true
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
@@ -254,6 +254,7 @@ ShellRoot {
     }
 
     function closeWithAnimation() {
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -281,6 +282,12 @@ ShellRoot {
 
     // Tab state
     property int currentTab: 0  // 0: volumes, 1: apps, 2: devices, 3: display
+    readonly property var tabLabels: ["音量", "应用", "设备", "显示"]
+
+    function selectTab(index) {
+        root.currentTab = Math.max(0, Math.min(root.tabLabels.length - 1, index))
+        if (root.currentTab === 3) root.refreshDisplays()
+    }
 
     // ============ Display State ============
     property var displayOutputs: []
@@ -377,6 +384,24 @@ ShellRoot {
             WlrLayershell.namespace: "quickshell-volume"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? panelRect : null
+                radius: Theme.radiusXL
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onPanelScaleChanged() { blurRegion.changed() }
+                function onPanelYChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: panelRect
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
             anchors.top: root.anchorTop && !root.anchorVCenter
             anchors.bottom: root.anchorBottom
             anchors.left: root.anchorLeft
@@ -425,16 +450,15 @@ ShellRoot {
                 }
 
                 // Aurora 装饰
-                Commons.AuroraBackground {
+                AuroraBackground {
                     anchors.fill: parent
                     intensity: 0.25
                     orbScale: 1.4
                     z: 0
                 }
 
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-                scale: root.panelScale
-                transform: Translate { y: root.panelY }
 
                 MouseArea {
                     anchors.fill: parent
@@ -507,9 +531,10 @@ ShellRoot {
                             spacing: 2
 
                             Repeater {
-                                model: ["音量", "应用", "设备", "显示"]
+                                model: root.tabLabels
 
                                 Rectangle {
+                                    id: tabButton
                                     required property int index
                                     required property string modelData
                                     Layout.fillWidth: true
@@ -530,7 +555,7 @@ ShellRoot {
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.currentTab = parent.index
+                                        onClicked: root.selectTab(tabButton.index)
                                     }
                                 }
                             }
@@ -541,11 +566,18 @@ ShellRoot {
 
                     // ============ Tab Content ============
                     StackLayout {
+                        id: tabStack
                         Layout.fillWidth: true
+                        Layout.preferredHeight: {
+                            let item = tabStack.itemAt(root.currentTab)
+                            return item ? item.implicitHeight : 0
+                        }
+                        clip: true
                         currentIndex: root.currentTab
 
                         // ============ Volumes Tab — Bento ============
                         ColumnLayout {
+                            Layout.fillWidth: true
                             spacing: Theme.spacingM
 
                             // === Brightness hero card ===
@@ -805,6 +837,7 @@ ShellRoot {
                                         }
                                     }
                                 }
+                                }
                             }
 
                             // === Input card ===
@@ -953,6 +986,7 @@ ShellRoot {
 
                         // ============ Applications Tab ============
                         ColumnLayout {
+                            Layout.fillWidth: true
                             spacing: Theme.spacingM
 
                             RowLayout {
@@ -1199,6 +1233,7 @@ ShellRoot {
 
                         // ============ Devices Tab ============
                         ColumnLayout {
+                            Layout.fillWidth: true
                             spacing: Theme.spacingL
 
                             // Output Devices
@@ -1360,6 +1395,7 @@ ShellRoot {
 
                         // ============ Display Tab ============
                         ColumnLayout {
+                            Layout.fillWidth: true
                             spacing: Theme.spacingM
 
                             // Header with refresh button
@@ -1705,4 +1741,5 @@ ShellRoot {
             }
         }
     }
+}
 }

@@ -14,6 +14,7 @@ ShellRoot {
     property real notifOpacity: 0
     property real notifX: 30
     property real notifScale: 0.98
+    property bool blurActive: true
 
     function getAppIcon(appName) {
         if (!appName) return "\uf0f3"
@@ -126,6 +127,7 @@ ShellRoot {
 
     function dismissWithAnimation() {
         hideTimer.stop()
+        root.blurActive = false
         exitAnimation.start()
     }
 
@@ -136,6 +138,7 @@ ShellRoot {
     }
 
     function invokeAction(actionId) {
+        root.blurActive = false
         sendCmd.command = ["bash", "-c",
             "echo '{\"cmd\":\"action\",\"id\":" + currentNotif.id + ",\"action\":\"" + actionId + "\"}' | nc -U -q0 '" + socketPath + "'"
         ]
@@ -161,6 +164,24 @@ ShellRoot {
             color: "transparent"
             WlrLayershell.namespace: "qs-notification-popup"
             WlrLayershell.layer: WlrLayer.Overlay
+            BackgroundEffect.blurRegion: Region {
+                id: blurRegion
+                item: root.blurActive ? contentContainer : null
+                radius: Theme.radiusL
+            }
+            Connections {
+                target: root
+                function onBlurActiveChanged() { blurRegion.changed() }
+                function onNotifScaleChanged() { blurRegion.changed() }
+                function onNotifXChanged() { blurRegion.changed() }
+            }
+            Connections {
+                target: contentContainer
+                function onXChanged() { blurRegion.changed() }
+                function onYChanged() { blurRegion.changed() }
+                function onWidthChanged() { blurRegion.changed() }
+                function onHeightChanged() { blurRegion.changed() }
+            }
 
             anchors.top: true
             anchors.right: true
@@ -213,10 +234,8 @@ ShellRoot {
                     }
                 }
 
-                // 动画属性
+                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.notifOpacity
-                scale: root.notifScale
-                transform: Translate { x: root.notifX }
 
                 MouseArea {
                     anchors.fill: parent

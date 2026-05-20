@@ -48,7 +48,7 @@ done
 terminal_spec="${TERMINAL:-${TERMNIAL:-}}"
 
 if [[ -z "$terminal_spec" ]]; then
-    for candidate in ghostty kitty foot footclient alacritty wezterm konsole gnome-terminal kgx xterm; do
+    for candidate in kitty ghostty foot footclient alacritty wezterm konsole gnome-terminal kgx xterm; do
         if command -v "$candidate" >/dev/null 2>&1; then
             terminal_spec="$candidate"
             break

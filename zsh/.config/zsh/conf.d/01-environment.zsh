@@ -2,7 +2,7 @@ export PATH=$HOME/.custom/bin:$PATH
 export PATH=$PATH:$HOME/.local/share/cargo/bin
 export PATH=$PATH:$HOME/.local/bin
 
-export TERMINAL=ghostty
+export TERMINAL="kitty --single-instance --instance-group=main"
 
 # pnpm
 export PNPM_HOME="$HOME/.local/share/pnpm"
