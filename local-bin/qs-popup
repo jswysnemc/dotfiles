@@ -18,6 +18,7 @@ show_help() {
     echo "  notifications  - Notification center"
     echo "  weather        - Weather widget"
     echo "  calendar       - Calendar widget"
+    echo "  world-clock    - World clock route in calendar widget"
     echo "  media          - Media player controls"
     echo "  quick-settings - Volume, brightness, display settings"
     echo "  screen-recorder - Screen recording control panel"
@@ -168,6 +169,7 @@ component_pids() {
 
 toggle_popup() {
     local name="$1"
+    local calendar_route="${2:-}"
     local shell_path="$QS_CONFIG_DIR/$name/shell.qml"
     local pids
 
@@ -190,6 +192,7 @@ toggle_popup() {
             QS_MARGIN_L="$QS_MARGIN_L" \
             QS_TARGET_OUTPUT="$QS_TARGET_OUTPUT" \
             QS_TARGET_WINDOW_JSON="$QS_TARGET_WINDOW_JSON" \
+            QS_CALENDAR_ROUTE="$calendar_route" \
             setsid -f quickshell -p "$shell_path" >/dev/null 2>&1
         else
             notify-send "QuickShell" "Component not found: $shell_path"
@@ -219,7 +222,10 @@ case "$COMPONENT" in
         toggle_popup "weather"
         ;;
     calendar|cal)
-        toggle_popup "calendar"
+        toggle_popup "calendar" "calendar"
+        ;;
+    world-clock|worldclock|clock)
+        toggle_popup "calendar" "world-clock"
         ;;
     media|player)
         toggle_popup "media"

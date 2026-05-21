@@ -27,7 +27,7 @@ paru -S playerctl cava
 paru -S grim slurp wf-recorder wayfreeze wl-clipboard hyprpicker tesseract imagemagick
 
 # 系统工具
-paru -S brightnessctl jq blueman pavucontrol btop
+paru -S brightnessctl jq blueman pavucontrol btop pacman-contrib
 
 # 可选：高级截图
 paru -S markpix-bin mark-shot rust-stitch wayscrollshot-bin qt-img-viewer  # AUR
@@ -116,6 +116,7 @@ pkill -SIGUSR2 waybar
 | 模块 | 说明 | 交互 |
 |------|------|------|
 | `custom/arch` | Arch Logo 启动器 | 左键: qs-popup launcher, 右键: 重载 waybar |
+| `custom/arch-updates` | Arch 包更新计数 | 左键: 刷新统计, 右键: 打开终端更新 |
 | `custom/weather` | 天气显示 | 左键: qs-popup weather |
 | `niri/workspaces` | 工作区切换 | 点击切换，滚轮切换 |
 | `custom/media` | 媒体播放状态 | 左键: 播放/暂停, 右键: qs-popup media, 滚轮: 切歌 |

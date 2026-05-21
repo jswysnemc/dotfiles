@@ -44,6 +44,7 @@ tooltip label {
  * 3. 模块通用样式 (胶囊风格 & Hover)
  * ============================================================================== */
 #custom-arch,
+#custom-arch-updates,
 #niri-workspaces,
 #workspaces,
 #shortcuts,
@@ -118,11 +119,36 @@ tooltip label {
 #custom-arch {
     color: #ffffff;
     background-color: #1793d1;
+    margin-right: 0;
+    border-radius: 12px 0 0 12px;
 }
 
 #custom-arch:hover {
     background-color: #0f7bb3;
     color: #ffffff;
+}
+
+#custom-arch-updates {
+    color: @text-sub;
+    background-color: @base-bg;
+    margin-left: 0;
+    border-radius: 0 12px 12px 0;
+}
+
+#custom-arch-updates:hover {
+    background-color: @hover-bg;
+}
+
+#custom-arch-updates.clean {
+    color: @accent-green;
+}
+
+#custom-arch-updates.updates {
+    color: @accent-orange;
+}
+
+#custom-arch-updates.error {
+    color: @accent-red;
 }
 
 #custom-separator-line,

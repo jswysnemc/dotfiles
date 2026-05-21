@@ -10,9 +10,10 @@
     // ==============================================================================
     // 模块布局 (Module Layout)
     // ==============================================================================
-    // 左侧：Logo -> 工作区 -> 快捷启动 -> AI工具 -> 任务栏
+    // 左侧：Logo -> 更新计数 -> 工作区 -> 快捷启动 -> AI工具 -> 任务栏
     "modules-left": [
         "custom/arch",
+        "custom/arch-updates",
         "custom/weather",
         "custom/separator-line",
         "niri/workspaces",
@@ -59,6 +60,17 @@
         "on-click": "~/.local/bin/qs-popup launcher --pos top-left",
         "on-click-right": "killall waybar ; waybar",
         "on-click-middle": "~/.local/bin/qs-popup wallpaper"
+    },
+    // --- Arch 包更新计数 ---
+    "custom/arch-updates": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "~/.config/waybar/scripts/package-updates.sh waybar",
+        "interval": 1800,
+        "signal": 11,
+        "tooltip": true,
+        "on-click": "pkill -RTMIN+11 waybar",
+        "on-click-right": "~/.config/waybar/scripts/package-updates.sh upgrade"
     },
     // --- 天气 ---
     "custom/weather": {

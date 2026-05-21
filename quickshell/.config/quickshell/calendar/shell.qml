@@ -61,6 +61,13 @@ ShellRoot {
     property string todayFestival: ""
     property string todayWeekday: ""
 
+    property string requestedRoute: Quickshell.env("QS_CALENDAR_ROUTE") || "calendar"
+    property string activeRoute: requestedRoute === "world-clock" || requestedRoute === "clock" ? "world-clock" : "calendar"
+    readonly property var routeItems: [
+        { key: "calendar", label: "日历", icon: "\uf073" },
+        { key: "world-clock", label: "世界时钟", icon: "\uf0ac" }
+    ]
+
     property bool yearSelectMode: false
     property int yearSelectBase: currentYear - 6
 
@@ -68,8 +75,15 @@ ShellRoot {
     property var monthListViewRef: null
 
     property string scriptPath: Qt.resolvedUrl("lunar_calendar.py").toString().replace("file://", "")
+    property string worldClockScriptPath: Qt.resolvedUrl("world_clock.py").toString().replace("file://", "")
     property string uvPath: "/usr/bin/uv"
     property string rootDir: Quickshell.env("HOME") + "/.config/quickshell"
+
+    property var worldClockLocal: ({})
+    property var worldClockZones: []
+    property int worldClockZoneCount: 0
+    property string worldClockUpdatedAt: ""
+    property bool worldClockLoading: false
 
     // ============ Processes ============
     Process {
@@ -147,6 +161,35 @@ ShellRoot {
                 }
             }
         }
+    }
+
+    Process {
+        id: worldClockProcess
+        command: [root.uvPath, "run", "--directory", root.rootDir, root.worldClockScriptPath]
+        environment: ({ "LC_ALL": "C.UTF-8" })
+        onStarted: root.worldClockLoading = true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let data = JSON.parse(text)
+                    let zones = data.zones || []
+                    root.worldClockLocal = data.local || ({})
+                    root.worldClockZones = zones
+                    root.worldClockZoneCount = zones.length
+                    root.worldClockUpdatedAt = data.updatedAt || ""
+                } catch (e) {
+                    console.log("Failed to parse world clock data:", e, text)
+                }
+            }
+        }
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text && text.trim()) {
+                    console.log("World clock error:", text)
+                }
+            }
+        }
+        onExited: root.worldClockLoading = false
     }
 
     function monthKey(year, month) {
@@ -249,6 +292,25 @@ ShellRoot {
         todayProcess.running = true
     }
 
+    function selectRoute(route) {
+        if (route !== "calendar" && route !== "world-clock") {
+            route = "calendar"
+        }
+        activeRoute = route
+        if (route === "world-clock") {
+            yearSelectMode = false
+            loadWorldClock()
+        }
+    }
+
+    function loadWorldClock() {
+        if (worldClockProcess.running) {
+            return
+        }
+        worldClockProcess.command = [uvPath, "run", "--directory", rootDir, worldClockScriptPath]
+        worldClockProcess.running = true
+    }
+
     function prevMonth() {
         scrollByMonths(-1)
     }
@@ -336,6 +398,9 @@ ShellRoot {
     Component.onCompleted: {
         setCurrentMonth(currentYear, currentMonth)
         loadTodayInfo()
+        if (activeRoute === "world-clock") {
+            loadWorldClock()
+        }
         enterAnimation.start()
     }
 
@@ -403,6 +468,13 @@ ShellRoot {
     function closeWithAnimation() {
         root.blurActive = false
         exitAnimation.start()
+    }
+
+    Timer {
+        interval: 30000
+        running: root.activeRoute === "world-clock"
+        repeat: true
+        onTriggered: root.loadWorldClock()
     }
 
     // ============ UI ============
@@ -524,6 +596,9 @@ ShellRoot {
                     anchors.fill: parent
                     onClicked: {}
                     onWheel: (wheel) => {
+                        if (root.activeRoute !== "calendar") {
+                            return
+                        }
                         if (root.yearSelectMode) {
                             if (wheel.angleDelta.y > 0) root.yearSelectBase -= 12
                             else if (wheel.angleDelta.y < 0) root.yearSelectBase += 12
@@ -546,6 +621,72 @@ ShellRoot {
                     anchors.fill: parent
                     anchors.margins: Theme.spacingL
                     spacing: Theme.spacingM
+
+                    // Page route switcher
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 36
+                        radius: Theme.radiusM
+                        color: Theme.alpha(Theme.surfaceVariant, 0.78)
+                        border.color: Theme.alpha(Theme.outline, 0.55)
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 3
+                            spacing: 3
+
+                            Repeater {
+                                model: root.routeItems
+
+                                Rectangle {
+                                    id: routeButton
+                                    property string routeKey: modelData.key
+                                    property bool selected: root.activeRoute === routeKey
+
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: Theme.radiusS
+                                    color: selected ? Theme.alpha(Theme.surface, 0.92) : "transparent"
+                                    border.color: selected ? Theme.alpha(Theme.primary, 0.28) : "transparent"
+                                    border.width: selected ? 1 : 0
+
+                                    Behavior on color { ColorAnimation { duration: Theme.animFast } }
+
+                                    RowLayout {
+                                        anchors.centerIn: parent
+                                        spacing: 6
+
+                                        Text {
+                                            text: modelData.icon
+                                            font.family: "Symbols Nerd Font Mono"
+                                            font.pixelSize: 12
+                                            color: routeButton.selected ? Theme.primary : Theme.textMuted
+                                        }
+
+                                        Text {
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeS
+                                            font.bold: routeButton.selected
+                                            color: routeButton.selected ? Theme.primary : Theme.textMuted
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.selectRoute(routeButton.routeKey)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingM
+                        visible: root.activeRoute === "calendar"
 
                     // === Header: Today's info — Hero ===
                     Rectangle {
@@ -1081,6 +1222,313 @@ ShellRoot {
                         color: Theme.textMuted
                         horizontalAlignment: Text.AlignHCenter
                     }
+                    }
+
+                    ColumnLayout {
+                        id: worldClockPage
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingM
+                        visible: root.activeRoute === "world-clock"
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 118
+                            radius: Theme.radiusL
+                            color: Theme.alpha(Theme.surface, 0.66)
+                            border.color: Theme.alpha(Theme.tertiary, 0.32)
+                            border.width: 1.5
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingL
+                                spacing: Theme.spacingM
+
+                                Rectangle {
+                                    Layout.alignment: Qt.AlignVCenter
+                                    width: 58
+                                    height: 58
+                                    radius: 29
+                                    color: Theme.alpha(Theme.tertiary, 0.16)
+                                    border.color: Theme.alpha(Theme.tertiary, 0.38)
+                                    border.width: 1
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\uf0ac"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 24
+                                        color: Theme.tertiary
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignVCenter
+                                    spacing: 2
+
+                                    Text {
+                                        text: root.worldClockLocal.time || "--:--"
+                                        font.pixelSize: 48
+                                        font.weight: Font.Black
+                                        font.letterSpacing: -2
+                                        color: Theme.textPrimary
+                                    }
+
+                                    RowLayout {
+                                        spacing: Theme.spacingS
+
+                                        Text {
+                                            text: root.worldClockLocal.dateText || "等待同步"
+                                            font.pixelSize: Theme.fontSizeS
+                                            color: Theme.textSecondary
+                                        }
+
+                                        Rectangle {
+                                            implicitWidth: localZoneLabel.implicitWidth + Theme.spacingM
+                                            implicitHeight: 22
+                                            radius: 11
+                                            color: Theme.alpha(Theme.primary, 0.14)
+
+                                            Text {
+                                                id: localZoneLabel
+                                                anchors.centerIn: parent
+                                                text: root.worldClockLocal.timezoneLabel || "本地"
+                                                font.pixelSize: Theme.fontSizeXS
+                                                font.weight: Font.Medium
+                                                color: Theme.primary
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.alignment: Qt.AlignTop
+                                    implicitWidth: syncLabel.implicitWidth + Theme.spacingM
+                                    implicitHeight: 24
+                                    radius: 12
+                                    color: Theme.alpha(root.worldClockLoading ? Theme.warning : Theme.success, 0.14)
+                                    border.color: Theme.alpha(root.worldClockLoading ? Theme.warning : Theme.success, 0.32)
+                                    border.width: 1
+
+                                    Text {
+                                        id: syncLabel
+                                        anchors.centerIn: parent
+                                        text: root.worldClockLoading ? "同步中" : "已同步"
+                                        font.pixelSize: Theme.fontSizeXS
+                                        font.weight: Font.Medium
+                                        color: root.worldClockLoading ? Theme.warning : Theme.success
+                                    }
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingS
+
+                            Text {
+                                text: "全球时间线"
+                                font.pixelSize: Theme.fontSizeL
+                                font.bold: true
+                                color: Theme.textPrimary
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Rectangle {
+                                implicitWidth: refreshClockLabel.implicitWidth + Theme.spacingM * 2 + 14
+                                implicitHeight: 30
+                                radius: 15
+                                color: refreshClockMouse.containsMouse ? Theme.alpha(Theme.primary, 0.18) : Theme.alpha(Theme.primary, 0.1)
+                                border.color: Theme.alpha(Theme.primary, 0.28)
+                                border.width: 1
+                                scale: refreshClockMouse.containsMouse ? 1.04 : 1.0
+
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+
+                                RowLayout {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+
+                                    Text {
+                                        text: "\uf2f1"
+                                        font.family: "Symbols Nerd Font Mono"
+                                        font.pixelSize: 11
+                                        color: Theme.primary
+                                    }
+
+                                    Text {
+                                        id: refreshClockLabel
+                                        text: "刷新"
+                                        font.pixelSize: Theme.fontSizeS
+                                        font.weight: Font.Medium
+                                        color: Theme.primary
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: refreshClockMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.loadWorldClock()
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 232
+                            radius: Theme.radiusL
+                            color: Theme.alpha(Theme.surface, 0.48)
+                            border.color: Theme.alpha(Theme.outline, 0.5)
+                            border.width: 1
+                            visible: root.worldClockZoneCount === 0
+
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: Theme.spacingM
+
+                                Text {
+                                    text: "\uf110"
+                                    font.family: "Symbols Nerd Font Mono"
+                                    font.pixelSize: 22
+                                    color: Theme.primary
+                                    Layout.alignment: Qt.AlignHCenter
+
+                                    RotationAnimator on rotation {
+                                        from: 0
+                                        to: 360
+                                        duration: 1000
+                                        loops: Animation.Infinite
+                                        running: root.worldClockLoading
+                                    }
+                                }
+
+                                Text {
+                                    text: root.worldClockLoading ? "正在同步世界时钟..." : "世界时钟暂无数据"
+                                    font.pixelSize: Theme.fontSizeM
+                                    color: Theme.textMuted
+                                }
+                            }
+                        }
+
+                        GridLayout {
+                            id: worldClockGrid
+                            Layout.fillWidth: true
+                            columns: 2
+                            rowSpacing: Theme.spacingS
+                            columnSpacing: Theme.spacingS
+                            visible: root.worldClockZoneCount > 0
+
+                            Repeater {
+                                model: root.worldClockZoneCount
+
+                                Rectangle {
+                                    id: zoneCard
+                                    property var zoneData: root.worldClockZones[index] || ({})
+                                    property int zoneDayDelta: zoneData.dayDelta || 0
+                                    property real zoneDayProgress: zoneData.dayProgress || 0
+                                    property bool isLocalZone: zoneData.isLocal || false
+
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 88
+                                    radius: Theme.radiusL
+                                    color: Theme.alpha(Theme.surface, isLocalZone ? 0.78 : 0.58)
+                                    border.color: isLocalZone ? Theme.alpha(Theme.primary, 0.5) : Theme.alpha(Theme.outline, 0.52)
+                                    border.width: isLocalZone ? 1.5 : 1
+                                    clip: true
+
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: Theme.spacingM
+                                        spacing: 4
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: Theme.spacingS
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: zoneCard.zoneData.city || ""
+                                                font.pixelSize: Theme.fontSizeS
+                                                font.weight: Font.DemiBold
+                                                color: Theme.textPrimary
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Text {
+                                                text: zoneCard.zoneData.offset || ""
+                                                font.pixelSize: 9
+                                                color: Theme.textMuted
+                                            }
+                                        }
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: Theme.spacingS
+
+                                            Text {
+                                                text: zoneCard.zoneData.time || "--:--"
+                                                font.pixelSize: 26
+                                                font.weight: Font.Black
+                                                font.letterSpacing: -1
+                                                color: isLocalZone ? Theme.primary : Theme.textPrimary
+                                            }
+
+                                            Rectangle {
+                                                visible: zoneCard.zoneDayDelta !== 0
+                                                implicitWidth: dayDeltaLabel.implicitWidth + Theme.spacingS
+                                                implicitHeight: 18
+                                                radius: 9
+                                                color: Theme.alpha(zoneCard.zoneDayDelta > 0 ? Theme.success : Theme.warning, 0.16)
+
+                                                Text {
+                                                    id: dayDeltaLabel
+                                                    anchors.centerIn: parent
+                                                    text: zoneCard.zoneDayDelta > 0 ? "明天" : "昨天"
+                                                    font.pixelSize: 9
+                                                    font.weight: Font.Medium
+                                                    color: zoneCard.zoneDayDelta > 0 ? Theme.success : Theme.warning
+                                                }
+                                            }
+
+                                            Item { Layout.fillWidth: true }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: (zoneCard.zoneData.country || "") + " · " + (zoneCard.zoneData.dateText || "")
+                                            font.pixelSize: 9
+                                            color: Theme.textMuted
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.bottom: parent.bottom
+                                        width: parent.width * zoneCard.zoneDayProgress
+                                        height: 3
+                                        radius: 2
+                                        color: isLocalZone ? Theme.primary : Theme.tertiary
+                                        opacity: 0.72
+
+                                        Behavior on width { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "每 30 秒自动同步 | 夏令时来自系统 zoneinfo"
+                            font.pixelSize: Theme.fontSizeXS
+                            color: Theme.textMuted
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
                 }
 
                 // Loading overlay
@@ -1089,7 +1537,7 @@ ShellRoot {
                     color: Theme.alpha(Theme.background, 0.9)
                     radius: Theme.radiusL
                     visible: opacity > 0
-                    opacity: root.isLoading ? 1 : 0
+                    opacity: root.activeRoute === "calendar" && root.isLoading ? 1 : 0
 
                     Behavior on opacity { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
 
@@ -1110,7 +1558,7 @@ ShellRoot {
                                 to: 360
                                 duration: 1000
                                 loops: Animation.Infinite
-                                running: root.isLoading
+                                running: root.activeRoute === "calendar" && root.isLoading
                             }
                         }
 

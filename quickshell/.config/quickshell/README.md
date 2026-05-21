@@ -136,6 +136,7 @@ qs-popup clipboard
 | 蓝牙 | `qs-popup bluetooth` | - | 蓝牙设备管理 (bluetoothctl) |
 | 音量 | `qs-popup volume` | `vol`, `brightness` | 音量与亮度控制 (PipeWire) |
 | 日历 | `qs-popup calendar` | `cal` | 农历日历 (lunarcalendar) |
+| 世界时钟 | `qs-popup world-clock` | `worldclock`, `clock` | 日历组件内的世界时钟页面 |
 | 天气 | `qs-popup weather` | - | 天气预报 (Open-Meteo API) |
 | 媒体 | `qs-popup media` | `player` | MPRIS 媒体控制 + 歌词 |
 | 通知 | `qs-popup notifications` | `notif` | 通知中心 (D-Bus) |
@@ -528,6 +529,7 @@ binds {
 |--------|------|
 | `滚轮` | 切换月份 |
 | 点击年月 | 年份选择 |
+| 点击顶部页签 | 切换日历 / 世界时钟 |
 
 ### 媒体 (media)
 
