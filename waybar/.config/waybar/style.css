@@ -64,12 +64,15 @@ tooltip label {
 #group-power {
     background-color: @base-bg;
     color: @text-main;
-    padding: 0 8px;
+    padding: 0 10px;
     margin-top: 3px;
     margin-bottom: 3px;
     margin-left: 2px;
     margin-right: 2px;
     border-radius: 12px;
+    border: 1px solid alpha(@text-main, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* 透明容器 - 内部按钮有独立背景 */
@@ -82,11 +85,6 @@ tooltip label {
 
 /* --- 通用 Hover 效果 --- */
 #custom-notification:hover,
-#custom-screenshot:hover,
-#custom-wfrec:hover,
-#custom-arch:hover,
-#workspaces button:hover,
-#group-quick-start:hover,
 #shortcuts:hover,
 #group-ai-drawer:hover,
 #taskbar button:hover,
@@ -94,23 +92,18 @@ tooltip label {
 #group-hardware:hover,
 #network:hover,
 #bluetooth:hover,
-#group-audio:hover,
-#group-backlight:hover,
 #custom-caffeine:hover,
 #power-profiles-daemon:hover,
 #group-tools:hover,
 #battery:hover,
-#clock:hover,
-#custom-clock:hover,
 #tray:hover,
 #proxies:hover,
 #custom-media:hover,
 #group-power:hover {
     background-color: @hover-bg;
-    /* 悬停时文字颜色保持，或可尝试 color: @highlight; */
     color: @text-main;
-    /* 柔化阴影：降低不透明度至 0.15，增加模糊半径 */
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border-color: alpha(@text-main, 0.12);
+    box-shadow: 0 3px 6px alpha(@text-main, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 /* ==============================================================================
@@ -212,6 +205,8 @@ tooltip label {
     margin-bottom: 3px;
     margin-left: 4px;
     margin-right: 4px;
+    border: 1px solid alpha(@text-main, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* 2. 按钮通用样式 */
@@ -220,15 +215,14 @@ tooltip label {
     box-shadow: none;
     text-shadow: none;
     padding: 0;
-    margin: 1px 3px;
+    margin: 1px 3.5px;
     font-size: 0;
     min-height: 16px;
     min-width: 16px;
     border-radius: 50%;
-
-    background-color: @secondary;
-    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-    opacity: 0.8;
+    background-color: alpha(@secondary, 0.4);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0.7;
 }
 
 /* 3. 激活状态 */
@@ -236,13 +230,14 @@ tooltip label {
     min-width: 24px;
     border-radius: 12px;
     opacity: 1;
-    background-color: @highlight; /* 使用主色 */
+    background-color: @highlight;
+    box-shadow: 0 0 6px alpha(@highlight, 0.5);
 }
 
 /* 4. 悬停状态 */
 #workspaces button:hover {
-    /* 替换：rgba(255, 255, 255, 0.2) -> @hover-bg */
-    background-color: @hover-bg;
+    background-color: alpha(@highlight, 0.4);
+    opacity: 0.9;
     box-shadow: none;
 }
 
@@ -258,16 +253,19 @@ tooltip label {
     margin-left: 1px;
     margin-right: 1px;
     border-radius: 12px;
-    background-color: @highlight;
+    background: linear-gradient(135deg, @highlight 0%, alpha(@highlight, 0.85) 100%);
     color: @text-on-primary;
-    transition: all 0.2s ease;
+    border: 1px solid alpha(@highlight, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 #custom-app-file:hover,
 #custom-app-browser:hover,
 #custom-app-term:hover {
-    background-color: alpha(@highlight, 0.7);
+    background: linear-gradient(135deg, alpha(@highlight, 0.85) 0%, alpha(@highlight, 0.75) 100%);
     color: @text-on-primary;
+    box-shadow: 0 0 6px alpha(@highlight, 0.6);
 }
 
 /* 快捷方式抽屉 (统一样式) */
@@ -339,6 +337,12 @@ tooltip label {
 /* 网络 */
 #network {
     min-width: 140px;
+}
+
+#network:hover {
+    background-color: alpha(@highlight, 0.16);
+    border-color: alpha(@highlight, 0.35);
+    box-shadow: 0 0 8px alpha(@highlight, 0.25);
 }
 
 #network.disconnected {
@@ -420,29 +424,28 @@ scale {
 }
 
 scale trough {
-    min-height: 4px;
-    margin-left: 10px;
-    margin-right: 10px;
+    min-height: 3px;
+    margin-left: 8px;
+    margin-right: 8px;
     margin-top: 5px;
     margin-bottom: 5px;
-    /* 替换：rgba(255, 255, 255, 0.2) -> @white-20 */
-    background-color: @white-20;
+    background-color: alpha(@text-main, 0.15);
     border-radius: 10px;
 }
 
 scale highlight {
-    background-color: @accent-orange;
+    background-color: @highlight;
     border-radius: 10px;
 }
 
 scale slider {
-    min-height: 10px;
-    min-width: 10px;
-    margin: -3px 0;
-    /* 替换：#ffffff -> @text-main */
+    min-height: 8px;
+    min-width: 8px;
+    margin: -2.5px 0;
     background-color: @text-main;
     border-radius: 50%;
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* ----------------------------------------------------------------------------- */
@@ -467,16 +470,21 @@ scale slider {
 /* 时钟 */
 #clock,
 #custom-clock {
-    background-color: @accent-purple;
-    /* 替换：#1e1e2e -> @text-on-primary (因为背景是 accent-purple) */
+    background: linear-gradient(135deg, @accent-purple 0%, alpha(@accent-purple, 0.8) 100%);
     color: @text-on-primary;
     padding-top: 1px;
+    border: 1px solid alpha(@accent-purple, 0.2);
+    border-radius: 12px;
+    box-shadow: 0 0 6px alpha(@accent-purple, 0.3);
 }
 
 #clock:hover,
 #custom-clock:hover {
-    background-color: @hover-bg;
+    background: @hover-bg;
     color: @text-main;
+    border-color: alpha(@text-main, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* 托盘 */
@@ -698,46 +706,54 @@ tooltip label {
     background-color: @base-bg;
     margin-top: 3px;
     margin-bottom: 3px;
+    border-top: 1px solid alpha(@text-main, 0.05);
+    border-bottom: 1px solid alpha(@text-main, 0.05);
 }
 
 #cpu {
     border-radius: 12px 0 0 12px;
-    padding-left: 8px;
+    border-left: 1px solid alpha(@text-main, 0.05);
+    padding-left: 10px;
+    padding-right: 4px;
+}
+
+#temperature {
+    padding: 0 4px;
+    border-left: 1px solid alpha(@text-main, 0.08);
 }
 
 #memory {
     border-radius: 0 12px 12px 0;
-    padding-right: 8px;
+    border-right: 1px solid alpha(@text-main, 0.05);
+    padding-right: 10px;
+    padding-left: 4px;
+    border-left: 1px solid alpha(@text-main, 0.08);
 }
 
-/* 4. 特殊处理温度颜色 */
-#temperature {
-    color: @accent-green;
-}
-
-#temperature.critical {
-    color: @accent-red;
-}
-
-#audio{
+#audio {
     background-color: @base-bg;
     border-radius: 12px 0 0 12px;
-    padding-left:4px;
-    padding-right:12px;
-    margin-right:-4px;
-    margin-top:3px;
-    margin-bottom:3px;
-    color: @accent-orange; /* 原来是 yellow */
+    padding-left: 10px;
+    padding-right: 8px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    border-top: 1px solid alpha(@text-main, 0.05);
+    border-bottom: 1px solid alpha(@text-main, 0.05);
+    border-left: 1px solid alpha(@text-main, 0.05);
+    color: @accent-orange;
 }
 
-#g-backlight{
+#g-backlight {
     background-color: @base-bg;
     border-radius: 0 12px 12px 0;
-    padding-right:4px;
-    padding-left:4px;
-    margin-left:0;
-    margin-top:3px;
-    margin-bottom:3px;
+    padding-right: 10px;
+    padding-left: 8px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    border-top: 1px solid alpha(@text-main, 0.05);
+    border-bottom: 1px solid alpha(@text-main, 0.05);
+    border-right: 1px solid alpha(@text-main, 0.05);
+    border-left: 1px solid alpha(@text-main, 0.08);
 }
 
 
