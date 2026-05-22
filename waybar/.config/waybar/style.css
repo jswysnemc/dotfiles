@@ -65,11 +65,11 @@ tooltip label {
     background-color: @base-bg;
     color: @text-main;
     padding: 0 10px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 2px;
     margin-right: 2px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid alpha(@text-main, 0.05);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -157,11 +157,11 @@ tooltip label {
     background-color: @base-bg;
     color: @text-main;
     padding: 0 10px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 2px;
     margin-right: 2px;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 #custom-weather:hover {
@@ -199,10 +199,10 @@ tooltip label {
 /* 1. 外层容器 */
 #workspaces {
     background-color: @base-bg;
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 0px 6px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 4px;
     margin-right: 4px;
     border: 1px solid alpha(@text-main, 0.05);
@@ -248,13 +248,12 @@ tooltip label {
 #custom-app-browser,
 #custom-app-term {
     padding: 0 8px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 1px;
     margin-right: 1px;
-    border-radius: 12px;
+    border-radius: 10px;
     background: linear-gradient(135deg, @highlight 0%, alpha(@highlight, 0.85) 100%);
-    color: @text-on-primary;
     border: 1px solid alpha(@highlight, 0.1);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -355,11 +354,11 @@ tooltip label {
     background-color: @base-bg;
     color: @text-main;
     padding: 0 8px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 2px;
     margin-right: 2px;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 #custom-notification.notification {
@@ -381,11 +380,11 @@ tooltip label {
     background-color: @base-bg;
     color: @text-main;
     padding: 0 8px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 2px;
     margin-right: 2px;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 #custom-clipboard:hover,
@@ -470,11 +469,11 @@ scale slider {
 /* 时钟 */
 #clock,
 #custom-clock {
-    background-color: @accent-purple;
+    background: linear-gradient(135deg, @accent-purple 0%, alpha(@accent-purple, 0.8) 100%);
     color: @text-on-primary;
     padding-top: 1px;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     box-shadow: 0 0 6px alpha(@accent-purple, 0.3);
 }
 
@@ -483,7 +482,7 @@ scale slider {
     background: @hover-bg;
     color: @text-main;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -562,10 +561,10 @@ scale slider {
 }
 
 #custom-screenshot {
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 0 8px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 1px;
     margin-right: 1px;
     background-color: @secondary;
@@ -578,10 +577,10 @@ scale slider {
 }
 
 #custom-wfrec {
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 0 8px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 1px;
     margin-right: 1px;
     background-color: @secondary;
@@ -704,14 +703,14 @@ tooltip label {
 #temperature,
 #memory {
     background-color: @base-bg;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     border-top: 1px solid alpha(@text-main, 0.05);
     border-bottom: 1px solid alpha(@text-main, 0.05);
 }
 
 #cpu {
-    border-radius: 12px 0 0 12px;
+    border-radius: 10px 0 0 10px;
     border-left: 1px solid alpha(@text-main, 0.05);
     padding-left: 10px;
     padding-right: 4px;
@@ -723,7 +722,7 @@ tooltip label {
 }
 
 #memory {
-    border-radius: 0 12px 12px 0;
+    border-radius: 0 10px 10px 0;
     border-right: 1px solid alpha(@text-main, 0.05);
     padding-right: 10px;
     padding-left: 4px;
@@ -732,11 +731,11 @@ tooltip label {
 
 #audio {
     background-color: @base-bg;
-    border-radius: 12px 0 0 12px;
+    border-radius: 10px 0 0 10px;
     padding-left: 10px;
     padding-right: 8px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     border-top: 1px solid alpha(@text-main, 0.05);
     border-bottom: 1px solid alpha(@text-main, 0.05);
     border-left: 1px solid alpha(@text-main, 0.05);
@@ -745,11 +744,11 @@ tooltip label {
 
 #g-backlight {
     background-color: @base-bg;
-    border-radius: 0 12px 12px 0;
+    border-radius: 0 10px 10px 0;
     padding-right: 10px;
     padding-left: 8px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     border-top: 1px solid alpha(@text-main, 0.05);
     border-bottom: 1px solid alpha(@text-main, 0.05);
     border-right: 1px solid alpha(@text-main, 0.05);
@@ -762,9 +761,9 @@ tooltip label {
  * ============================================================================== */
 #proxies {
     background-color: @base-bg;
-    border-radius: 12px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    border-radius: 10px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 2px;
     margin-right: 2px;
     padding: 0 4px;
