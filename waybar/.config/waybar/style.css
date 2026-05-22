@@ -474,7 +474,7 @@ scale slider {
     color: @text-on-primary;
     padding-top: 1px;
     border: 1px solid alpha(@accent-purple, 0.2);
-    border-radius: 12px;
+    border-radius: 9px;
     box-shadow: 0 0 6px alpha(@accent-purple, 0.3);
 }
 
@@ -483,7 +483,7 @@ scale slider {
     background: @hover-bg;
     color: @text-main;
     border-color: alpha(@text-main, 0.1);
-    border-radius: 12px;
+    border-radius: 9px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
