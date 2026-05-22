@@ -1,6 +1,16 @@
+// 动画配置
+// Animation configuration
+
 animations {
+    // 全局动画速度，数值越大越慢
+    slowdown 0.9
+
     workspace-switch {
-        spring damping-ratio=0.8 stiffness=400 epsilon=0.0001
+        spring damping-ratio=0.82 stiffness=523 epsilon=0.0001
+    }
+
+    horizontal-view-movement {
+        spring damping-ratio=0.86 stiffness=423 epsilon=0.0001
     }
 
     window-open {
@@ -11,10 +21,6 @@ animations {
     window-close {
         duration-ms 150
         curve "ease-out-quad"
-    }
-
-    horizontal-view-movement {
-        spring damping-ratio=0.8 stiffness=400 epsilon=0.0001
     }
 
     window-movement {

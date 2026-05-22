@@ -199,8 +199,11 @@ ShellRoot {
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
+                antialiasing: true
+
                 // 高级光影
                 layer.enabled: true
+                layer.samples: 8
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowColor: Theme.shadowColor
@@ -218,21 +221,6 @@ ShellRoot {
                     z: 10
                 }
 
-                // 左侧主题色脉冲条
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: 3
-                    radius: 1.5
-                    z: 11
-                    gradient: Gradient {
-                        orientation: Gradient.Vertical
-                        GradientStop { position: 0.0; color: Theme.primary }
-                        GradientStop { position: 0.5; color: Theme.secondary }
-                        GradientStop { position: 1.0; color: Theme.tertiary }
-                    }
-                }
 
                 // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.notifOpacity

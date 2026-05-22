@@ -6,6 +6,7 @@
 // - conf.d/output.kdl      显示器配置
 // - conf.d/layout.kdl      布局配置
 // - conf.d/appearance.kdl  外观配置
+// - conf.d/animations.kdl  动画配置
 // - conf.d/environment.kdl 环境变量配置
 // - conf.d/autostart.kdl   启动程序配置
 // - conf.d/window-rules.kdl 窗口规则配置
@@ -18,6 +19,7 @@ include "conf.d/input.kdl"
 include "conf.d/output.kdl"
 include "conf.d/layout.kdl"
 include "conf.d/appearance.kdl"
+include "conf.d/animations.kdl"
 include "conf.d/environment.kdl"
 include "conf.d/autostart.kdl"
 include "conf.d/window-rules.kdl"

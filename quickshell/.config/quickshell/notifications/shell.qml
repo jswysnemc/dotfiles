@@ -217,8 +217,11 @@ ShellRoot {
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
+                antialiasing: true
+
                 // 高级光影
                 layer.enabled: true
+                layer.samples: 8
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowColor: Theme.shadowColor
