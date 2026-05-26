@@ -95,14 +95,19 @@ ShellRoot {
             var name = app.name || ""
             var generic = app.genericName || ""
             var exec = app.exec || ""
+            var icon = app.icon || ""
+            var desktop = app.desktopFile || ""
             var keywords = (app.keywords || []).join(" ")
 
             app._nameLower = name.toLowerCase()
             app._genericLower = generic.toLowerCase()
             app._execLower = exec.toLowerCase()
-            app._keywordsLower = keywords.toLowerCase()
+            app._iconLower = icon.toLowerCase()
+            app._desktopLower = desktop.toLowerCase()
+            app._isWine = app.isWine === true || app.isWine === "true" || looksLikeWineApp(app)
+            app._keywordsLower = (keywords + (app._isWine ? " wine windows" : "")).toLowerCase()
 
-            var categoryName = app._nameLower + " " + app._genericLower + " " + app._keywordsLower
+            var categoryName = app._nameLower + " " + app._genericLower + " " + app._keywordsLower + " " + app._desktopLower
             app._category = getCategoryForAppLower(categoryName, app._execLower)
 
             if (app.icon) {
@@ -132,6 +137,63 @@ ShellRoot {
         var exec = (app.exec || "").toLowerCase()
 
         return getCategoryForAppLower(name, exec)
+    }
+
+    function looksLikeWineApp(app) {
+        if (!app) return false
+
+        var probe = [
+            app._nameLower || (app.name || "").toLowerCase(),
+            app._genericLower || (app.genericName || "").toLowerCase(),
+            app._execLower || (app.exec || "").toLowerCase(),
+            app._iconLower || (app.icon || "").toLowerCase(),
+            app._desktopLower || (app.desktopFile || "").toLowerCase()
+        ].join(" ")
+
+        return probe.match(/(^|[\s\/\\;:=])wine(64|browser|cfg|server|tricks)?([\s\/\\;:._-]|$)|wineprefix|drive_c|dosdevices|\/\.wine|\/wine\/|proton/) !== null
+    }
+
+    function categoryNameForId(categoryId) {
+        for (var i = 0; i < categories.length; i++) {
+            if (categories[i].id === categoryId) return categories[i].name
+        }
+        return categoryId || "未知"
+    }
+
+    function compactDetailValue(value, maxLength) {
+        if (!value) return ""
+        var text = String(value)
+        if (text.length <= maxLength) return text
+        return text.slice(0, Math.max(0, maxLength - 3)) + "..."
+    }
+
+    function formatPathForDetail(path) {
+        if (!path) return ""
+        var text = String(path)
+        var home = Quickshell.env("HOME") || ""
+        if (home && text.indexOf(home) === 0) return "~" + text.slice(home.length)
+        return text
+    }
+
+    function appDetailText(app) {
+        if (!app) return ""
+
+        var body = appDetailBodyText(app)
+        return body ? (app.name || "未知应用") + "\n" + body : (app.name || "未知应用")
+    }
+
+    function appDetailBodyText(app) {
+        if (!app) return ""
+
+        var lines = []
+        if (app.genericName) lines.push("描述: " + compactDetailValue(app.genericName, 80))
+        lines.push("分类: " + categoryNameForId(app._category || getCategoryForApp(app)))
+        if (app._isWine) lines.push("来源: Wine / Windows 应用")
+        if (app.terminal) lines.push("终端: 是")
+        if (app.exec) lines.push("命令: " + compactDetailValue(app.exec, 120))
+        if (app.icon) lines.push("图标: " + compactDetailValue(formatPathForDetail(app.icon), 96))
+        if (app.desktopFile) lines.push("桌面文件: " + compactDetailValue(formatPathForDetail(app.desktopFile), 96))
+        return lines.length > 0 ? lines.join("\n") : "暂无更多详情"
     }
 
     // ============ Fuzzy Search ============
@@ -262,7 +324,15 @@ ShellRoot {
                 keywords=$(grep -m1 '^Keywords=' "$f" 2>/dev/null | cut -d= -f2-)
                 terminal=$(grep -m1 '^Terminal=' "$f" 2>/dev/null | cut -d= -f2-)
                 [ "$terminal" = "true" ] && term="true" || term="false"
-                apps=$(echo "$apps" | jq --arg n "$name" --arg g "$generic" --arg i "$icon" --arg e "$exec" --arg k "$keywords" --argjson t "$term" '. + [{"name":$n,"genericName":$g,"icon":$i,"exec":$e,"keywords":($k|split(";")|map(select(.!=""))),"terminal":$t}]')
+
+                wine_probe=$(printf '%s\n%s\n%s\n%s' "$f" "$exec" "$name" "$icon" | tr '[:upper:]' '[:lower:]')
+                if echo "$wine_probe" | grep -Eq '(^|[[:space:]/\\;:=])wine(64|browser|cfg|server|tricks)?([[:space:]/\\;:._-]|$)|wineprefix|drive_c|dosdevices|/\.wine|/wine/|proton'; then
+                    is_wine=true
+                else
+                    is_wine=false
+                fi
+
+                apps=$(echo "$apps" | jq --arg n "$name" --arg g "$generic" --arg i "$icon" --arg e "$exec" --arg k "$keywords" --arg d "$f" --argjson t "$term" --argjson w "$is_wine" '. + [{"name":$n,"genericName":$g,"icon":$i,"exec":$e,"keywords":($k|split(";")|map(select(.!=""))),"terminal":$t,"desktopFile":$d,"isWine":$w}]')
             done < <(
                 xdg_data_home="$XDG_DATA_HOME"
                 [ -z "$xdg_data_home" ] && xdg_data_home="$HOME/.local/share"
@@ -853,6 +923,43 @@ ShellRoot {
                                                     color: Theme.textMuted
                                                 }
                                             }
+
+                                            Rectangle {
+                                                id: wineBadge
+                                                visible: appItem.modelData._isWine
+                                                anchors.bottom: parent.bottom
+                                                anchors.right: parent.right
+                                                anchors.bottomMargin: -5
+                                                anchors.rightMargin: -12
+                                                width: wineBadgeText.implicitWidth + 14
+                                                height: 20
+                                                radius: 10
+                                                color: appHover.hovered ? Theme.warning : Theme.alpha(Theme.warning, 0.92)
+                                                border.color: Theme.alpha(Theme.background, 0.95)
+                                                border.width: 2
+                                                scale: appHover.hovered ? 1.08 : 1.0
+                                                z: 3
+
+                                                layer.enabled: true
+                                                layer.effect: MultiEffect {
+                                                    shadowEnabled: true
+                                                    shadowColor: Theme.alpha("#000000", 0.24)
+                                                    shadowBlur: 0.55
+                                                    shadowVerticalOffset: 2
+                                                }
+
+                                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                                                Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+
+                                                Text {
+                                                    id: wineBadgeText
+                                                    anchors.centerIn: parent
+                                                    text: "WINE"
+                                                    font.pixelSize: 9
+                                                    font.weight: Font.Bold
+                                                    color: "white"
+                                                }
+                                            }
                                         }
 
                                         Text {
@@ -883,6 +990,89 @@ ShellRoot {
                                             loops: Animation.Infinite
                                             NumberAnimation { to: 0.7; duration: 500; easing.type: Easing.InOutSine }
                                             NumberAnimation { to: 1.0; duration: 500; easing.type: Easing.InOutSine }
+                                        }
+                                    }
+
+                                    ToolTip {
+                                        id: appDetailsToolTip
+                                        visible: appHover.hovered
+                                        delay: 1000
+                                        timeout: -1
+                                        padding: Theme.spacingM
+
+                                        contentItem: ColumnLayout {
+                                            spacing: Theme.spacingS
+
+                                            RowLayout {
+                                                Layout.preferredWidth: 300
+                                                spacing: Theme.spacingS
+
+                                                Rectangle {
+                                                    Layout.preferredWidth: 3
+                                                    Layout.preferredHeight: 26
+                                                    radius: 2
+                                                    color: appItem.modelData._isWine ? Theme.warning : Theme.primary
+                                                }
+
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: appItem.modelData.name || "未知应用"
+                                                    font.pixelSize: Theme.fontSizeL
+                                                    font.weight: Font.DemiBold
+                                                    color: Theme.textPrimary
+                                                    elide: Text.ElideRight
+                                                }
+
+                                                Rectangle {
+                                                    visible: appItem.modelData._isWine
+                                                    Layout.preferredWidth: wineTooltipText.implicitWidth + 12
+                                                    Layout.preferredHeight: 22
+                                                    radius: 11
+                                                    color: Theme.alpha(Theme.warning, 0.16)
+                                                    border.color: Theme.alpha(Theme.warning, 0.45)
+                                                    border.width: 1
+
+                                                    Text {
+                                                        id: wineTooltipText
+                                                        anchors.centerIn: parent
+                                                        text: "WINE"
+                                                        font.pixelSize: Theme.fontSizeXS
+                                                        font.weight: Font.Bold
+                                                        color: Theme.warning
+                                                    }
+                                                }
+                                            }
+
+                                            Rectangle {
+                                                Layout.preferredWidth: 300
+                                                Layout.preferredHeight: 1
+                                                color: Theme.alpha(appItem.modelData._isWine ? Theme.warning : Theme.primary, 0.18)
+                                            }
+
+                                            Text {
+                                                Layout.preferredWidth: 300
+                                                text: root.appDetailBodyText(appItem.modelData)
+                                                font.pixelSize: Theme.fontSizeS
+                                                color: Theme.textSecondary
+                                                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                                                lineHeight: 1.18
+                                                lineHeightMode: Text.ProportionalHeight
+                                            }
+                                        }
+
+                                        background: Rectangle {
+                                            radius: Theme.radiusL
+                                            color: Theme.alpha(Theme.surface, 0.98)
+                                            border.color: Theme.alpha(appItem.modelData._isWine ? Theme.warning : Theme.primary, 0.32)
+                                            border.width: 1
+
+                                            layer.enabled: true
+                                            layer.effect: MultiEffect {
+                                                shadowEnabled: true
+                                                shadowColor: Theme.alpha("#000000", 0.24)
+                                                shadowBlur: 0.85
+                                                shadowVerticalOffset: 8
+                                            }
                                         }
                                     }
                                 }
