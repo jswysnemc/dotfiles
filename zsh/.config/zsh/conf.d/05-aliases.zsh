@@ -11,7 +11,6 @@ alias sd='sudoedit'
 alias psr='podman stop linux-teaching-env && podman rm linux-teaching-env'
 alias pr='podman run -it --name linux-teaching-env --dns=114.114.114.114 docker.io/library/archlinux:latest /bin/bash'
 alias indextts='indextts --model_dir ~/.local/share/index-tts/index-tts/checkpoints -c ~/.local/share/index-tts/index-tts/checkpoints/config.yaml'
-alias wshowkeys="nohup wshowkeys -a bottom -F 'Sans Bold 30' -s '#B5B520ff' -f  '#ecd29cff' -b '#201B1488' -l 60  > /dev/null 2>&1 &"
 alias uvr='$HOME/.conda/envs/uvr5/bin/python $HOME/.local/share/uvr5/ultimatevocalremovergui/UVR.py'
 alias tssh='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
 alias npm=pnpm
@@ -31,6 +30,34 @@ css() {
     chat session switch "$(chat --no-color session list | fzf | awk '{print ($1=="*" ? $2 : $1)}')"
 }
 
+wshowkeys() {
+    local cmd=${commands[wshowkeys]:-/usr/bin/wshowkeys}
+    local -a opts=(
+        -a bottom
+        -a right
+        -m 20
+        -F 'Sans Bold 30'
+        -s '#B5B520ff'
+        -f '#ecd29cff'
+        -b '#201B1488'
+        -l 60
+        # -t 的单位是毫秒；5000 表示 5 秒。
+        -t 5000
+    )
+
+    if [[ ! -x "$cmd" ]]; then
+        echo "wshowkeys 未安装: $cmd" >&2
+        return 127
+    fi
+
+    if pgrep -U "$USER" -x "wshowkeys" >/dev/null; then
+        pkill -U "$USER" -x "wshowkeys"
+        echo "wshowkeys 已关闭"
+    else
+        nohup "$cmd" "${opts[@]}" > /dev/null 2>&1 &
+        echo "wshowkeys 已在后台启动"
+    fi
+}
 
 alias xo="xdg-open"
 
