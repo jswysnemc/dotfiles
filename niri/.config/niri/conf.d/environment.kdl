@@ -43,4 +43,6 @@ environment {
     // TERMINAL "ghostty"
     TERMINAL "kitty --single-instance --instance-group=main"
     // TERMINAL "konsole"
+    //
+    // QT_FONT_DPI "96"
 }
