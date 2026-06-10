@@ -1,0 +1,93 @@
+/* ==============================================================================
+ * 1. 全局与基础设置
+ * ============================================================================== */
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "JetBrainsMono Nerd Font Propo", "FiraCode Nerd Font", sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    transition: background-color 0.3s ease;
+}
+
+window#waybar {
+    background: transparent;
+    color: @text-main;
+}
+
+tooltip {
+    background: @tooltip-bg;
+    border: 1px solid @accent-purple;
+    border-radius: 8px;
+}
+
+tooltip label {
+    color: @text-main;
+}
+
+/* ==============================================================================
+ * 2. 模块通用样式 (胶囊风格 & Hover)
+ * ============================================================================== */
+#custom-arch,
+#custom-arch-updates,
+#niri-workspaces,
+#workspaces,
+#shortcuts,
+#group-ai-drawer,
+#taskbar,
+#niri-window,
+#network,
+#bluetooth,
+#battery,
+#clock,
+#custom-clock,
+#tray,
+#proxies,
+#custom-media,
+#group-power {
+    background-color: @base-bg;
+    color: @text-main;
+    padding: 0 10px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 10px;
+    border: 1px solid alpha(@text-main, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 透明容器 - 内部按钮有独立背景 */
+#group-shot-recoder,
+#group-quick-start {
+    background-color: transparent;
+    padding: 0;
+    margin: 0 2px;
+}
+
+/* --- 通用 Hover 效果 --- */
+#custom-notification:hover,
+#shortcuts:hover,
+#group-ai-drawer:hover,
+#taskbar button:hover,
+#niri-window:hover,
+#group-hardware:hover,
+#network:hover,
+#bluetooth:hover,
+#custom-caffeine:hover,
+#power-profiles-daemon:hover,
+#group-tools:hover,
+#battery:hover,
+#tray:hover,
+#proxies:hover,
+#custom-media:hover,
+#group-power:hover {
+    background-color: @hover-bg;
+    color: @text-main;
+    border-color: alpha(@text-main, 0.12);
+    box-shadow: 0 3px 6px alpha(@text-main, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}

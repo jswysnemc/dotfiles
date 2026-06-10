@@ -1,0 +1,505 @@
+/* ==============================================================================
+ * 1. 右侧栏模块样式
+ * ============================================================================== */
+
+/* 硬件监控胶囊拼接 (CPU, Temperature, Memory) */
+#cpu,
+#temperature,
+#memory {
+    background-color: @base-bg;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-top: 1px solid alpha(@text-main, 0.05);
+    border-bottom: 1px solid alpha(@text-main, 0.05);
+}
+
+#cpu {
+    border-radius: 10px 0 0 10px;
+    border-left: 1px solid alpha(@text-main, 0.05);
+    padding-left: 10px;
+    padding-right: 4px;
+}
+
+#temperature {
+    padding: 0 4px;
+    border-left: 1px solid alpha(@text-main, 0.08);
+}
+
+#memory {
+    border-radius: 0 10px 10px 0;
+    border-right: 1px solid alpha(@text-main, 0.05);
+    padding-right: 10px;
+    padding-left: 4px;
+    border-left: 1px solid alpha(@text-main, 0.08);
+}
+
+#temperature {
+    color: @accent-green;
+}
+
+#temperature.critical {
+    color: @accent-red;
+}
+
+/* 硬件监控组件各自的动作样式 */
+#cpu,
+#memory {
+    color: @text-main;
+}
+
+/* 网络 (Network) */
+#network {
+    min-width: 140px;
+}
+
+#network:hover {
+    background-color: alpha(@highlight, 0.16);
+    border-color: alpha(@highlight, 0.35);
+    box-shadow: 0 0 8px alpha(@highlight, 0.25);
+}
+
+#network.disconnected {
+    color: @accent-red;
+    min-width: 0;
+}
+
+/* 蓝牙 (Bluetooth) */
+#bluetooth {
+    color: @highlight;
+}
+
+#bluetooth.disabled {
+    color: @text-sub;
+}
+
+/* 音量与亮度胶囊拼接 */
+#audio {
+    background-color: @base-bg;
+    border-radius: 10px 0 0 10px;
+    padding-left: 10px;
+    padding-right: 8px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-top: 1px solid alpha(@text-main, 0.05);
+    border-bottom: 1px solid alpha(@text-main, 0.05);
+    border-left: 1px solid alpha(@text-main, 0.05);
+    color: @accent-orange;
+}
+
+#g-backlight {
+    background-color: @base-bg;
+    border-radius: 0 10px 10px 0;
+    padding-right: 10px;
+    padding-left: 8px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-top: 1px solid alpha(@text-main, 0.05);
+    border-bottom: 1px solid alpha(@text-main, 0.05);
+    border-right: 1px solid alpha(@text-main, 0.05);
+    border-left: 1px solid alpha(@text-main, 0.08);
+}
+
+/* 独立音量 slider 及 backlight slider */
+#group-audio scale trough,
+#group-backlight scale trough {
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+scale {
+    min-width: 60px;
+    min-height: 14px;
+    margin: 0 2px;
+}
+
+scale trough {
+    min-height: 3px;
+    margin-left: 8px;
+    margin-right: 8px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: alpha(@text-main, 0.15);
+    border-radius: 10px;
+}
+
+scale highlight {
+    background-color: @highlight;
+    border-radius: 10px;
+}
+
+scale slider {
+    min-height: 8px;
+    min-width: 8px;
+    margin: -2.5px 0;
+    background-color: @text-main;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 三合一药丸 (Notification, Caffeine, Power Profiles) */
+#custom-notification,
+#custom-caffeine,
+#power-profiles-daemon {
+    background-color: @base-bg;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-top: 1px solid alpha(@text-main, 0.05);
+    border-bottom: 1px solid alpha(@text-main, 0.05);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+#custom-notification {
+    border-radius: 10px 0 0 10px;
+    border-left: 1px solid alpha(@text-main, 0.05);
+    padding-left: 10px;
+    padding-right: 6px;
+}
+
+#custom-caffeine {
+    padding: 0 6px;
+    border-left: 1px solid alpha(@text-main, 0.08);
+}
+
+#power-profiles-daemon {
+    border-radius: 0 10px 10px 0;
+    border-right: 1px solid alpha(@text-main, 0.05);
+    padding-right: 10px;
+    padding-left: 6px;
+    border-left: 1px solid alpha(@text-main, 0.08);
+}
+
+/* 通知状态色 */
+#custom-notification.notification {
+    color: @highlight;
+}
+
+#custom-notification.dnd-notification,
+#custom-notification.dnd-none {
+    color: @accent-red;
+}
+
+#custom-notification.none {
+    color: @text-sub;
+}
+
+/* 咖啡状态色 */
+#custom-caffeine.activated {
+    color: @accent-orange;
+}
+
+#custom-caffeine.deactivated {
+    color: @text-sub;
+}
+
+/* 性能模式状态色 */
+#power-profiles-daemon.performance {
+    color: @accent-red;
+}
+
+#power-profiles-daemon.balanced {
+    color: @highlight;
+}
+
+#power-profiles-daemon.power-saver {
+    color: @accent-green;
+}
+
+/* 电池 (Battery) */
+#battery {
+    color: @accent-green;
+}
+
+#battery.warning {
+    color: @accent-orange;
+}
+
+#battery.critical {
+    color: @accent-red;
+    animation-name: blink;
+    animation-duration: 0.5s;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+/* 时钟 (Clock) */
+#clock,
+#custom-clock {
+    background: linear-gradient(135deg, @accent-purple 0%, alpha(@accent-purple, 0.8) 100%);
+    color: @text-on-primary;
+    padding-top: 1px;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 0 6px alpha(@accent-purple, 0.3);
+}
+
+#clock:hover,
+#custom-clock:hover {
+    background: @hover-bg;
+    color: @text-main;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 托盘 (Tray) */
+#tray>.passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray>.needs-attention {
+    -gtk-icon-effect: highlight;
+    background-color: @accent-red;
+}
+
+/* 剪贴板与待办 */
+#custom-clipboard,
+#custom-todo {
+    background-color: @base-bg;
+    color: @text-main;
+    padding: 0 8px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 10px;
+}
+
+#custom-clipboard:hover,
+#custom-todo:hover {
+    background-color: @hover-bg;
+}
+
+#custom-todo.pending {
+    color: @highlight;
+}
+
+#custom-todo.done {
+    color: @accent-green;
+}
+
+#custom-todo.empty {
+    color: @text-sub;
+}
+
+/* 代理控制组 (Proxies Group) */
+#proxies {
+    background-color: @base-bg;
+    border-radius: 10px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 2px;
+    margin-right: 2px;
+    padding: 0 4px;
+}
+
+#custom-proxy-status {
+    padding: 0 10px;
+    font-weight: bold;
+    color: @text-main;
+}
+
+#custom-proxy-status.rule {
+    color: @accent-green;
+}
+
+#custom-proxy-status.global {
+    color: @accent-red;
+}
+
+#custom-proxy-status.direct {
+    color: @accent-orange;
+}
+
+#custom-proxy-status.stopped,
+#custom-proxy-status.disconnected {
+    color: @text-sub;
+}
+
+#custom-proxy-kernel {
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+    background-color: @white-20;
+    color: @text-main;
+}
+
+#custom-proxy-kernel.mihomo {
+    color: @accent-purple;
+}
+
+#custom-proxy-kernel.singbox {
+    color: @highlight;
+}
+
+#custom-proxy-kernel.stopped {
+    color: @text-sub;
+}
+
+#custom-proxy-power {
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+    background-color: @white-20;
+}
+
+#custom-proxy-power.stopped {
+    color: @accent-red;
+}
+
+#custom-proxy-power.running {
+    color: @accent-green;
+}
+
+#custom-proxy-rule,
+#custom-proxy-global,
+#custom-proxy-direct {
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+    color: @text-sub;
+    background-color: @white-20;
+}
+
+#custom-proxy-rule.active {
+    color: @accent-green;
+    background-color: alpha(@accent-green, 0.2);
+}
+
+#custom-proxy-global.active {
+    color: @accent-red;
+    background-color: alpha(@accent-red, 0.2);
+}
+
+#custom-proxy-direct.active {
+    color: @accent-orange;
+    background-color: alpha(@accent-orange, 0.2);
+}
+
+#custom-proxy-status:hover {
+    background-color: @hover-bg;
+    border-radius: 6px;
+}
+
+#custom-proxy-kernel:hover,
+#custom-proxy-power:hover,
+#custom-proxy-rule:hover,
+#custom-proxy-global:hover,
+#custom-proxy-direct:hover {
+    background-color: @hover-bg;
+    color: @text-main;
+}
+
+.child-proxies {
+    padding: 0 2px;
+}
+
+/* 媒体播放与音律条 */
+#custom-media {
+    color: @accent-green;
+}
+
+#custom-media.playing {
+    color: @accent-green;
+}
+
+#custom-media.paused {
+    color: @accent-yellow;
+}
+
+#custom-media.stopped {
+    color: @text-dim;
+}
+
+#custom-media.empty {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    background: transparent;
+}
+
+#custom-visualizer {
+    color: @accent-green;
+    padding: 0 6px;
+    margin: 0;
+    font-size: 12px;
+    min-width: 0;
+    letter-spacing: -2px;
+    opacity: 0.9;
+}
+
+#custom-visualizer.playing {
+    color: @accent-green;
+}
+
+#custom-visualizer.hidden,
+#custom-visualizer.stopped {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    background: transparent;
+}
+
+/* 电源菜单 */
+#power {
+    background-color: @tooltip-bg;
+    border-radius: 12px;
+    margin: 3px 0;
+}
+
+#custom-power-icon {
+    padding-right: 4px;
+}
+
+#custom-lock,
+#custom-sleep,
+#custom-logout,
+#custom-reboot,
+#custom-off-screen,
+#custom-shutdown {
+    background: transparent;
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 4px;
+}
+
+#custom-lock {
+    color: @highlight;
+}
+
+#custom-sleep {
+    color: @accent-purple;
+}
+
+#custom-logout {
+    color: @accent-orange;
+}
+
+#custom-reboot {
+    color: @secondary;
+}
+
+#custom-off-screen {
+    color: @text-sub;
+}
+
+#custom-shutdown {
+    color: @accent-red;
+}
+
+#custom-lock:hover,
+#custom-sleep:hover,
+#custom-logout:hover,
+#custom-reboot:hover,
+#custom-off-screen:hover,
+#custom-shutdown:hover {
+    background-color: @hover-bg;
+}
+
+/* 关键帧与全局闪烁定义 */
+@keyframes blink {
+    to {
+        background-color: @text-main;
+        color: #000;
+    }
+}

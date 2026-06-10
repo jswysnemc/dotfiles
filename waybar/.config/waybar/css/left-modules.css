@@ -1,0 +1,283 @@
+/* ==============================================================================
+ * 1. 左侧栏模块样式
+ * ============================================================================== */
+
+/* Arch Logo */
+#custom-arch {
+    color: #ffffff;
+    background-color: #1793d1;
+    margin-right: 0;
+    border-radius: 12px 0 0 12px;
+}
+
+#custom-arch:hover {
+    background-color: #0f7bb3;
+    color: #ffffff;
+}
+
+/* 软件包更新 */
+#custom-arch-updates {
+    color: @text-sub;
+    background-color: @base-bg;
+    margin-left: 0;
+    border-radius: 0 12px 12px 0;
+}
+
+#custom-arch-updates:hover {
+    background-color: @hover-bg;
+}
+
+#custom-arch-updates.clean {
+    color: @accent-green;
+}
+
+#custom-arch-updates.updates {
+    color: @accent-orange;
+}
+
+#custom-arch-updates.error {
+    color: @accent-red;
+}
+
+/* 分隔符 */
+#custom-separator-line,
+#custom-separator-arrow {
+    background: transparent;
+    color: @text-sub;
+}
+
+/* 天气 */
+#custom-weather {
+    background-color: @base-bg;
+    color: @text-main;
+    padding: 0 10px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 2px;
+    margin-right: 2px;
+    border-radius: 10px;
+}
+
+#custom-weather:hover {
+    background-color: @hover-bg;
+}
+
+#custom-weather.sunny {
+    color: @accent-orange;
+}
+
+#custom-weather.cloudy {
+    color: @text-main;
+}
+
+#custom-weather.rainy {
+    color: @highlight;
+}
+
+#custom-weather.foggy {
+    color: @text-sub;
+}
+
+#custom-weather.stormy {
+    color: @accent-purple;
+}
+
+#custom-weather.error {
+    color: @accent-red;
+}
+
+/* 工作区 */
+#workspaces {
+    background-color: @base-bg;
+    border-radius: 10px;
+    padding: 0px 6px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 4px;
+    margin-right: 4px;
+    border: 1px solid alpha(@text-main, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+#workspaces button {
+    border: none;
+    box-shadow: none;
+    text-shadow: none;
+    padding: 0;
+    margin: 1px 3.5px;
+    font-size: 0;
+    min-height: 16px;
+    min-width: 16px;
+    border-radius: 50%;
+    background-color: alpha(@secondary, 0.4);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0.7;
+}
+
+#workspaces button.active {
+    min-width: 24px;
+    border-radius: 12px;
+    opacity: 1;
+    background-color: @highlight;
+    box-shadow: 0 0 6px alpha(@highlight, 0.5);
+}
+
+#workspaces button:hover {
+    background-color: alpha(@highlight, 0.4);
+    opacity: 0.9;
+    box-shadow: none;
+}
+
+/* 快捷启动 (组内图标三合一药丸) */
+#custom-app-file,
+#custom-app-browser,
+#custom-app-term {
+    margin-top: 2px;
+    margin-bottom: 2px;
+    background: linear-gradient(135deg, @highlight 0%, alpha(@highlight, 0.85) 100%);
+    border: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 1. 文件 (左侧) */
+#custom-app-file {
+    border-radius: 10px 0 0 10px;
+    padding-left: 10px;
+    padding-right: 6px;
+}
+
+/* 2. 浏览器 (中间) */
+#custom-app-browser {
+    border-radius: 0;
+    padding: 0 6px;
+    border-left: 1px solid alpha(@text-on-primary, 0.15);
+}
+
+/* 3. 终端 (右侧) */
+#custom-app-term {
+    border-radius: 0 10px 10px 0;
+    padding-left: 6px;
+    padding-right: 10px;
+    border-left: 1px solid alpha(@text-on-primary, 0.15);
+}
+
+#custom-app-file:hover,
+#custom-app-browser:hover,
+#custom-app-term:hover {
+    background: linear-gradient(135deg, alpha(@highlight, 0.85) 0%, alpha(@highlight, 0.75) 100%);
+    color: @text-on-primary;
+    box-shadow: 0 0 6px alpha(@highlight, 0.6);
+}
+
+/* 快捷抽屉 */
+#custom-shortcuts-toggle {
+    padding: 0 8px;
+    border-radius: 6px;
+}
+
+.shortcut-item {
+    background-color: transparent;
+    border-radius: 8px;
+    margin: 3px 0;
+    padding: 0;
+}
+
+#custom-link-gpt,
+#custom-link-gemini,
+#custom-link-aistudio,
+#custom-link-deepseek,
+#custom-link-claude,
+#custom-link-linuxdo {
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 8px;
+    min-width: 30px;
+    background-color: @highlight;
+    color: @text-on-primary;
+    transition: all 0.2s ease;
+}
+
+#custom-link-gpt:hover,
+#custom-link-gemini:hover,
+#custom-link-aistudio:hover,
+#custom-link-deepseek:hover,
+#custom-link-claude:hover,
+#custom-link-linuxdo:hover {
+    background-color: alpha(@highlight, 0.7);
+    color: @text-on-primary;
+}
+
+/* 截图与录屏 (组内图标二合一药丸) */
+#custom-screenshot,
+#custom-wfrec {
+    margin-top: 2px;
+    margin-bottom: 2px;
+    background-color: @secondary;
+    color: @text-on-primary;
+    transition: all 0.2s ease;
+}
+
+/* 1. 截图 (左侧) */
+#custom-screenshot {
+    border-radius: 10px 0 0 10px;
+    padding-left: 10px;
+    padding-right: 6px;
+}
+
+#custom-screenshot:hover {
+    background-color: alpha(@secondary, 0.7);
+}
+
+/* 2. 录屏 (右侧) */
+#custom-wfrec {
+    border-radius: 0 10px 10px 0;
+    padding-left: 6px;
+    padding-right: 10px;
+    border-left: 1px solid alpha(@text-on-primary, 0.15);
+}
+
+#custom-wfrec:hover {
+    background-color: alpha(@secondary, 0.7);
+}
+
+#custom-wfrec.recording {
+    color: @accent-red;
+    background-color: alpha(@accent-red, 0.2);
+    border-radius: 0 10px 10px 0;
+    animation-name: blink-recording;
+    animation-duration: 1s;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+#custom-wfrec.paused {
+    color: @accent-orange;
+    background-color: alpha(@accent-orange, 0.2);
+    border-radius: 0 10px 10px 0;
+}
+
+#custom-wfrec.idle {
+    color: @text-on-primary;
+}
+
+/* 任务栏 */
+#taskbar button {
+    padding: 0 4px;
+    border-radius: 8px;
+}
+
+#taskbar button.active {
+    color: @text-main;
+    background: @white-20;
+}
+
+/* 动画定义 */
+@keyframes blink-recording {
+    from {
+        color: @accent-red;
+    }
+    to {
+        color: alpha(@accent-red, 0.5);
+    }
+}
