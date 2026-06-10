@@ -1,0 +1,16 @@
+{
+  "allShortcuts": "All Shortcuts",
+  "clipboard": "Clipboard",
+  "configRepo": "  Config Repo",
+  "description": "Scroll-tiling Wayland compositor with custom Shell components",
+  "docsNiri": "  niri Docs",
+  "docsQuickshell": "  QuickShell",
+  "hint": "Esc / Enter / Space / Click anywhere to continue",
+  "launcher": "Launcher",
+  "overview": "Overview",
+  "screenshot": "Screenshot",
+  "startButton": "Get Started  ",
+  "subtitle": "niri · QuickShell",
+  "terminal": "Terminal",
+  "title": "Welcome"
+}

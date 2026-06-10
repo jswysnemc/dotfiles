@@ -11,6 +11,11 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "welcome"
+    }
+
     property string markerFile: Quickshell.env("HOME") + "/.config/quickshell/.welcome-shown"
     property bool shouldShow: false
     property bool initialized: false
@@ -21,6 +26,7 @@ ShellRoot {
     property real bgOpacity: 0
 
     Component.onCompleted: {
+        // 【Quickshell/Welcome】【初始化】检查启动标记文件是否已存在
         checkMarker.running = true
     }
 
@@ -82,7 +88,7 @@ ShellRoot {
                 anchors.fill: parent
                 opacity: root.bgOpacity
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.alpha(Theme.background, 0.92) }
+                    GradientStop { position: 0.0; color: Theme.alpha(Theme.background, 0.34) }
                     GradientStop { position: 1.0; color: Theme.alpha(Theme.surfaceVariant, 0.92) }
                 }
                 MouseArea {
@@ -141,7 +147,7 @@ ShellRoot {
                     // 巨型标题
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "欢迎使用"
+                        text: i18n.tr("title")
                         font.pixelSize: 72
                         font.weight: Font.Black
                         font.letterSpacing: -1
@@ -163,7 +169,7 @@ ShellRoot {
                         Layout.maximumWidth: 580
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignHCenter
-                        text: "滚动平铺式 Wayland 混成器，配合自定义 Shell 组件"
+                        text: i18n.tr("description")
                         font.pixelSize: Theme.fontSizeM
                         color: Theme.textSecondary
                         wrapMode: Text.WordWrap
@@ -177,12 +183,12 @@ ShellRoot {
                         spacing: Theme.spacingM
                         Layout.topMargin: Theme.spacingL
 
-                        ShortcutChip { icon: ""; keys: "Alt + Space"; desc: "启动器" }
-                        ShortcutChip { icon: ""; keys: "Super + Return"; desc: "终端" }
-                        ShortcutChip { icon: ""; keys: "Alt + V"; desc: "剪贴板" }
-                        ShortcutChip { icon: ""; keys: "Super + Shift + S"; desc: "截屏" }
-                        ShortcutChip { icon: ""; keys: "Super + O"; desc: "概览" }
-                        ShortcutChip { icon: ""; keys: "Super + Shift + /"; desc: "全部快捷键" }
+                        ShortcutChip { icon: ""; keys: "Alt + Space"; desc: i18n.tr("launcher") }
+                        ShortcutChip { icon: ""; keys: "Super + Return"; desc: i18n.tr("terminal") }
+                        ShortcutChip { icon: ""; keys: "Alt + V"; desc: i18n.tr("clipboard") }
+                        ShortcutChip { icon: ""; keys: "Super + Shift + S"; desc: i18n.tr("screenshot") }
+                        ShortcutChip { icon: ""; keys: "Super + O"; desc: i18n.tr("overview") }
+                        ShortcutChip { icon: ""; keys: "Super + Shift + /"; desc: i18n.tr("allShortcuts") }
                     }
 
                     // 资源链接
@@ -192,15 +198,15 @@ ShellRoot {
                         Layout.topMargin: Theme.spacingL
 
                         LinkChip {
-                            text: "  niri 文档"
+                            text: i18n.tr("docsNiri")
                             onClicked: Qt.openUrlExternally("https://yalter.github.io/niri/")
                         }
                         LinkChip {
-                            text: "  QuickShell"
+                            text: i18n.tr("docsQuickshell")
                             onClicked: Qt.openUrlExternally("https://deepwiki.com/quickshell-mirror/quickshell/2-getting-started")
                         }
                         LinkChip {
-                            text: "  配置仓库"
+                            text: i18n.tr("configRepo")
                             onClicked: Qt.openUrlExternally("https://github.com/jswysnemc/dotfiles")
                         }
                     }
@@ -235,7 +241,7 @@ ShellRoot {
 
                         Text {
                             anchors.centerIn: parent
-                            text: "开始使用  "
+                            text: i18n.tr("startButton")
                             font.family: "Symbols Nerd Font Mono"
                             font.pixelSize: Theme.fontSizeL
                             font.bold: true
@@ -255,7 +261,7 @@ ShellRoot {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.topMargin: Theme.spacingS
-                        text: "Esc / Enter / 空格 / 点击任意位置  继续"
+                        text: i18n.tr("hint")
                         font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
                         opacity: 0.7

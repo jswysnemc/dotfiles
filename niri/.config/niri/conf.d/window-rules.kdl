@@ -27,10 +27,10 @@ window-rule {
     draw-border-with-background false
 
     background-effect {
-        xray false
+        xray true
         blur true
-        noise 0.05
-        saturation 3
+        noise 0.02
+        saturation 1.5
     }
 }
 
@@ -94,11 +94,29 @@ window-rule {
 layer-rule {
     match namespace="^waybar$"
 
+    opacity 0.92
+
     background-effect {
         xray true
         blur true
-        noise 0.05
-        saturation 1
+        noise 0.02
+        saturation 1.5
+    }
+}
+
+layer-rule {
+    // 只匹配真实弹窗，避免 *-bg 全屏点击捕获层模糊整屏
+    match namespace="^(quickshell-(bt|volume|recorder|media|screenshot-toolbox|clipboard|launcher|wifi|calendar|weather|welcome)|qs-(window-switcher|close-confirm|qr-viewer|wallpaper-selector|power-menu|color-viewer|todo|notifications|notification-popup)|idle-warning)$"
+    match namespace="^idle-warning$"
+
+    opacity 0.98
+    geometry-corner-radius 24
+
+    background-effect {
+        xray false
+        blur true
+        noise 0.03
+        saturation 1.4
     }
 }
 

@@ -1,0 +1,14 @@
+{
+  "literals": {
+    "Enter 确认": "Enter Confirm",
+    "← →  选择  ·  Enter 确认  ·  Esc 取消": "Left/Right Select · Enter Confirm · Esc Cancel",
+    "关机": "Power Off",
+    "取消": "Cancel",
+    "注销": "Log Out",
+    "睡眠": "Suspend",
+    "确定": "Confirm",
+    "确定要": "Confirm",
+    "重启": "Restart",
+    "锁屏": "Lock"
+  }
+}

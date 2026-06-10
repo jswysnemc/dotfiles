@@ -1,0 +1,12 @@
+{
+  "cancel": "Cancel (N)",
+  "confirm": "Close (Y)",
+  "hint": "Y Confirm | N/Esc Cancel",
+  "messageCurrent": "Are you sure you want to close the current window?",
+  "messageWithTarget": "Are you sure you want to close the following window?",
+  "noWindowInfo": "No window info acquired",
+  "runAsFocused": "Will run on niri currently focused window",
+  "title": "Close Window",
+  "unknownTitle": "Unknown Title",
+  "workspace": "Workspace {workspace}"
+}

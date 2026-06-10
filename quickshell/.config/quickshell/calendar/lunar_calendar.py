@@ -7,12 +7,20 @@ import sys
 import json
 from datetime import datetime
 import calendar
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.lib.i18n import I18n
 
 try:
     from lunarcalendar import Converter, Solar, Lunar, DateNotExist
     HAS_LUNAR = True
 except ImportError:
     HAS_LUNAR = False
+
+I18N = I18n("calendar")
+USE_LUNAR = HAS_LUNAR and I18N.language == "zh_CN"
 
 # Chinese lunar festivals
 LUNAR_FESTIVALS = {
@@ -56,8 +64,15 @@ LUNAR_DAYS = [
 
 
 def get_lunar_info(year, month, day):
-    """Get lunar calendar info for a date."""
-    if not HAS_LUNAR:
+    """
+    获取指定日期的农历与节日信息。
+
+    :param year: 公历年份
+    :param month: 公历月份
+    :param day: 公历日期
+    :return: 农历与节日字段
+    """
+    if not USE_LUNAR:
         return {"lunar": "", "festival": get_solar_festival(month, day)}
 
     try:
@@ -89,12 +104,25 @@ def get_lunar_info(year, month, day):
 
 
 def get_solar_festival(month, day):
-    """Get solar festival for a date."""
-    return SOLAR_FESTIVALS.get((month, day), "")
+    """
+    获取指定日期的公历节日。
+
+    :param month: 公历月份
+    :param day: 公历日期
+    :return: 本地化节日名称
+    """
+    festival = SOLAR_FESTIVALS.get((month, day), "")
+    return I18N.literal(festival) if festival else ""
 
 
 def get_month_data(year, month):
-    """Get full month calendar data."""
+    """
+    生成指定月份的日历数据。
+
+    :param year: 公历年份
+    :param month: 公历月份
+    :return: 包含六周日期的月份数据
+    """
     first_weekday, days_in_month = calendar.monthrange(year, month)
     first_weekday = (first_weekday + 1) % 7
 
@@ -154,12 +182,16 @@ def get_month_data(year, month):
         "year": year,
         "month": month,
         "days": days,
-        "hasLunar": HAS_LUNAR
+        "hasLunar": USE_LUNAR
     }
 
 
 def get_today_info():
-    """Get detailed info for today."""
+    """
+    获取当天日期、星期和农历信息。
+
+    :return: 当天的本地化日期信息
+    """
     today = datetime.now()
     lunar_info = get_lunar_info(today.year, today.month, today.day)
 
@@ -169,10 +201,10 @@ def get_today_info():
         "year": today.year,
         "month": today.month,
         "day": today.day,
-        "weekday": weekdays[today.weekday()],
+        "weekday": I18N.literal(weekdays[today.weekday()]),
         "lunar": lunar_info.get("lunar", ""),
         "festival": lunar_info.get("festival", ""),
-        "hasLunar": HAS_LUNAR
+        "hasLunar": USE_LUNAR
     }
 
 

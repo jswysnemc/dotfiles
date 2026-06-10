@@ -11,6 +11,11 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "notifications"
+    }
+
     // ============ Animation State ============
     property real panelOpacity: 0
     property real panelScale: 0.98
@@ -212,7 +217,7 @@ ShellRoot {
             Rectangle {
                 id: mainContainer
                 anchors.fill: parent
-                color: Theme.alpha(Theme.background, 0.9)
+                color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
@@ -265,7 +270,7 @@ ShellRoot {
                         }
 
                         Text {
-                            text: "通知中心"
+                            text: i18n.trLiteral("通知中心")
                             font.pixelSize: Theme.fontSizeL
                             font.bold: true
                             color: Theme.textPrimary
@@ -274,7 +279,7 @@ ShellRoot {
                         Item { Layout.fillWidth: true }
 
                         Text {
-                            text: root.notifications.length + " 条"
+                            text: root.notifications.length + i18n.trLiteral(" 条")
                             font.pixelSize: Theme.fontSizeXS
                             color: Theme.textMuted
                         }
@@ -367,7 +372,7 @@ ShellRoot {
 
                                 Text {
                                     Layout.alignment: Qt.AlignHCenter
-                                    text: "暂无通知"
+                                    text: i18n.trLiteral("暂无通知")
                                     font.pixelSize: Theme.fontSizeM
                                     color: Theme.textMuted
                                 }
@@ -583,9 +588,9 @@ ShellRoot {
         var now = new Date()
         var diff = now - date
 
-        if (diff < 60000) return "刚刚"
-        if (diff < 3600000) return Math.floor(diff / 60000) + " 分钟前"
-        if (diff < 86400000) return Math.floor(diff / 3600000) + " 小时前"
+        if (diff < 60000) return i18n.trLiteral("刚刚")
+        if (diff < 3600000) return Math.floor(diff / 60000) + i18n.trLiteral(" 分钟前")
+        if (diff < 86400000) return Math.floor(diff / 3600000) + i18n.trLiteral(" 小时前")
         return date.toLocaleDateString()
     }
 
@@ -595,7 +600,7 @@ ShellRoot {
 
         // Common apps
         if (name.includes("qq") || name.includes("tencent")) return "\uf1d6"
-        if (name.includes("wechat") || name.includes("weixin") || name.includes("微信")) return "\uf1d7"
+        if (name.includes("wechat") || name.includes("weixin") || name.includes(i18n.trLiteral("微信"))) return "\uf1d7"
         if (name.includes("telegram")) return "\uf2c6"
         if (name.includes("discord")) return "\uf392"
         if (name.includes("slack")) return "\uf198"

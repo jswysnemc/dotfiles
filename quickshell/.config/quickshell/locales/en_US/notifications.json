@@ -1,0 +1,14 @@
+{
+  "count": "Notifications: {count}",
+  "dndEnabled": "Do Not Disturb is enabled",
+  "literals": {
+    " 分钟前": " minutes ago",
+    " 小时前": " hours ago",
+    " 条": " notifications",
+    "刚刚": "Just now",
+    "微信": "WeChat",
+    "暂无通知": "No notifications",
+    "通知中心": "Notification Center"
+  },
+  "unread": " ({count} unread)"
+}

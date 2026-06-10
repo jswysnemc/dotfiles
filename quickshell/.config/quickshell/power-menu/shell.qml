@@ -11,6 +11,11 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "power-menu"
+    }
+
     // ============ Animation State ============
     property real bgOpacity: 0
     property real containerOpacity: 0
@@ -42,11 +47,11 @@ ShellRoot {
 
     // Power actions
     readonly property var actions: [
-        { id: "lock", name: "锁屏", icon: "\uf023", color: Theme.primary, cmd: "loginctl lock-session" },
-        { id: "logout", name: "注销", icon: "\uf2f5", color: Theme.secondary, cmd: "niri msg action quit" },
-        { id: "suspend", name: "睡眠", icon: "\uf186", color: Theme.warning, cmd: "systemctl suspend" },
-        { id: "reboot", name: "重启", icon: "\uf021", color: Theme.warning, cmd: "systemctl reboot" },
-        { id: "shutdown", name: "关机", icon: "\uf011", color: Theme.error, cmd: "systemctl poweroff" }
+        { id: "lock", name: i18n.trLiteral("锁屏"), icon: "\uf023", color: Theme.primary, cmd: "loginctl lock-session" },
+        { id: "logout", name: i18n.trLiteral("注销"), icon: "\uf2f5", color: Theme.secondary, cmd: "niri msg action quit" },
+        { id: "suspend", name: i18n.trLiteral("睡眠"), icon: "\uf186", color: Theme.warning, cmd: "systemctl suspend" },
+        { id: "reboot", name: i18n.trLiteral("重启"), icon: "\uf021", color: Theme.warning, cmd: "systemctl reboot" },
+        { id: "shutdown", name: i18n.trLiteral("关机"), icon: "\uf011", color: Theme.error, cmd: "systemctl poweroff" }
     ]
 
     // Check for direct action on startup
@@ -297,7 +302,7 @@ ShellRoot {
                 anchors.centerIn: parent
                 width: root.menuSize
                 height: root.menuSize
-                color: Theme.alpha(Theme.background, 0.88)
+                color: Theme.alpha(Theme.background, 0.28)
                 radius: width / 2
                 border.color: Theme.glassBorder
                 border.width: 1.5
@@ -404,7 +409,7 @@ ShellRoot {
 
                         Text {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "确定要"
+                            text: i18n.trLiteral("确定要")
                             font.pixelSize: Theme.fontSizeM
                             color: Theme.textMuted
                         }
@@ -440,7 +445,7 @@ ShellRoot {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "取消"
+                                    text: i18n.trLiteral("取消")
                                     font.pixelSize: Theme.fontSizeM
                                     color: Theme.textSecondary
                                 }
@@ -472,7 +477,7 @@ ShellRoot {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "确定"
+                                    text: i18n.trLiteral("确定")
                                     font.pixelSize: Theme.fontSizeM
                                     font.bold: true
                                     color: "#ffffff"
@@ -501,7 +506,7 @@ ShellRoot {
                         anchors.centerIn: parent
                         width: 200; height: 200
                         radius: 100
-                        color: Theme.alpha(Theme.surface, 0.8)
+                        color: Theme.alpha(Theme.surface, 0.42)
                         border.width: 1.5
                         border.color: mainContainer.currentAction ? Theme.alpha(mainContainer.currentAction.color, 0.45) : Theme.glassBorder
 
@@ -556,7 +561,7 @@ ShellRoot {
 
                             Text {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: "Enter 确认"
+                                text: i18n.trLiteral("Enter 确认")
                                 font.pixelSize: Theme.fontSizeXS
                                 color: Theme.textMuted
                                 opacity: 0.7
@@ -592,7 +597,7 @@ ShellRoot {
                             x: orbital.centerX + Math.cos(angle) * orbital.orbitRadius - width / 2
                             y: orbital.centerY + Math.sin(angle) * orbital.orbitRadius - height / 2
 
-                            color: isSelected ? Theme.alpha(modelData.color, 0.2) : Theme.alpha(Theme.surface, 0.85)
+                            color: isSelected ? Theme.alpha(modelData.color, 0.2) : Theme.alpha(Theme.surface, 0.42)
                             border.color: isSelected ? modelData.color : Theme.alpha(Theme.outline, 0.5)
                             border.width: isSelected ? 2 : 1
                             scale: isSelected ? 1.12 : (btnHover.hovered ? 1.06 : 1.0)
@@ -659,7 +664,7 @@ ShellRoot {
                         anchors.bottom: parent.bottom
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottomMargin: Theme.spacingL
-                        text: "← →  选择  ·  Enter 确认  ·  Esc 取消"
+                        text: i18n.trLiteral("← →  选择  ·  Enter 确认  ·  Esc 取消")
                         font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
                         opacity: 0.7

@@ -11,6 +11,11 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "color-viewer"
+    }
+
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
@@ -201,7 +206,7 @@ ShellRoot {
                 width: 420
                 height: content.implicitHeight + Theme.spacingXL * 2
                 radius: Theme.radiusXL + 4
-                color: Theme.alpha(Theme.background, 0.88)
+                color: Theme.alpha(Theme.background, 0.28)
                 border.color: Theme.glassBorder
                 border.width: 1.5
                 // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
@@ -256,14 +261,14 @@ ShellRoot {
                             spacing: 2
 
                             Text {
-                                text: "颜色详情"
+                                text: i18n.trLiteral("颜色详情")
                                 font.pixelSize: Theme.fontSizeXL
                                 font.weight: Font.Bold
                                 color: Theme.textPrimary
                             }
 
                             Text {
-                                text: "点击任意写法复制"
+                                text: i18n.trLiteral("点击任意写法复制")
                                 font.pixelSize: Theme.fontSizeS
                                 color: Theme.textMuted
                             }

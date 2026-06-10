@@ -12,7 +12,7 @@ output "eDP-2" {
 // 连接显示器,连接电源的显示器
 output "eDP-1" {
     mode "2560x1600@240"
-    scale 1.25
+    scale 1.0
     transform "normal"
     position x=0 y=0
 }
@@ -20,7 +20,7 @@ output "eDP-1" {
 // 外接显示器
 output "HDMI-A-1" {
     mode "1920x1080@60"
-    scale 1.2
+    scale 1.0
     transform "normal"
     position x=2048 y=0
 }

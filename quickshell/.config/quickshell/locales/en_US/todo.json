@@ -1,0 +1,17 @@
+{
+  "doneLabel": "Completed: {count}",
+  "empty": "No tasks\nPress Enter to add one",
+  "literals": {
+    " 已完成": " completed",
+    " 未完成 / ": " pending / ",
+    "Esc 关闭 | Enter 添加 | 点击复选框切换状态": "Esc Close | Enter Add | Click a checkbox to change status",
+    "待办": "Todo",
+    "没有待办事项\\n按 Enter 添加": "No tasks\\nPress Enter to add one",
+    "添加新任务...": "Add a task...",
+    "清除已完成": "Clear Completed"
+  },
+  "pendingItems": "Pending items:",
+  "pendingLabel": "Pending: {count}",
+  "statusText": "P{pending} D{done}",
+  "totalLabel": "Total: {count}"
+}

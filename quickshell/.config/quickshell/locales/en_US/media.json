@@ -1,0 +1,17 @@
+{
+  "literals": {
+    "Space 播放/暂停 | Left/Right 上/下一曲": "Space Play/Pause | Left/Right Previous/Next",
+    "媒体播放": "Media",
+    "播放音乐或视频后在此控制": "Play music or video to control it here",
+    "无同步歌词": "No synchronized lyrics",
+    "无歌词": "No lyrics",
+    "显示歌词": "Show Lyrics",
+    "暂无歌词": "No lyrics available",
+    "未知曲目": "Unknown Track",
+    "歌词": "Lyrics",
+    "正在获取歌词...": "Fetching lyrics...",
+    "没有正在播放的媒体": "No media is playing",
+    "获取失败": "Retrieval failed",
+    "解析失败": "Parsing failed"
+  }
+}

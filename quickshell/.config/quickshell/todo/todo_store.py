@@ -7,12 +7,18 @@ import tempfile
 import time
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.lib.i18n import I18n
+
 
 DATA_DIR = Path.home() / ".local/share/quickshell"
 DATA_FILE = DATA_DIR / "todos.json"
 LEGACY_FILE = DATA_DIR / "notes.json"
 MIGRATION_MARKER = DATA_DIR / ".todos_migrated"
 WAYBAR_SIGNAL = "10"
+I18N = I18n("todo")
 
 
 def read_json(path):
@@ -154,6 +160,11 @@ def json_output(payload):
 
 
 def status():
+    """
+    输出Waybar使用的本地化待办状态。
+
+    :return: 无
+    """
     todos = load_todos()
     done = sum(1 for todo in todos if todo.get("done"))
     pending = len(todos) - done
@@ -166,18 +177,18 @@ def status():
 
     pending_items = [todo["text"] for todo in todos if not todo.get("done")][:5]
     tooltip_lines = [
-        f"未完成: {pending}",
-        f"已完成: {done}",
-        f"总计: {len(todos)}",
+        I18N.tr("pendingLabel", {"count": pending}),
+        I18N.tr("doneLabel", {"count": done}),
+        I18N.tr("totalLabel", {"count": len(todos)}),
     ]
     if pending_items:
         tooltip_lines.append("")
-        tooltip_lines.append("未完成事项:")
+        tooltip_lines.append(I18N.tr("pendingItems"))
         tooltip_lines.extend(f"- {item}" for item in pending_items)
 
     json_output(
         {
-            "text": f"未{pending} 已{done}",
+            "text": I18N.tr("statusText", {"pending": pending, "done": done}),
             "tooltip": "\n".join(tooltip_lines),
             "class": todo_class,
             "alt": todo_class,

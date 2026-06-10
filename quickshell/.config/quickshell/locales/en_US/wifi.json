@@ -1,0 +1,30 @@
+{
+  "literals": {
+    "IP 地址": "IP Address",
+    "Wi-Fi 已关闭": "Wi-Fi is off",
+    "以太网": "Ethernet",
+    "信号": "Signal",
+    "取消": "Cancel",
+    "可用网络": "Available Networks",
+    "安全性": "Security",
+    "密码": "Password",
+    "已知网络": "Known Networks",
+    "已连接": "Connected",
+    "开放": "Open",
+    "忘记": "Forget",
+    "忘记此网络": "Forget This Network",
+    "断开连接": "Disconnect",
+    "未找到已连接的 Wi-Fi 设备": "No connected Wi-Fi device found",
+    "未连接": "Disconnected",
+    "正在扫描...": "Scanning...",
+    "网关": "Gateway",
+    "请输入密码": "Enter the password",
+    "连接": "Connect",
+    "连接中...": "Connecting...",
+    "连接到 ": "Connect to ",
+    "连接失败": "Connection failed",
+    "连接详情": "Connection Details",
+    "速率": "Rate",
+    "频段": "Band"
+  }
+}

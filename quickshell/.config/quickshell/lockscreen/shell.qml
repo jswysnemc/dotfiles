@@ -14,6 +14,11 @@ import QtQuick.Effects
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "lockscreen"
+    }
+
     // ==================== Configuration ====================
     property int graceDuration: {
         var envTimeout = Quickshell.env("LOCK_GRACE_TIMEOUT")
@@ -206,8 +211,8 @@ ShellRoot {
         onTriggered: {
             var now = new Date()
             currentTime = Qt.formatTime(now, "HH:mm")
-            var weekdays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
-            currentDate = Qt.formatDate(now, "M月d日 ") + weekdays[now.getDay()]
+            var weekdays = [i18n.trLiteral("星期日"), i18n.trLiteral("星期一"), i18n.trLiteral("星期二"), i18n.trLiteral("星期三"), i18n.trLiteral("星期四"), i18n.trLiteral("星期五"), i18n.trLiteral("星期六")]
+            currentDate = Qt.formatDate(now, i18n.trLiteral("M月d日 ")) + weekdays[now.getDay()]
         }
     }
 
@@ -477,12 +482,12 @@ ShellRoot {
     }
 
     function getWeatherDesc(code) {
-        if (code === 0) return "晴朗"
-        if (code <= 3) return "多云"
-        if (code <= 48) return "有雾"
-        if (code <= 67) return "小雨"
-        if (code <= 77) return "小雪"
-        return "雷暴"
+        if (code === 0) return i18n.trLiteral("晴朗")
+        if (code <= 3) return i18n.trLiteral("多云")
+        if (code <= 48) return i18n.trLiteral("有雾")
+        if (code <= 67) return i18n.trLiteral("小雨")
+        if (code <= 77) return i18n.trLiteral("小雪")
+        return i18n.trLiteral("雷暴")
     }
 
     function formatTemp(t) {
@@ -539,14 +544,14 @@ ShellRoot {
                     root.weatherData = JSON.parse(text)
                     root.weatherError = ""
                 } catch (e) {
-                    if (!root.weatherData) root.weatherError = "获取失败"
+                    if (!root.weatherData) root.weatherError = i18n.trLiteral("获取失败")
                 }
             }
         }
         onExited: (code) => {
             if (code !== 0) {
                 root.weatherLoading = false
-                if (!root.weatherData) root.weatherError = "网络错误"
+                if (!root.weatherData) root.weatherError = i18n.trLiteral("网络错误")
             }
         }
         onRunningChanged: {
@@ -628,7 +633,9 @@ ShellRoot {
     }
 
     Component.onCompleted: {
-        lunarProcess.running = true
+        if (i18n.normalizedLanguage === "zh_CN") {
+            lunarProcess.running = true
+        }
         wallpaperProcess.running = true
         screenshotProcess.running = true
         weatherCacheLoader.running = true
@@ -650,7 +657,7 @@ ShellRoot {
             authInProgress = pamFace.active || passwordSubmitInProgress
             if (active) {
                 faceAuthFailed = false
-                statusMessage = "正在进行人脸识别..."
+                statusMessage = i18n.trLiteral("正在进行人脸识别...")
             }
         }
 
@@ -660,7 +667,7 @@ ShellRoot {
                 if (pamFace.responseVisible) {
                     pamFace.respond(userName)
                 } else {
-                    statusMessage = pamFace.message || "正在进行人脸识别..."
+                    statusMessage = pamFace.message || i18n.trLiteral("正在进行人脸识别...")
                 }
             } else {
                 statusMessage = pamFace.message
@@ -696,7 +703,7 @@ ShellRoot {
             console.log("pamPassword active:", active)
             authInProgress = pamFace.active || passwordSubmitInProgress
             if (active && passwordSubmitInProgress) {
-                statusMessage = "正在验证密码..."
+                statusMessage = i18n.trLiteral("正在验证密码...")
             }
         }
 
@@ -706,7 +713,7 @@ ShellRoot {
                 if (pendingPassword.length > 0) {
                     passwordSubmitInProgress = true
                     authInProgress = true
-                    statusMessage = "正在验证密码..."
+                    statusMessage = i18n.trLiteral("正在验证密码...")
                     pamPassword.respond(pendingPassword)
                     pendingPassword = ""
                     return
@@ -715,7 +722,7 @@ ShellRoot {
                     pamPassword.respond(userName)
                 } else {
                     if (!pamFace.active && !passwordSubmitInProgress) {
-                        statusMessage = pamPassword.message || "请输入密码"
+                        statusMessage = pamPassword.message || i18n.trLiteral("请输入密码")
                     }
                     authInProgress = pamFace.active || passwordSubmitInProgress
                 }
@@ -734,7 +741,7 @@ ShellRoot {
             if (result === PamResult.Success) {
                 sessionLock.locked = false
             } else {
-                errorMessage = "密码错误"
+                errorMessage = i18n.trLiteral("密码错误")
                 errorClearTimer.restart()
             }
         }
@@ -744,7 +751,7 @@ ShellRoot {
             passwordSubmitInProgress = false
             authInProgress = pamFace.active
             statusMessage = ""
-            errorMessage = "认证错误"
+            errorMessage = i18n.trLiteral("认证错误")
             errorClearTimer.restart()
         }
     }
@@ -772,7 +779,7 @@ ShellRoot {
         id: faceRetryDelayTimer
         interval: 180
         repeat: false
-        onTriggered: root.beginFaceAuth("正在重新进行人脸识别...")
+        onTriggered: root.beginFaceAuth(i18n.trLiteral("正在重新进行人脸识别..."))
     }
 
     // ==================== Transition Animation ====================
@@ -1069,7 +1076,7 @@ ShellRoot {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 120
-                        text: graceRemaining + " 秒后自动锁定"
+                        text: graceRemaining + i18n.trLiteral(" 秒后自动锁定")
                         font.pixelSize: 13
                         font.weight: Font.Normal
                         font.letterSpacing: 0.5
@@ -1082,7 +1089,7 @@ ShellRoot {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 50
-                        text: "移动鼠标或按任意键取消 | 右键立即锁定"
+                        text: i18n.trLiteral("移动鼠标或按任意键取消 | 右键立即锁定")
                         font.pixelSize: 11
                         font.weight: Font.Light
                         color: Qt.rgba(1, 1, 1, 0.2)
@@ -1262,13 +1269,13 @@ ShellRoot {
                                             spacing: 12
 
                                             Text {
-                                                text: weatherData && weatherData.current ? "体感 " + root.formatTemp(weatherData.current.apparent_temperature) : ""
+                                                text: weatherData && weatherData.current ? i18n.trLiteral("体感 ") + root.formatTemp(weatherData.current.apparent_temperature) : ""
                                                 font.pixelSize: 11
                                                 color: root.textDim
                                             }
 
                                             Text {
-                                                text: weatherData && weatherData.current ? "湿度 " + weatherData.current.relative_humidity_2m + "%" : ""
+                                                text: weatherData && weatherData.current ? i18n.trLiteral("湿度 ") + weatherData.current.relative_humidity_2m + "%" : ""
                                                 font.pixelSize: 11
                                                 color: root.textDim
                                             }
@@ -1401,7 +1408,7 @@ ShellRoot {
 
                                             Text {
                                                 width: parent.width
-                                                text: trackTitle || "未知曲目"
+                                                text: trackTitle || i18n.trLiteral("未知曲目")
                                                 font.pixelSize: 14
                                                 font.weight: Font.DemiBold
                                                 color: root.textColor
@@ -1845,7 +1852,7 @@ ShellRoot {
                                     }
 
                                     Text {
-                                        text: "重试人脸"
+                                        text: i18n.trLiteral("重试人脸")
                                         font.pixelSize: 12
                                         color: root.textColor
                                     }
@@ -1920,7 +1927,7 @@ ShellRoot {
 
                                         Text {
                                             anchors.verticalCenter: parent.verticalCenter
-                                            text: "Enter password"
+                                            text: i18n.tr("passwordPlaceholder")
                                             color: Qt.rgba(1, 1, 1, 0.35)
                                             font.pixelSize: 13
                                             font.letterSpacing: 0.5
@@ -2009,7 +2016,7 @@ ShellRoot {
                                 visible: !pamFace.active && !passwordSubmitInProgress && !pamPassword.responseRequired && passwordField.text.length === 0
 
                                 Text {
-                                    text: "点击头像进行人脸识别"
+                                    text: i18n.trLiteral("点击头像进行人脸识别")
                                     font.pixelSize: 11
                                     font.letterSpacing: 0.3
                                     color: Qt.rgba(1, 1, 1, 0.35)
@@ -2236,7 +2243,7 @@ ShellRoot {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: "Shift"
+                                        text: i18n.tr("shiftKey")
                                         color: virtualKeyboard.shiftPressed ? "#000" : root.textColor
                                         font.pixelSize: 12
                                     }
@@ -2325,7 +2332,7 @@ ShellRoot {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: "Caps"
+                                        text: i18n.tr("capsKey")
                                         color: virtualKeyboard.capsLock ? "#000" : root.textColor
                                         font.pixelSize: 12
                                     }
@@ -2349,7 +2356,7 @@ ShellRoot {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: "Space"
+                                        text: i18n.tr("spaceKey")
                                         color: root.textMuted
                                         font.pixelSize: 12
                                     }
@@ -2374,7 +2381,7 @@ ShellRoot {
                                         spacing: 6
 
                                         Text {
-                                            text: "Enter"
+                                            text: i18n.tr("enterKey")
                                             color: "#000"
                                             font.pixelSize: 12
                                             font.weight: Font.Bold
@@ -2500,7 +2507,7 @@ ShellRoot {
 
         if (faceAuthRequested || pamFace.active) return
 
-        root.beginFaceAuth("正在进行人脸识别...")
+        root.beginFaceAuth(i18n.trLiteral("正在进行人脸识别..."))
     }
 
     function startAuthWithPassword(password) {
@@ -2508,7 +2515,7 @@ ShellRoot {
         errorMessage = ""
         passwordSubmitInProgress = true
         authInProgress = true
-        statusMessage = "正在验证密码..."
+        statusMessage = i18n.trLiteral("正在验证密码...")
 
         if (pamPassword.responseRequired) {
             pamPassword.respond(password)
@@ -2531,7 +2538,7 @@ ShellRoot {
         faceAuthFailed = false
         faceAuthRequested = true
         authInProgress = true
-        statusMessage = "正在重新进行人脸识别..."
+        statusMessage = i18n.trLiteral("正在重新进行人脸识别...")
 
         if (pamFace.active) {
             pamFace.abort()
@@ -2539,7 +2546,7 @@ ShellRoot {
             return
         }
 
-        root.beginFaceAuth("正在重新进行人脸识别...")
+        root.beginFaceAuth(i18n.trLiteral("正在重新进行人脸识别..."))
     }
 
     function beginFaceAuth(message) {
@@ -2566,7 +2573,7 @@ ShellRoot {
         faceAuthRequested = false
         faceAuthFailed = true
         authInProgress = passwordSubmitInProgress
-        statusMessage = "人脸识别失败，点击重试"
+        statusMessage = i18n.trLiteral("人脸识别失败，点击重试")
         faceFailurePulseAnim.restart()
         if (abortActive && pamFace.active) {
             pamFace.abort()

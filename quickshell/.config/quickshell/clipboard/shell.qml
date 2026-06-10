@@ -11,11 +11,25 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "clipboard"
+    }
+
     // ============ Animation State ============
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
     property bool blurActive: true
+    readonly property color clipboardPanelColor: Theme.alpha(Theme.background, 0.68)
+    readonly property color clipboardControlColor: Theme.alpha(Theme.surface, 0.54)
+    readonly property color clipboardControlHoverColor: Theme.alpha(Theme.surfaceVariant, 0.62)
+    readonly property color clipboardItemColor: Theme.alpha(Theme.surface, 0.40)
+    readonly property color clipboardItemHoverColor: Theme.alpha(Theme.surface, 0.58)
+    readonly property color clipboardItemSelectedColor: Theme.alpha(Theme.primary, 0.20)
+    readonly property color clipboardBorderColor: Theme.alpha(Theme.primary, 0.22)
+    readonly property color clipboardBorderHoverColor: Theme.alpha(Theme.primary, 0.30)
+    readonly property color clipboardQuietBorderColor: Theme.alpha(Theme.textPrimary, 0.10)
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "center"
@@ -49,14 +63,14 @@ ShellRoot {
     readonly property int decodeChunkSize: parseInt(Quickshell.env("QS_CLIPBOARD_DECODE_CHUNK")) || 24
     readonly property int searchTextLimit: parseInt(Quickshell.env("QS_CLIPBOARD_SEARCH_TEXT_LIMIT")) || 20000
     readonly property var tagFilterOptions: [
-        ({ id: "text", label: "文本", icon: "\uf0f6" }),
-        ({ id: "code", label: "代码", icon: "\uf121" }),
-        ({ id: "url", label: "链接", icon: "\uf0c1" }),
-        ({ id: "image", label: "图片", icon: "\uf03e" }),
-        ({ id: "file", label: "文件", icon: "\uf15b" }),
-        ({ id: "video", label: "视频", icon: "\uf03d" }),
+        ({ id: "text", label: i18n.trLiteral("文本"), icon: "\uf0f6" }),
+        ({ id: "code", label: i18n.trLiteral("代码"), icon: "\uf121" }),
+        ({ id: "url", label: i18n.trLiteral("链接"), icon: "\uf0c1" }),
+        ({ id: "image", label: i18n.trLiteral("图片"), icon: "\uf03e" }),
+        ({ id: "file", label: i18n.trLiteral("文件"), icon: "\uf15b" }),
+        ({ id: "video", label: i18n.trLiteral("视频"), icon: "\uf03d" }),
         ({ id: "html", label: "HTML", icon: "\uf13b" }),
-        ({ id: "color", label: "颜色", icon: "#" })
+        ({ id: "color", label: i18n.trLiteral("颜色"), icon: "#" })
     ]
     readonly property var tagAliasMap: ({
         "text": "text",
@@ -1711,7 +1725,7 @@ ShellRoot {
         command: ["echo"]
         onExited: code => {
             root.saveImageRunning = false
-            root.saveImageStatus = code === 0 && targetPath ? ("已保存: " + targetPath) : "保存失败"
+            root.saveImageStatus = code === 0 && targetPath ? (i18n.trLiteral("已保存: ") + targetPath) : i18n.trLiteral("保存失败")
         }
     }
 
@@ -1772,7 +1786,7 @@ ShellRoot {
         if (!ext || !/^[a-z0-9]+$/.test(ext)) ext = "png"
         var targetName = "clipboard-" + Qt.formatDateTime(new Date(), "yyyyMMdd-hhmmss") + "-" + previewItem.id + "." + ext
         saveImageProcess.targetPath = "Pictures/Clipboard/" + targetName
-        saveImageStatus = "保存中..."
+        saveImageStatus = i18n.trLiteral("保存中...")
         saveImageRunning = true
         saveImageProcess.command = ["bash", "-c",
             'PIC_DIR="$(xdg-user-dir PICTURES 2>/dev/null || true)"; ' +
@@ -2052,6 +2066,7 @@ ShellRoot {
             screen: modelData
 
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "quickshell-clipboard"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
@@ -2111,7 +2126,7 @@ ShellRoot {
                 anchors.rightMargin: root.anchorRight ? root.marginR : 0
                 width: 650
                 height: 550
-                color: Theme.alpha(Theme.background, 0.9)
+                color: root.clipboardPanelColor
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
@@ -2138,6 +2153,14 @@ ShellRoot {
                     z: 10
                 }
 
+                // Aurora 背景
+                AuroraBackground {
+                    anchors.fill: parent
+                    intensity: 0.08
+                    orbScale: 1.35
+                    z: 0
+                }
+
                 MouseArea {
                     anchors.fill: parent
                     onClicked: function(mouse) { mouse.accepted = true }
@@ -2161,7 +2184,7 @@ ShellRoot {
                         }
 
                         Text {
-                            text: "剪贴板"
+                            text: i18n.trLiteral("剪贴板")
                             font.pixelSize: Theme.fontSizeL
                             font.bold: true
                             color: Theme.textPrimary
@@ -2170,9 +2193,9 @@ ShellRoot {
                         Item { Layout.fillWidth: true }
 
                         Text {
-                            text: root.filteredItems.length + " 条记录"
-                                + (root.parsing ? " · 解析中" : "")
-                                + (root.searchIndexing ? " · 索引 " + root.searchIndexedCount + "/" + root.pendingDecodeIds.length : "")
+                            text: root.filteredItems.length + i18n.trLiteral(" 条记录")
+                                + (root.parsing ? i18n.trLiteral(" · 解析中") : "")
+                                + (root.searchIndexing ? i18n.trLiteral(" · 索引 ") + root.searchIndexedCount + "/" + root.pendingDecodeIds.length : "")
                             font.pixelSize: Theme.fontSizeXS
                             color: Theme.textMuted
                         }
@@ -2198,7 +2221,7 @@ ShellRoot {
                         Rectangle {
                             width: 28; height: 28
                             radius: Theme.radiusM
-                            color: closeHover.hovered ? Theme.surfaceVariant : "transparent"
+                            color: closeHover.hovered ? root.clipboardControlHoverColor : "transparent"
 
                             Text {
                                 anchors.centerIn: parent
@@ -2218,8 +2241,8 @@ ShellRoot {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
                         radius: Theme.radiusL
-                        color: Theme.surface
-                        border.color: searchInput.activeFocus ? Theme.primary : Theme.outline
+                        color: root.clipboardControlColor
+                        border.color: searchInput.activeFocus ? Theme.primary : root.clipboardBorderColor
                         border.width: searchInput.activeFocus ? 2 : 1
 
                         RowLayout {
@@ -2249,7 +2272,7 @@ ShellRoot {
                                 Text {
                                     anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "搜索内容或 #标签（如 #image #代码）..."
+                                    text: i18n.trLiteral("搜索内容或 #标签（如 #image #代码）...")
                                     font.pixelSize: Theme.fontSizeM
                                     color: Theme.textMuted
                                     visible: !searchInput.text
@@ -2263,7 +2286,7 @@ ShellRoot {
                                 radius: Theme.radiusM
                                 color: root.showTagFilters
                                     ? Theme.alpha(Theme.primary, 0.14)
-                                    : (tagToggleHover.hovered ? Theme.surfaceVariant : "transparent")
+                                    : (tagToggleHover.hovered ? root.clipboardControlHoverColor : "transparent")
                                 border.color: root.showTagFilters ? Theme.primary : "transparent"
                                 border.width: root.showTagFilters ? 1 : 0
 
@@ -2309,9 +2332,9 @@ ShellRoot {
                                     height: 28
                                     width: tagChipContent.implicitWidth + Theme.spacingM * 2
                                     radius: 14
-                                    color: active ? Theme.alpha(Theme.primary, 0.14) : Theme.surface
-                                    border.color: active ? Theme.primary : Theme.outline
-                                    border.width: active ? 2 : 1
+                                    color: active ? Theme.alpha(Theme.primary, 0.16) : root.clipboardControlColor
+                                    border.color: active ? Theme.primary : root.clipboardBorderColor
+                                    border.width: 1
 
                                     Row {
                                         id: tagChipContent
@@ -2348,7 +2371,7 @@ ShellRoot {
                                 Text {
                                     id: clearTagLabel
                                     anchors.centerIn: parent
-                                    text: "清除标签"
+                                    text: i18n.trLiteral("清除标签")
                                     font.pixelSize: Theme.fontSizeXS
                                     color: Theme.error
                                 }
@@ -2358,7 +2381,7 @@ ShellRoot {
                         }
                     }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: root.clipboardBorderColor }
 
                     // List
                     Item {
@@ -2381,7 +2404,7 @@ ShellRoot {
 
                             Text {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: (root.searchText || root.activeTagFilters.length > 0) ? "没有匹配" : "剪贴板为空"
+                                text: (root.searchText || root.activeTagFilters.length > 0) ? i18n.trLiteral("没有匹配") : i18n.trLiteral("剪贴板为空")
                                 font.pixelSize: Theme.fontSizeM
                                 color: Theme.textMuted
                             }
@@ -2391,7 +2414,7 @@ ShellRoot {
                         Text {
                             visible: root.loading && root.filteredItems.length === 0
                             anchors.centerIn: parent
-                            text: root.parsing ? "解析中..." : "加载中..."
+                            text: root.parsing ? i18n.trLiteral("解析中...") : i18n.trLiteral("加载中...")
                             font.pixelSize: Theme.fontSizeM
                             color: Theme.textMuted
                         }
@@ -2460,10 +2483,12 @@ ShellRoot {
                                     height: parent.height
                                         radius: Theme.radiusM
                                         color: index === root.selectedIndex
-                                            ? Theme.alpha(Theme.primary, 0.1)
-                                            : (itemHover.hovered ? Theme.surfaceVariant : Theme.surface)
-                                        border.color: index === root.selectedIndex ? Theme.primary : Theme.outline
-                                        border.width: index === root.selectedIndex ? 2 : 1
+                                            ? root.clipboardItemSelectedColor
+                                            : (itemHover.hovered ? root.clipboardItemHoverColor : root.clipboardItemColor)
+                                        border.color: index === root.selectedIndex
+                                            ? Theme.primary
+                                            : (itemHover.hovered ? root.clipboardBorderHoverColor : root.clipboardQuietBorderColor)
+                                        border.width: 1
 
                                         Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
@@ -2538,7 +2563,7 @@ ShellRoot {
                                                 Layout.preferredWidth: 64; Layout.preferredHeight: 64
                                                 Layout.alignment: Qt.AlignVCenter
                                                 radius: Theme.radiusS
-                                                color: Theme.surfaceVariant
+                                                color: root.clipboardControlColor
                                                 clip: true
 
                                                 // Binary image (from cliphist decode)
@@ -2662,7 +2687,7 @@ ShellRoot {
                                                 Layout.alignment: Qt.AlignVCenter
                                                 radius: Theme.radiusS
                                                 color: clipItem.modelData.colorValue || "transparent"
-                                                border.color: Theme.outline; border.width: 1
+                                                border.color: root.clipboardBorderColor; border.width: 1
                                             }
 
                                             // Column 4: Content info
@@ -2690,7 +2715,7 @@ ShellRoot {
                                                         var p = clipItem.modelData.filePaths[0]
                                                         var dir = p.substring(0, p.lastIndexOf("/"))
                                                         var suffix = clipItem.modelData.filePaths.length > 1
-                                                            ? "  (+" + (clipItem.modelData.filePaths.length - 1) + " 文件)" : ""
+                                                            ? "  (+" + (clipItem.modelData.filePaths.length - 1) + i18n.trLiteral(" 文件)") : ""
                                                         return dir + suffix
                                                     }
                                                     font.pixelSize: Theme.fontSizeXS
@@ -2729,7 +2754,7 @@ ShellRoot {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "Enter 粘贴 | 右键 预览 | 方向键 导航 | #tag 过滤 | Esc 关闭"
+                        text: i18n.trLiteral("Enter 粘贴 | 右键 预览 | 方向键 导航 | #tag 过滤 | Esc 关闭")
                         font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
                     }
@@ -2755,7 +2780,7 @@ ShellRoot {
                     anchors.centerIn: parent
                     width: parent.isVisualPreview ? Math.min(parent.width - 60, 800) : Math.min(parent.width - 60, 700)
                     height: parent.isVisualPreview ? Math.min(parent.height - 60, 650) : Math.min(parent.height - 60, 550)
-                    color: Theme.alpha(Theme.background, 0.92)
+                    color: Theme.alpha(Theme.background, 0.34)
                     radius: Theme.radiusXL + 2
                     border.color: Theme.glassBorder
                     border.width: 1.5
@@ -2850,7 +2875,7 @@ ShellRoot {
                                 Text {
                                     id: openVideoLabel
                                     anchors.centerIn: parent
-                                    text: "打开视频"
+                                    text: i18n.trLiteral("打开视频")
                                     font.pixelSize: Theme.fontSizeXS
                                     font.bold: true
                                     color: Theme.primary
@@ -2865,7 +2890,7 @@ ShellRoot {
                                 Layout.maximumWidth: 220
                                 text: root.saveImageStatus
                                 font.pixelSize: Theme.fontSizeXS
-                                color: root.saveImageStatus === "保存失败" ? Theme.error : Theme.textMuted
+                                color: root.saveImageStatus === i18n.trLiteral("保存失败") ? Theme.error : Theme.textMuted
                                 elide: Text.ElideMiddle
                                 maximumLineCount: 1
                             }
@@ -2882,7 +2907,7 @@ ShellRoot {
                                 Text {
                                     id: saveImageLabel
                                     anchors.centerIn: parent
-                                    text: root.saveImageRunning ? "保存中" : "保存图片"
+                                    text: root.saveImageRunning ? i18n.trLiteral("保存中") : i18n.trLiteral("保存图片")
                                     font.pixelSize: Theme.fontSizeXS
                                     font.bold: true
                                     color: Theme.primary
@@ -3059,10 +3084,10 @@ ShellRoot {
                                                     var path = previewVideoPanel.videoPath
                                                     var lines = []
                                                     var name = meta.name || (path ? path.split("/").pop() : "")
-                                                    if (name) lines.push("文件名: " + name)
-                                                    if (meta.path || path) lines.push("路径: " + (meta.path || path))
+                                                    if (name) lines.push(i18n.trLiteral("文件名: ") + name)
+                                                    if (meta.path || path) lines.push(i18n.trLiteral("路径: ") + (meta.path || path))
 
-                                                    var parts = ["视频"]
+                                                    var parts = [i18n.trLiteral("视频")]
                                                     var duration = root.formatDuration(meta.duration)
                                                     if (duration) parts.push(duration)
                                                     if (meta.width && meta.height) parts.push(meta.width + "x" + meta.height)
@@ -3072,12 +3097,12 @@ ShellRoot {
                                                     if (meta.format_name) parts.push(meta.format_name)
                                                     var ext = path && path.lastIndexOf(".") !== -1 ? path.substring(path.lastIndexOf(".") + 1).toUpperCase() : ""
                                                     if (ext) parts.push(ext)
-                                                    lines.push("信息: " + parts.join(" | "))
+                                                    lines.push(i18n.trLiteral("信息: ") + parts.join(" | "))
 
                                                     if (meta.modified) {
-                                                        lines.push("修改时间: " + meta.modified)
+                                                        lines.push(i18n.trLiteral("修改时间: ") + meta.modified)
                                                     } else if (videoMetaProcess.running && videoMetaProcess.currentPath === path) {
-                                                        lines.push("正在读取视频信息...")
+                                                        lines.push(i18n.trLiteral("正在读取视频信息..."))
                                                     }
                                                     return lines.join("\n")
                                                 }
@@ -3115,7 +3140,7 @@ ShellRoot {
                                     Text {
                                         Layout.alignment: Qt.AlignHCenter
                                         Layout.topMargin: Theme.spacingM
-                                        text: root.previewFilePaths.length + " 个文件"
+                                        text: root.previewFilePaths.length + i18n.trLiteral(" 个文件")
                                         font.pixelSize: Theme.fontSizeL
                                         font.bold: true
                                         color: Theme.textPrimary

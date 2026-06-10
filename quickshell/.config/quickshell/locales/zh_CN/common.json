@@ -1,0 +1,14 @@
+{
+  "common": {
+    "cancel": "取消",
+    "close": "关闭",
+    "confirm": "确认",
+    "disabled": "已禁用",
+    "enabled": "已启用",
+    "loading": "加载中...",
+    "no": "否",
+    "refresh": "刷新",
+    "unknown": "未知",
+    "yes": "是"
+  }
+}

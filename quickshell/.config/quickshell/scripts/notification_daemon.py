@@ -10,9 +10,15 @@ import socket
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.lib.i18n import I18n
+
 RUNTIME_DIR = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 SOCKET_PATH = f"{RUNTIME_DIR}/qs-notifications.sock"
 STATE_FILE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "qs-notifications" / "state.json"
+I18N = I18n("notifications")
 
 
 def load_state():
@@ -83,13 +89,13 @@ def format_waybar():
 
     # Build tooltip
     if total == 0:
-        tooltip = "暂无通知"
+        tooltip = I18N.literal("暂无通知")
     else:
-        tooltip_lines = [f"通知: {total} 条"]
+        tooltip_lines = [I18N.tr("count", {"count": total})]
         if unseen > 0:
-            tooltip_lines[0] += f" ({unseen} 条未读)"
+            tooltip_lines[0] += I18N.tr("unread", {"count": unseen})
         if dnd:
-            tooltip_lines.append("勿扰模式已开启")
+            tooltip_lines.append(I18N.tr("dndEnabled"))
 
         # Show recent notifications
         tooltip_lines.append("")

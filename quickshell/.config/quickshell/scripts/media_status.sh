@@ -1,6 +1,9 @@
 #!/bin/bash
 # Waybar media status module - outputs JSON for waybar
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/lib/i18n.sh"
+
 # Safe UTF-8 truncate - won't break multi-byte characters
 utf8_truncate() {
     local str="$1"
@@ -57,7 +60,8 @@ get_status() {
 
     local icon=$'\uf04b'  # play icon
     local class="stopped"
-    local tooltip="没有正在播放的媒体"
+    local tooltip
+    tooltip="$(qs_i18n_literal "media" "没有正在播放的媒体")"
 
     if [[ -z "$status" || "$status" == "No players found" ]]; then
         printf '{"text": "%s", "alt": "stopped", "tooltip": "%s", "class": "stopped"}\n' "$icon" "$tooltip"

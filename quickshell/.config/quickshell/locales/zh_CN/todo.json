@@ -1,0 +1,17 @@
+{
+  "doneLabel": "已完成: {count}",
+  "empty": "没有待办事项\n按 Enter 添加",
+  "literals": {
+    " 已完成": " 已完成",
+    " 未完成 / ": " 未完成 / ",
+    "Esc 关闭 | Enter 添加 | 点击复选框切换状态": "Esc 关闭 | Enter 添加 | 点击复选框切换状态",
+    "待办": "待办",
+    "没有待办事项\\n按 Enter 添加": "没有待办事项\\n按 Enter 添加",
+    "添加新任务...": "添加新任务...",
+    "清除已完成": "清除已完成"
+  },
+  "pendingItems": "未完成事项:",
+  "pendingLabel": "未完成: {count}",
+  "statusText": "未{pending} 已{done}",
+  "totalLabel": "总计: {count}"
+}

@@ -11,6 +11,13 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "screenshot-toolbox"
+    }
+
+    readonly property var i18nContext: i18n
+
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
@@ -40,85 +47,85 @@ ShellRoot {
         {
             mode: "region-copy",
             icon: "SEL",
-            title: "选框复制",
+            title: i18n.trLiteral("选框复制"),
             desc: "grim + slurp -> wl-copy",
             color: Theme.primary
         },
         {
             mode: "window",
             icon: "WIN",
-            title: "窗口截图",
-            desc: "鼠标选择窗口",
+            title: i18n.trLiteral("窗口截图"),
+            desc: i18n.trLiteral("鼠标选择窗口"),
             color: Theme.secondary
         },
         {
             mode: "fullscreen",
             icon: "FULL",
-            title: "全屏截图",
-            desc: "grim 全屏保存并复制",
+            title: i18n.trLiteral("全屏截图"),
+            desc: i18n.trLiteral("grim 全屏保存并复制"),
             color: Theme.success
         },
         {
             mode: "scroll",
             icon: "LONG",
-            title: "长截图",
+            title: i18n.trLiteral("长截图"),
             desc: "wayscrollshot",
             color: Theme.tertiary
         },
         {
             mode: "measure",
             icon: "PX",
-            title: "像素测量",
-            desc: "选框后复制宽高",
+            title: i18n.trLiteral("像素测量"),
+            desc: i18n.trLiteral("选框后复制宽高"),
             color: Theme.primary
         },
         {
             mode: "ocr",
             icon: "OCR",
-            title: "OCR 识别",
-            desc: "选区识别并复制文本",
+            title: i18n.trLiteral("OCR 识别"),
+            desc: i18n.trLiteral("选区识别并复制文本"),
             color: Theme.secondary
         },
         {
             mode: "color",
             icon: "#",
-            title: "颜色选取",
-            desc: "取色并复制 HEX",
+            title: i18n.trLiteral("颜色选取"),
+            desc: i18n.trLiteral("取色并复制 HEX"),
             color: Theme.tertiary
         },
         {
             mode: "region-edit",
             icon: "EDIT",
-            title: "截图编辑",
-            desc: "选区后打开 markpix",
+            title: i18n.trLiteral("截图编辑"),
+            desc: i18n.trLiteral("选区后打开 markpix"),
             color: Theme.warning
         },
         {
             mode: "region-annotate",
             icon: "ANNO",
-            title: "选取标注",
+            title: i18n.trLiteral("选取标注"),
             desc: "mark-shot",
             color: Theme.warning
         },
         {
             mode: "fullscreen-annotate",
             icon: "FANN",
-            title: "全屏标注",
+            title: i18n.trLiteral("全屏标注"),
             desc: "mark-shot --fullscreen",
             color: Theme.secondary
         },
         {
             mode: "region-pin",
             icon: "PIN",
-            title: "选区贴图",
+            title: i18n.trLiteral("选区贴图"),
             desc: "qt-img-viewer -f",
             color: Theme.success
         },
         {
             mode: "qr-page",
             icon: "QR",
-            title: "QR 扫码",
-            desc: "选区识别二维码",
+            title: i18n.trLiteral("QR 扫码"),
+            desc: i18n.trLiteral("选区识别二维码"),
             color: Theme.primary
         }
     ]
@@ -165,8 +172,8 @@ ShellRoot {
                 mode: "fullscreen",
                 output: "",
                 icon: "ALL",
-                title: "全部屏幕",
-                desc: "按逻辑布局拼接"
+                title: i18n.trLiteral("全部屏幕"),
+                desc: i18n.trLiteral("按逻辑布局拼接")
             }
         ]
 
@@ -176,7 +183,7 @@ ShellRoot {
                 output: Quickshell.screens[i].name,
                 icon: "MON",
                 title: Quickshell.screens[i].name,
-                desc: "只截取这个显示器"
+                desc: i18n.trLiteral("只截取这个显示器")
             })
         }
 
@@ -320,532 +327,8 @@ ShellRoot {
         onFinished: Qt.quit()
     }
 
-    Variants {
-        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
-
-        PanelWindow {
-            id: panel
-            required property ShellScreen modelData
-            screen: modelData
-            color: "transparent"
-            WlrLayershell.namespace: "quickshell-screenshot-toolbox"
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-            WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive ? card : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: card
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
-
-            Shortcut { sequence: "Escape"; onActivated: root.activePage !== "main" ? root.activePage = "main" : root.closeWithAnimation() }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: root.closeWithAnimation()
-            }
-
-            Rectangle {
-                id: card
-                anchors.top: root.anchorTop ? parent.top : undefined
-                anchors.bottom: root.anchorBottom ? parent.bottom : undefined
-                anchors.left: root.anchorLeft ? parent.left : undefined
-                anchors.right: root.anchorRight ? parent.right : undefined
-                anchors.horizontalCenter: root.anchorHCenter ? parent.horizontalCenter : undefined
-                anchors.verticalCenter: root.anchorVCenter ? parent.verticalCenter : undefined
-                anchors.topMargin: root.anchorTop ? root.marginT : 0
-                anchors.bottomMargin: root.anchorBottom ? root.marginB : 0
-                anchors.leftMargin: root.anchorLeft ? root.marginL : 0
-                anchors.rightMargin: root.anchorRight ? root.marginR : 0
-                width: 420
-                height: content.implicitHeight + Theme.spacingXL * 2
-                radius: Theme.radiusXL + 4
-                color: Theme.alpha(Theme.background, 0.9)
-                border.color: Theme.glassBorder
-                border.width: 1.5
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
-                opacity: root.panelOpacity
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 16
-                }
-
-                // 玻璃内描边
-                Rectangle {
-                    anchors.fill: parent
-                    radius: parent.radius
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Theme.glassHighlight
-                    z: 10
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: function(mouse) { mouse.accepted = true }
-                }
-
-                ColumnLayout {
-                    id: content
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.margins: Theme.spacingXL
-                    spacing: Theme.spacingL
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingM
-
-                        Rectangle {
-                            visible: root.activePage !== "main"
-                            width: 30
-                            height: 30
-                            radius: Theme.radiusS
-                            color: backArea.containsMouse ? Theme.surfaceVariant : "transparent"
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "\uf060"
-                                font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: Theme.iconSizeS
-                                color: Theme.textSecondary
-                            }
-
-                            MouseArea {
-                                id: backArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.activePage = "main"
-                            }
-                        }
-
-                        Rectangle {
-                            width: 42
-                            height: 42
-                            radius: Theme.radiusM
-                            color: root.activePage === "color" && root.pickedColor ? root.pickedColor : Theme.alpha(Theme.primary, 0.16)
-                            border.color: root.activePage === "color" ? Theme.outline : "transparent"
-                            border.width: root.activePage === "color" ? 1 : 0
-
-                            Text {
-                                visible: root.activePage !== "color"
-                                anchors.centerIn: parent
-                                text: "\uf030"
-                                font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: Theme.iconSizeL
-                                color: Theme.primary
-                            }
-                        }
-
-                        ColumnLayout {
-                            spacing: 2
-
-                            Text {
-                                text: root.activePage === "color" ? "颜色详情" : (root.activePage === "screen-select" ? "选择截图屏幕" : "截图工具箱")
-                                font.pixelSize: Theme.fontSizeXL
-                                font.weight: Font.Bold
-                                color: Theme.textPrimary
-                            }
-
-                            Text {
-                                text: root.activePage === "color" ? "点击任意写法复制" : (root.activePage === "screen-select" ? "单屏截图或多屏逻辑拼接" : "选框、窗口、长截图、贴图和编辑")
-                                font.pixelSize: Theme.fontSizeS
-                                color: Theme.textMuted
-                            }
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Rectangle {
-                            width: 32
-                            height: 32
-                            radius: Theme.radiusM
-                            Layout.alignment: Qt.AlignVCenter
-                            color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
-                            scale: closeMa.containsMouse ? 1.1 : 1.0
-
-                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                            Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "\uf00d"
-                                font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: Theme.iconSizeM
-                                color: Theme.textSecondary
-                            }
-
-                            MouseArea {
-                                id: closeMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.closeWithAnimation()
-                            }
-                        }
-                    }
-
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.55 }
-
-                    GridLayout {
-                        visible: root.activePage === "main"
-                        Layout.fillWidth: true
-                        columns: 2
-                        rowSpacing: Theme.spacingM
-                        columnSpacing: Theme.spacingM
-
-                        Repeater {
-                            model: root.actions
-
-                            Rectangle {
-                                id: actionTile
-                                required property var modelData
-                                required property int index
-
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 82
-                                radius: Theme.radiusL
-                                color: tileArea.containsMouse ? Theme.alpha(modelData.color, 0.14) : Theme.surface
-                                border.color: tileArea.containsMouse ? modelData.color : Theme.outline
-                                border.width: 1
-                                scale: tileArea.pressed ? 0.98 : 1.0
-
-                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
-                                Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.spacingM
-                                    spacing: Theme.spacingM
-
-                                    Rectangle {
-                                        width: 42
-                                        height: 42
-                                        radius: Theme.radiusM
-                                        color: Theme.alpha(actionTile.modelData.color, 0.14)
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: actionTile.modelData.icon
-                                            font.family: "monospace"
-                                            font.pixelSize: actionTile.modelData.icon.length > 3 ? Theme.fontSizeS : Theme.fontSizeL
-                                            font.weight: Font.Bold
-                                            color: actionTile.modelData.color
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 3
-
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: actionTile.modelData.title
-                                            font.pixelSize: Theme.fontSizeM
-                                            font.weight: Font.DemiBold
-                                            color: Theme.textPrimary
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: actionTile.modelData.desc
-                                            font.pixelSize: Theme.fontSizeXS
-                                            color: Theme.textMuted
-                                            elide: Text.ElideRight
-                                        }
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: tileArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.runAction(actionTile.modelData.mode)
-                                }
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        visible: root.activePage === "main"
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingM
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 36
-                            radius: Theme.radiusM
-                            color: Theme.surfaceVariant
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "后续功能可继续追加到 actions 和脚本 mode"
-                                font.pixelSize: Theme.fontSizeXS
-                                color: Theme.textMuted
-                            }
-                        }
-
-                        Rectangle {
-                            width: 104
-                            height: 36
-                            radius: Theme.radiusM
-                            color: dirArea.containsMouse ? Theme.alpha(Theme.primary, 0.14) : Theme.surface
-                            border.color: dirArea.containsMouse ? Theme.primary : Theme.outline
-                            border.width: 1
-
-                            RowLayout {
-                                anchors.centerIn: parent
-                                spacing: Theme.spacingS
-
-                                Text {
-                                    text: "\uf07b"
-                                    font.family: "Symbols Nerd Font Mono"
-                                    font.pixelSize: Theme.iconSizeS
-                                    color: Theme.primary
-                                }
-
-                                Text {
-                                    text: "截图目录"
-                                    font.pixelSize: Theme.fontSizeS
-                                    color: Theme.textSecondary
-                                }
-                            }
-
-                            MouseArea {
-                                id: dirArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.runAction("open-dir")
-                            }
-                        }
-                    }
-
-                    ColumnLayout {
-                        visible: root.activePage === "screen-select"
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingM
-
-                        Rectangle {
-                            visible: root.previewLoading
-                            Layout.fillWidth: true
-                            height: 38
-                            radius: Theme.radiusM
-                            color: Theme.surfaceVariant
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "正在生成屏幕预览..."
-                                font.pixelSize: Theme.fontSizeS
-                                color: Theme.textMuted
-                            }
-                        }
-
-                        Repeater {
-                            model: root.screenOptions()
-
-                            Rectangle {
-                                id: screenRow
-                                required property var modelData
-                                required property int index
-
-                                Layout.fillWidth: true
-                                height: 94
-                                radius: Theme.radiusL
-                                color: screenArea.containsMouse ? Theme.alpha(Theme.primary, 0.12) : Theme.surface
-                                border.color: screenArea.containsMouse ? Theme.primary : Theme.outline
-                                border.width: 1
-                                scale: screenArea.pressed ? 0.98 : 1.0
-
-                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
-                                Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.spacingM
-                                    spacing: Theme.spacingM
-
-                                    Rectangle {
-                                        width: 112
-                                        height: 64
-                                        radius: Theme.radiusM
-                                        color: Theme.alpha(Theme.primary, 0.14)
-                                        clip: true
-
-                                        Image {
-                                            anchors.fill: parent
-                                            source: screenRow.modelData.preview ? "file://" + screenRow.modelData.preview : ""
-                                            fillMode: Image.PreserveAspectCrop
-                                            asynchronous: true
-                                            cache: false
-                                            visible: source !== ""
-                                        }
-
-                                        Text {
-                                            visible: !screenRow.modelData.preview
-                                            anchors.centerIn: parent
-                                            text: screenRow.modelData.icon
-                                            font.family: "monospace"
-                                            font.pixelSize: Theme.fontSizeS
-                                            font.weight: Font.Bold
-                                            color: Theme.primary
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 2
-
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: screenRow.modelData.title
-                                            font.pixelSize: Theme.fontSizeM
-                                            font.weight: Font.DemiBold
-                                            color: Theme.textPrimary
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: screenRow.modelData.desc
-                                            font.pixelSize: Theme.fontSizeXS
-                                            color: Theme.textMuted
-                                            elide: Text.ElideRight
-                                        }
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: screenArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (screenRow.modelData.mode === "fullscreen") {
-                                            root.runAction("fullscreen")
-                                        } else {
-                                            root.runActionWithArg(screenRow.modelData.mode, screenRow.modelData.output)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    ColumnLayout {
-                        visible: root.activePage === "color"
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingM
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 96
-                            radius: Theme.radiusL
-                            color: root.pickedColor || Theme.surface
-                            border.color: Theme.outline
-                            border.width: 1
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: root.pickedColor
-                                font.pixelSize: Theme.fontSizeXL
-                                font.weight: Font.Bold
-                                color: {
-                                    var c = root.colorChannels(root.pickedColor)
-                                    return ((c.r * 299 + c.g * 587 + c.b * 114) / 1000) > 150 ? "#111111" : "#ffffff"
-                                }
-                            }
-                        }
-
-                        Repeater {
-                            model: root.colorFormats()
-
-                            Rectangle {
-                                id: formatRow
-                                required property var modelData
-                                required property int index
-
-                                Layout.fillWidth: true
-                                height: 42
-                                radius: Theme.radiusM
-                                color: formatArea.containsMouse ? Theme.alpha(Theme.primary, 0.12) : Theme.surface
-                                border.color: formatArea.containsMouse ? Theme.primary : Theme.outline
-                                border.width: 1
-
-                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: Theme.spacingM
-                                    anchors.rightMargin: Theme.spacingM
-                                    spacing: Theme.spacingM
-
-                                    Text {
-                                        text: formatRow.modelData.label
-                                        font.pixelSize: Theme.fontSizeS
-                                        font.weight: Font.DemiBold
-                                        color: Theme.textSecondary
-                                        Layout.preferredWidth: 76
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: formatRow.modelData.value
-                                        font.pixelSize: Theme.fontSizeS
-                                        font.family: "monospace"
-                                        color: Theme.textPrimary
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        text: "\uf0c5"
-                                        font.family: "Symbols Nerd Font Mono"
-                                        font.pixelSize: Theme.iconSizeS
-                                        color: formatArea.containsMouse ? Theme.primary : Theme.textMuted
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: formatArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.copyValue(formatRow.modelData.value)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // ============ UI ============
+    ScreenshotToolboxView {
+        controller: root
     }
 }

@@ -1,0 +1,26 @@
+{
+  "literals": {
+    " 个": " found",
+    "Enter 启动 | Tab 切换分类 | F11 全屏 | 方向键 导航 | Esc 关闭": "Enter Launch | Tab Change Category | F11 Fullscreen | Arrow Keys Navigate | Esc Close",
+    "全部": "All",
+    "分类: ": "Category: ",
+    "办公": "Office",
+    "命令: ": "Command: ",
+    "图形": "Graphics",
+    "图标: ": "Icon: ",
+    "媒体": "Media",
+    "工具": "Utilities",
+    "开发": "Development",
+    "描述: ": "Description: ",
+    "搜索应用...": "Search applications...",
+    "暂无更多详情": "No additional details",
+    "未知": "Unknown",
+    "未知应用": "Unknown Application",
+    "来源: Wine / Windows 应用": "Source: Wine / Windows Application",
+    "桌面文件: ": "Desktop File: ",
+    "游戏": "Games",
+    "系统": "System",
+    "终端: 是": "Terminal: Yes",
+    "网络": "Internet"
+  }
+}

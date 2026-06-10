@@ -1,0 +1,16 @@
+{
+  "allShortcuts": "全部快捷键",
+  "clipboard": "剪贴板",
+  "configRepo": "  配置仓库",
+  "description": "滚动平铺式 Wayland 混成器，配合自定义 Shell 组件",
+  "docsNiri": "  niri 文档",
+  "docsQuickshell": "  QuickShell",
+  "hint": "Esc / Enter / 空格 / 点击任意位置  继续",
+  "launcher": "启动器",
+  "overview": "概览",
+  "screenshot": "截屏",
+  "startButton": "开始使用  ",
+  "subtitle": "niri · QuickShell",
+  "terminal": "终端",
+  "title": "欢迎使用"
+}

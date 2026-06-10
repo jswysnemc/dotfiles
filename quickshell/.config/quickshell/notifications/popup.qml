@@ -194,7 +194,7 @@ ShellRoot {
             Rectangle {
                 id: contentContainer
                 anchors.fill: parent
-                color: Theme.alpha(Theme.surface, 0.92)
+                color: Theme.alpha(Theme.surface, 0.42)
                 radius: Theme.radiusL
                 border.color: Theme.glassBorder
                 border.width: 1.5

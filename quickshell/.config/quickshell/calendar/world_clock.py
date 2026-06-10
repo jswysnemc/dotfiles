@@ -7,10 +7,17 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from datetime import datetime, tzinfo
+from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.lib.i18n import I18n
+
+I18N = I18n("calendar")
 
 DEFAULT_ZONES = [
     ("Asia/Shanghai", "上海", "中国"),
@@ -63,16 +70,33 @@ def format_offset(dt: datetime) -> str:
 
 
 def build_zone(now: datetime, zone_name: str, city: str, country: str, local_date, is_local: bool = False) -> dict:
+    """
+    生成单个时区的本地化显示数据。
+
+    :param now: 本地时区当前时间
+    :param zone_name: IANA时区名称
+    :param city: 城市中文名称
+    :param country: 国家或地区中文名称
+    :param local_date: 本地日期
+    :param is_local: 是否为本地时区
+    :return: 世界时钟卡片数据
+    """
     zone = safe_zoneinfo(zone_name)
     current = now.astimezone(zone)
     seconds = current.hour * 3600 + current.minute * 60 + current.second
+    weekday = I18N.literal(WEEKDAYS[current.weekday()])
+    date_text = (
+        f"{current.strftime('%b')} {current.day} {weekday}"
+        if I18N.language == "en_US"
+        else f"{current.month}月{current.day}日 {weekday}"
+    )
 
     return {
         "zone": zone_name,
-        "city": city,
-        "country": country,
+        "city": I18N.literal(city),
+        "country": I18N.literal(country),
         "time": current.strftime("%H:%M"),
-        "dateText": f"{current.month}月{current.day}日 {WEEKDAYS[current.weekday()]}",
+        "dateText": date_text,
         "offset": format_offset(current),
         "dayDelta": (current.date() - local_date).days,
         "dayProgress": round(seconds / 86400, 4),
@@ -82,6 +106,11 @@ def build_zone(now: datetime, zone_name: str, city: str, country: str, local_dat
 
 
 def main() -> None:
+    """
+    输出本地时区和默认城市的世界时钟数据。
+
+    :return: 无
+    """
     local_zone_name = local_timezone_name()
     local_zone = safe_zoneinfo(local_zone_name)
     now = datetime.now(local_zone)

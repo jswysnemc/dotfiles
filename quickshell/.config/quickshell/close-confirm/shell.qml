@@ -11,6 +11,11 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "close-confirm"
+    }
+
     // ============ Animation State ============
     property real panelOpacity: 0
     property real panelScale: 0.95
@@ -18,7 +23,7 @@ ShellRoot {
     property bool blurActive: true
     property var targetWindow: null
     property bool hasTargetWindow: targetWindow !== null && targetWindow !== undefined
-    readonly property string targetTitle: hasTargetWindow && targetWindow.title ? targetWindow.title : "未知标题"
+    readonly property string targetTitle: hasTargetWindow && targetWindow.title ? targetWindow.title : i18n.tr("unknownTitle")
     readonly property string targetAppId: hasTargetWindow && targetWindow.app_id ? targetWindow.app_id : "unknown"
     readonly property string targetWorkspace: hasTargetWindow && targetWindow.workspace_id !== undefined ? String(targetWindow.workspace_id) : "-"
     readonly property string targetPid: hasTargetWindow && targetWindow.pid !== undefined ? String(targetWindow.pid) : "-"
@@ -74,9 +79,12 @@ ShellRoot {
     }
 
     Component.onCompleted: {
+        // 【Quickshell/CloseConfirm】【初始化】准备加载窗口配置
+        // 1. 检查环境变量或从当前聚焦的窗口中加载
         if (!loadTargetWindowFromEnv()) {
             loadFocusedWindow.running = true
         }
+        // 2. 执行淡入淡出动画
         enterAnimation.start()
     }
 
@@ -178,7 +186,7 @@ ShellRoot {
                 anchors.centerIn: parent
                 width: 380
                 height: contentCol.implicitHeight + Theme.spacingXL * 2
-                color: Theme.alpha(Theme.background, 0.9)
+                color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
@@ -228,7 +236,7 @@ ShellRoot {
                     // Title
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "关闭窗口"
+                        text: i18n.tr("title")
                         font.pixelSize: Theme.fontSizeL
                         font.bold: true
                         color: Theme.textPrimary
@@ -237,7 +245,7 @@ ShellRoot {
                     // Message
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: root.hasTargetWindow ? "确定要关闭以下窗口吗？" : "确定要关闭当前窗口吗？"
+                        text: root.hasTargetWindow ? i18n.tr("messageWithTarget") : i18n.tr("messageCurrent")
                         font.pixelSize: Theme.fontSizeM
                         color: Theme.textSecondary
                     }
@@ -281,7 +289,7 @@ ShellRoot {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: root.hasTargetWindow ? root.targetTitle : "未获取到窗口信息"
+                                        text: root.hasTargetWindow ? root.targetTitle : i18n.tr("noWindowInfo")
                                         font.pixelSize: Theme.fontSizeM
                                         font.bold: true
                                         color: Theme.textPrimary
@@ -290,7 +298,7 @@ ShellRoot {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: root.hasTargetWindow ? root.targetAppId : "将按 niri 当前聚焦窗口执行"
+                                        text: root.hasTargetWindow ? root.targetAppId : i18n.tr("runAsFocused")
                                         font.pixelSize: Theme.fontSizeS
                                         font.family: "monospace"
                                         color: Theme.textMuted
@@ -304,7 +312,7 @@ ShellRoot {
                                 spacing: Theme.spacingS
 
                                 Text {
-                                    text: "工作区 " + root.targetWorkspace
+                                    text: i18n.tr("workspace", { workspace: root.targetWorkspace })
                                     font.pixelSize: Theme.fontSizeS
                                     color: Theme.textSecondary
                                 }
@@ -340,7 +348,7 @@ ShellRoot {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: "取消 (N)"
+                                text: i18n.tr("cancel")
                                 font.pixelSize: Theme.fontSizeM
                                 color: Theme.textSecondary
                             }
@@ -357,7 +365,7 @@ ShellRoot {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: "关闭 (Y)"
+                                text: i18n.tr("confirm")
                                 font.pixelSize: Theme.fontSizeM
                                 font.bold: true
                                 color: Theme.surface
@@ -371,7 +379,7 @@ ShellRoot {
                     // Hint
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "Y 确认 | N/Esc 取消"
+                        text: i18n.tr("hint")
                         font.pixelSize: Theme.fontSizeS
                         color: Theme.textMuted
                     }

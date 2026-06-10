@@ -12,6 +12,11 @@ import urllib.request
 from pathlib import Path
 from datetime import datetime
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.lib.i18n import I18n
+
 # 路径配置 - 与 QuickShell 天气组件共享
 XDG_DATA_HOME = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
 XDG_CACHE_HOME = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
@@ -23,6 +28,7 @@ CACHE_MAX_AGE = 30 * 60 * 1000  # 30 minutes in ms
 DEFAULT_LAT = 39.9042
 DEFAULT_LON = 116.4074
 DEFAULT_LOCATION = "Beijing"
+I18N = I18n("weather")
 
 def load_config():
     """加载配置"""
@@ -98,23 +104,28 @@ def get_weather_icon(code):
         return "󰙾"  # 雷暴
 
 def get_weather_desc(code):
-    """根据天气代码返回中文描述"""
+    """
+    根据天气代码返回本地化描述。
+
+    :param code: Open-Meteo天气代码
+    :return: 本地化天气描述
+    """
     if code == 0:
-        return "晴朗"
+        return I18N.literal("晴朗")
     elif code <= 3:
-        return "多云"
+        return I18N.literal("多云")
     elif code <= 48:
-        return "有雾"
+        return I18N.literal("有雾")
     elif code <= 57:
-        return "毛毛雨"
+        return I18N.literal("毛毛雨")
     elif code <= 67:
-        return "小雨"
+        return I18N.literal("小雨")
     elif code <= 77:
-        return "小雪"
+        return I18N.literal("小雪")
     elif code <= 86:
-        return "阵雪"
+        return I18N.literal("阵雪")
     else:
-        return "雷暴"
+        return I18N.literal("雷暴")
 
 def format_temp(temp, use_celsius=True):
     """格式化温度"""
@@ -123,21 +134,27 @@ def format_temp(temp, use_celsius=True):
     return f"{round(temp)}"
 
 def get_day_name(date_str, idx):
-    """获取星期名称"""
+    """
+    获取预报日期的本地化名称。
+
+    :param date_str: YYYY-MM-DD日期
+    :param idx: 预报序号
+    :return: 今天、明天或星期名称
+    """
     if idx == 0:
-        return "今天"
+        return I18N.literal("今天")
     if idx == 1:
-        return "明天"
+        return I18N.literal("明天")
     day = datetime.strptime(date_str, "%Y-%m-%d").weekday()
     names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-    return names[day]
+    return I18N.literal(names[day])
 
 def format_waybar(data, config):
     """格式化为 waybar JSON 输出"""
     if not data or "current" not in data:
         return json.dumps({
             "text": " --",
-            "tooltip": "无法获取天气数据",
+            "tooltip": I18N.tr("unavailable"),
             "class": "error"
         }, ensure_ascii=False)
 
@@ -162,26 +179,26 @@ def format_waybar(data, config):
     tooltip_lines = [
         f"{icon} {desc}  {location}",
         f"",
-        f"{temp_str}°{unit}  体感 {feels_str}°{unit}",
-        f"湿度 {humidity}%  风速 {round(wind)} km/h"
+        f"{temp_str}°{unit}  " + I18N.tr("feelsLike", {"temperature": feels_str, "unit": unit}),
+        I18N.tr("humidityWind", {"humidity": humidity, "wind": round(wind)})
     ]
 
     # 今日最高/最低
     if daily.get("temperature_2m_max") and daily.get("temperature_2m_min"):
         max_t = format_temp(daily["temperature_2m_max"][0], use_celsius)
         min_t = format_temp(daily["temperature_2m_min"][0], use_celsius)
-        tooltip_lines.append(f"最高 {max_t}° / 最低 {min_t}°")
+        tooltip_lines.append(I18N.tr("highLow", {"high": max_t, "low": min_t}))
 
     # 日出日落
     if daily.get("sunrise") and daily.get("sunset"):
         sunrise = daily["sunrise"][0].split("T")[1] if "T" in daily["sunrise"][0] else daily["sunrise"][0]
         sunset = daily["sunset"][0].split("T")[1] if "T" in daily["sunset"][0] else daily["sunset"][0]
-        tooltip_lines.append(f"日出 {sunrise}  日落 {sunset}")
+        tooltip_lines.append(I18N.tr("sunriseSunset", {"sunrise": sunrise, "sunset": sunset}))
 
     # 未来预报
     if daily.get("time"):
         tooltip_lines.append("")
-        tooltip_lines.append("7 天预报")
+        tooltip_lines.append(I18N.tr("forecastTitle"))
         for i in range(min(7, len(daily["time"]))):
             day_name = get_day_name(daily["time"][i], i)
             day_icon = get_weather_icon(daily["weather_code"][i])
@@ -233,7 +250,7 @@ def main():
     if waybar_mode:
         print(format_waybar(data, config))
     else:
-        print(json.dumps(data or {"error": "无法获取天气"}, ensure_ascii=False))
+        print(json.dumps(data or {"error": I18N.tr("error")}, ensure_ascii=False))
 
 if __name__ == "__main__":
     main()

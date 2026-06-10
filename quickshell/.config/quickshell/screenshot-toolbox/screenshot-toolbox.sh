@@ -3,6 +3,14 @@ set -euo pipefail
 
 mode="${1:-}"
 log_file="${XDG_RUNTIME_DIR:-/tmp}/qs-screenshot-toolbox.log"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+source "$script_dir/../scripts/lib/i18n.sh"
+
+# 读取截图工具功能语言包中的字面量
+i18n() {
+    qs_i18n_literal "screenshot-toolbox" "$1"
+}
 
 has() {
     command -v "$1" >/dev/null 2>&1
@@ -14,13 +22,13 @@ log() {
 
 notify() {
     if has notify-send; then
-        notify-send "截图工具" "$1"
+        notify-send "$(i18n "截图工具")" "$1"
     fi
 }
 
 require_cmd() {
     if ! has "$1"; then
-        notify "未找到 $1"
+        notify "$(i18n "未找到") $1"
         exit 1
     fi
 }
@@ -181,16 +189,20 @@ preview_json() {
     fi
 
     printf '['
-    printf '{"mode":"fullscreen","output":"","title":"全部屏幕","desc":"按逻辑布局拼接","preview":%s}' "$(json_string "$all_path")"
+    printf '{"mode":"fullscreen","output":"","title":%s,"desc":%s,"preview":%s}' \
+        "$(json_string "$(i18n "全部屏幕")")" \
+        "$(json_string "$(i18n "按逻辑布局拼接")")" \
+        "$(json_string "$all_path")"
 
     while IFS= read -r name; do
         [[ -z "$name" ]] && continue
         local safe path
         safe="$(printf '%s' "$name" | tr -c 'A-Za-z0-9_.-' '_')"
         path="$dir/$safe.png"
-        printf ',{"mode":"fullscreen-output","output":%s,"title":%s,"desc":"只截取这个显示器","preview":%s}' \
+        printf ',{"mode":"fullscreen-output","output":%s,"title":%s,"desc":%s,"preview":%s}' \
             "$(json_string "$name")" \
             "$(json_string "$name")" \
+            "$(json_string "$(i18n "只截取这个显示器")")" \
             "$(json_string "$path")"
     done < <(printf '%s\n' "$outputs_json" | jq -r '.[].name')
 
@@ -213,7 +225,7 @@ pick_window_id() {
 
     id="$(printf '%s\n' "$picked" | jq -r '.id // empty')"
     if [[ -z "$id" ]]; then
-        notify "未选择窗口"
+        notify "$(i18n "未选择窗口")"
         exit 1
     fi
 
@@ -257,7 +269,7 @@ measure_pixels() {
     if has wl-copy; then
         printf '%s\n' "$result" | wl-copy
     fi
-    notify "像素测量: $result"
+    notify "$(i18n "像素测量: ")$result"
 }
 
 ocr_lang() {
@@ -329,7 +341,7 @@ ocr_region() {
     local geometry raw_path processed_path text lang psm dpi rc
 
     if ! has tesseract; then
-        notify "未找到 tesseract"
+        notify "$(i18n "未找到") tesseract"
         exit 1
     fi
 
@@ -358,20 +370,20 @@ ocr_region() {
 
     if [[ $rc -ne 0 ]]; then
         log "ocr_region: tesseract failed rc=$rc lang=$lang"
-        notify "OCR 识别失败"
+        notify "$(i18n "OCR 识别失败")"
         exit 1
     fi
 
     text="$(printf '%s\n' "$text" | normalize_ocr_text | sed '/^[[:space:]]*$/d')"
     if [[ -z "$text" ]]; then
-        notify "OCR 未识别到文本"
+        notify "$(i18n "OCR 未识别到文本")"
         exit 1
     fi
 
     if has wl-copy; then
         printf '%s\n' "$text" | wl-copy
     fi
-    notify "OCR 文本已复制"
+    notify "$(i18n "OCR 文本已复制")"
 }
 
 pick_color() {
@@ -379,7 +391,7 @@ pick_color() {
 
     if ! has hyprpicker; then
         log "pick_color: hyprpicker not found"
-        notify "未找到 hyprpicker"
+        notify "$(i18n "未找到") hyprpicker"
         exit 1
     fi
 
@@ -389,7 +401,7 @@ pick_color() {
     set -e
     color="$(printf '%s\n' "$output" | extract_color)"
     if [[ $rc -eq 0 && -n "$color" ]]; then
-        notify "颜色已复制: $color"
+        notify "$(i18n "颜色已复制: ")$color"
         return 0
     fi
     log "pick_color: hyprpicker failed rc=$rc output=${output//$'\n'/ }"
@@ -401,7 +413,7 @@ pick_color_raw() {
 
     if ! has hyprpicker; then
         log "pick_color_raw: hyprpicker not found"
-        notify "未找到 hyprpicker"
+        notify "$(i18n "未找到") hyprpicker"
         exit 1
     fi
 
@@ -459,7 +471,7 @@ decode_qr_image() {
     local processed_path output rc
 
     if ! has zbarimg; then
-        notify "未找到 zbarimg"
+        notify "$(i18n "未找到") zbarimg"
         exit 1
     fi
 
@@ -488,7 +500,7 @@ decode_qr_image() {
     fi
 
     log "decode_qr_image: failed rc=$rc path=$path"
-    notify "未识别到二维码"
+    notify "$(i18n "未识别到二维码")"
     exit 1
 }
 
@@ -526,22 +538,22 @@ case "$mode" in
     region-copy)
         geometry="$(pick_geometry off)"
         grim -g "$geometry" - | wl-copy
-        notify "选区截图已复制到剪贴板"
+        notify "$(i18n "选区截图已复制到剪贴板")"
         ;;
     fullscreen)
         path="$(capture_fullscreen_file)"
         copy_png_file "$path"
-        notify "全屏截图已保存并复制: $path"
+        notify "$(i18n "全屏截图已保存并复制: ")$path"
         ;;
     fullscreen-output)
         output="${2:-}"
         if [[ -z "$output" ]]; then
-            notify "未指定显示器"
+            notify "$(i18n "未指定显示器")"
             exit 1
         fi
         path="$(capture_fullscreen_file "$output")"
         copy_png_file "$path"
-        notify "显示器截图已保存并复制: $output -> $path"
+        notify "$(i18n "显示器截图已保存并复制: ")$output -> $path"
         ;;
     preview-json)
         preview_json
@@ -551,7 +563,7 @@ case "$mode" in
         if has wl-copy; then
             echo "file://$path" | wl-copy --type text/uri-list
         fi
-        notify "截图已保存: $path"
+        notify "$(i18n "截图已保存: ")$path"
         ;;
     region-edit)
         path="$(capture_region_file on)"
@@ -590,7 +602,7 @@ case "$mode" in
     pin-latest)
         path="$(latest_image)"
         if [[ -z "$path" ]]; then
-            notify "没有找到可贴图的图片"
+            notify "$(i18n "没有找到可贴图的图片")"
             exit 1
         fi
         qt-img-viewer -f "$path"

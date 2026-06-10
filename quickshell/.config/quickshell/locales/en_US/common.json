@@ -1,0 +1,14 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "loading": "Loading...",
+    "no": "No",
+    "refresh": "Refresh",
+    "unknown": "Unknown",
+    "yes": "Yes"
+  }
+}

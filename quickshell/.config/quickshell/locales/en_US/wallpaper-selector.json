@@ -1,0 +1,22 @@
+{
+  "literals": {
+    " 张壁纸": " wallpapers",
+    "QuickShell 主题": "QuickShell Theme",
+    "Waybar 主题": "Waybar Theme",
+    "主题设置": "Theme Settings",
+    "刷新 QuickShell 和 Waybar 的主题配色": "Refresh the QuickShell and Waybar color schemes",
+    "加载中...": "Loading...",
+    "壁纸": "Wallpapers",
+    "壁纸与主题": "Wallpaper and Theme",
+    "控制 QuickShell 组件的颜色模式": "Controls the color mode of QuickShell components",
+    "控制状态栏的颜色模式": "Controls the color mode of the status bar",
+    "方向键选择 | Enter 应用 | Tab 切换 | Esc 关闭": "Arrow Keys Select | Enter Apply | Tab Switch | Esc Close",
+    "模式在下次设置壁纸时生效": "The mode takes effect the next time a wallpaper is set",
+    "浅色": "Light",
+    "深色": "Dark",
+    "点击下方按钮可立刻刷新所有组件主题": "Use the button below to refresh all component themes now",
+    "点击切换模式 | Tab 切换 | Esc 关闭": "Click to Change Mode | Tab Switch | Esc Close",
+    "立即应用主题": "Apply Theme Now",
+    "自动": "Auto"
+  }
+}

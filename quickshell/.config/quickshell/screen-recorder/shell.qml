@@ -11,6 +11,11 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "screen-recorder"
+    }
+
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-left"
     property int marginT: parseInt(Quickshell.env("QS_MARGIN_T")) || 8
@@ -223,7 +228,7 @@ ShellRoot {
             Rectangle {
                 id: panelContent
                 anchors.fill: parent
-                color: Theme.alpha(Theme.background, 0.88)
+                color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL
                 border.color: Theme.glassBorder
                 border.width: 1.5
@@ -275,7 +280,7 @@ ShellRoot {
                             }
                         }
                         Text {
-                            text: root.isRecording ? "录制中" : "屏幕录制"
+                            text: root.isRecording ? i18n.trLiteral("录制中") : i18n.trLiteral("屏幕录制")
                             font.pixelSize: Theme.fontSizeL
                             font.weight: Font.Bold
                             color: root.isRecording ? Theme.error : Theme.textPrimary
@@ -318,7 +323,7 @@ ShellRoot {
                                 anchors.centerIn: parent
                                 spacing: 4
                                 Text { text: "\uf108"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeL; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: "全屏"; font.pixelSize: Theme.fontSizeS; color: Theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: i18n.trLiteral("全屏"); font.pixelSize: Theme.fontSizeS; color: Theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
                             }
                             MouseArea { id: fullMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.startFullscreen() }
                         }
@@ -336,7 +341,7 @@ ShellRoot {
                                 anchors.centerIn: parent
                                 spacing: 4
                                 Text { text: "\uf247"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeL; color: Theme.primary; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: "区域"; font.pixelSize: Theme.fontSizeS; color: Theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: i18n.trLiteral("区域"); font.pixelSize: Theme.fontSizeS; color: Theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
                             }
                             MouseArea { id: regionMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.startRegion() }
                         }
@@ -372,7 +377,7 @@ ShellRoot {
                                 anchors.centerIn: parent
                                 spacing: 4
                                 Text { text: "\uf07b"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeL; color: Theme.textSecondary; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: "文件夹"; font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: i18n.trLiteral("文件夹"); font.pixelSize: Theme.fontSizeXS; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
                             }
                             MouseArea { id: folderMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openOutputDir() }
                         }
@@ -394,7 +399,7 @@ ShellRoot {
                             RowLayout {
                                 anchors.centerIn: parent; spacing: Theme.spacingS
                                 Text { text: "\uf04d"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeM; color: Theme.error }
-                                Text { text: "停止录制"; font.pixelSize: Theme.fontSizeM; font.weight: Font.DemiBold; color: Theme.error }
+                                Text { text: i18n.trLiteral("停止录制"); font.pixelSize: Theme.fontSizeM; font.weight: Font.DemiBold; color: Theme.error }
                             }
                             MouseArea { id: stopMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.stopRecording() }
                         }
@@ -406,7 +411,7 @@ ShellRoot {
 
                             Text { anchors.centerIn: parent; text: "\uf071"; font.family: "Symbols Nerd Font Mono"; font.pixelSize: Theme.iconSizeM; color: forceMa.containsMouse ? Theme.warning : Theme.textMuted }
                             MouseArea { id: forceMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.forceStop() }
-                            ToolTip { visible: forceMa.containsMouse; text: "强制停止"; delay: 300 }
+                            ToolTip { visible: forceMa.containsMouse; text: i18n.trLiteral("强制停止"); delay: 300 }
                         }
                     }
 
@@ -423,7 +428,7 @@ ShellRoot {
                             Layout.fillWidth: true
                             spacing: Theme.spacingS
 
-                            Text { text: "编码器"; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
+                            Text { text: i18n.trLiteral("编码器"); font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
 
                             Repeater {
                                 model: [
@@ -476,7 +481,7 @@ ShellRoot {
                             Layout.fillWidth: true
                             spacing: Theme.spacingS
 
-                            Text { text: "帧率"; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
+                            Text { text: i18n.trLiteral("帧率"); font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
 
                             Repeater {
                                 model: [
@@ -516,7 +521,7 @@ ShellRoot {
                             Layout.fillWidth: true
                             spacing: Theme.spacingS
 
-                            Text { text: "格式"; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
+                            Text { text: i18n.trLiteral("格式"); font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
 
                             Repeater {
                                 model: [
@@ -562,7 +567,7 @@ ShellRoot {
                                     anchors.centerIn: parent
                                     spacing: 4
                                     Text { text: root.audio === "on" ? "󰕾" : "󰖁"; font.pixelSize: Theme.fontSizeS; color: root.audio === "on" ? Theme.success : Theme.textMuted }
-                                    Text { text: root.audio === "on" ? "音频" : "静音"; font.pixelSize: Theme.fontSizeXS; color: root.audio === "on" ? Theme.success : Theme.textMuted }
+                                    Text { text: root.audio === "on" ? i18n.trLiteral("音频") : i18n.trLiteral("静音"); font.pixelSize: Theme.fontSizeXS; color: root.audio === "on" ? Theme.success : Theme.textMuted }
                                 }
                                 MouseArea {
                                     anchors.fill: parent
@@ -579,7 +584,7 @@ ShellRoot {
                             spacing: Theme.spacingS
                             visible: root.codec.indexOf("vaapi") !== -1 && root.renderDevices.length > 0
 
-                            Text { text: "设备"; font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
+                            Text { text: i18n.trLiteral("设备"); font.pixelSize: Theme.fontSizeS; color: Theme.textSecondary; Layout.preferredWidth: 50 }
 
                             Rectangle {
                                 Layout.fillWidth: true

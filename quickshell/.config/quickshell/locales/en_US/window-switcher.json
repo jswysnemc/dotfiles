@@ -1,0 +1,12 @@
+{
+  "literals": {
+    " 个窗口吗？": " windows?",
+    "全部关闭 (Y)": "Close All (Y)",
+    "关闭全部": "Close All",
+    "关闭全部窗口": "Close All Windows",
+    "取消 (N)": "Cancel (N)",
+    "此操作不可撤销": "This action cannot be undone",
+    "确定要关闭全部 ": "Are you sure you want to close all "
+  },
+  "searchPlaceholder": "Type to filter windows..."
+}

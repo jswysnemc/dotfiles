@@ -10,6 +10,11 @@ import QtQuick
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "idle-warning"
+    }
+
     property int warningSeconds: {
         var envTimeout = Quickshell.env("IDLE_WARN_TIMEOUT")
         var t = parseInt(envTimeout)
@@ -346,7 +351,7 @@ ShellRoot {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 120
-                text: remainingSeconds + " 秒后自动锁定"
+                text: remainingSeconds + i18n.trLiteral(" 秒后自动锁定")
                 font.pixelSize: 13
                 font.weight: Font.Normal
                 font.letterSpacing: 0.5
@@ -364,7 +369,7 @@ ShellRoot {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 50
-                text: "移动鼠标或按任意键取消"
+                text: i18n.trLiteral("移动鼠标或按任意键取消")
                 font.pixelSize: 11
                 font.weight: Font.Light
                 color: Qt.rgba(1, 1, 1, 0.2)

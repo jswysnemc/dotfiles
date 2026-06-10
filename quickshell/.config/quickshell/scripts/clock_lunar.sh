@@ -4,6 +4,13 @@
 
 cd ~/.config/quickshell 2>/dev/null
 
+source "./scripts/lib/i18n.sh"
+
+# 读取日历功能语言包中的字面量
+i18n() {
+    qs_i18n_literal "calendar" "$1"
+}
+
 STATE_FILE="/tmp/waybar_clock_state"
 
 # Get or initialize state (0, 1, 2)
@@ -38,13 +45,24 @@ case $state in
 esac
 
 # Build tooltip
-tooltip_date=$(date +"%Y年%m月%d日 %A")
-tooltip_time="时间: $time_hms"
-tooltip_lunar="农历: $lunar"
-if [[ -n "$festival" ]]; then
-    tooltip="$tooltip_date\n$tooltip_time\n$tooltip_lunar\n节日: $festival"
+if [[ "$(qs_i18n_language)" == "zh_CN" ]]; then
+    tooltip_date=$(date +"%Y年%m月%d日 %A")
 else
-    tooltip="$tooltip_date\n$tooltip_time\n$tooltip_lunar"
+    tooltip_date=$(date +"%Y-%m-%d %A")
+fi
+tooltip_time="$(i18n "时间: ")$time_hms"
+tooltip_lunar="$(i18n "农历: ")$lunar"
+if [[ -n "$festival" ]]; then
+    tooltip="$tooltip_date\n$tooltip_time"
+    if [[ -n "$lunar" ]]; then
+        tooltip="$tooltip\n$tooltip_lunar"
+    fi
+    tooltip="$tooltip\n$(i18n "节日: ")$festival"
+else
+    tooltip="$tooltip_date\n$tooltip_time"
+    if [[ -n "$lunar" ]]; then
+        tooltip="$tooltip\n$tooltip_lunar"
+    fi
 fi
 
 # Output JSON

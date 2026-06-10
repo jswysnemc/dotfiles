@@ -1,0 +1,12 @@
+{
+  "cancel": "取消 (N)",
+  "confirm": "关闭 (Y)",
+  "hint": "Y 确认 | N/Esc 取消",
+  "messageCurrent": "确定要关闭当前窗口吗？",
+  "messageWithTarget": "确定要关闭以下窗口吗？",
+  "noWindowInfo": "未获取到窗口信息",
+  "runAsFocused": "将按 niri 当前聚焦窗口执行",
+  "title": "关闭窗口",
+  "unknownTitle": "未知标题",
+  "workspace": "工作区 {workspace}"
+}

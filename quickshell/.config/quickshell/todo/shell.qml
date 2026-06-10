@@ -10,6 +10,11 @@ import "./ScreenModel.js" as ScreenModel
 ShellRoot {
     id: root
 
+    I18nContext {
+        id: i18n
+        catalog: "todo"
+    }
+
     // ============ Animation State ============
     property real panelOpacity: 0
     property real panelScale: 0.95
@@ -254,7 +259,7 @@ ShellRoot {
                 anchors.centerIn: parent
                 width: 430
                 height: 480
-                color: Theme.alpha(Theme.background, 0.9)
+                color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
@@ -319,14 +324,14 @@ ShellRoot {
                             spacing: 2
 
                             Text {
-                                text: "待办"
+                                text: i18n.trLiteral("待办")
                                 font.pixelSize: Theme.fontSizeXL
                                 font.bold: true
                                 color: Theme.textPrimary
                             }
 
                             Text {
-                                text: root.pendingCount() + " 未完成 / " + root.doneCount() + " 已完成"
+                                text: root.pendingCount() + i18n.trLiteral(" 未完成 / ") + root.doneCount() + i18n.trLiteral(" 已完成")
                                 font.pixelSize: Theme.fontSizeS
                                 color: Theme.textMuted
                             }
@@ -357,7 +362,7 @@ ShellRoot {
                                 clip: true
                                 selectByMouse: true
 
-                                property string placeholderText: "添加新任务..."
+                                property string placeholderText: i18n.trLiteral("添加新任务...")
                                 Text {
                                     anchors.fill: parent
                                     verticalAlignment: Text.AlignVCenter
@@ -482,7 +487,7 @@ ShellRoot {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: "没有待办事项\n按 Enter 添加"
+                                text: i18n.tr("empty")
                                 font.pixelSize: Theme.fontSizeM
                                 color: Theme.textMuted
                                 horizontalAlignment: Text.AlignHCenter
@@ -498,7 +503,7 @@ ShellRoot {
 
                         Text {
                             Layout.fillWidth: true
-                            text: "Esc 关闭 | Enter 添加 | 点击复选框切换状态"
+                            text: i18n.trLiteral("Esc 关闭 | Enter 添加 | 点击复选框切换状态")
                             font.pixelSize: Theme.fontSizeS
                             color: Theme.textMuted
                             elide: Text.ElideRight
@@ -516,7 +521,7 @@ ShellRoot {
                             Text {
                                 id: clearLabel
                                 anchors.centerIn: parent
-                                text: "清除已完成"
+                                text: i18n.trLiteral("清除已完成")
                                 font.pixelSize: Theme.fontSizeS
                                 color: Theme.textSecondary
                             }

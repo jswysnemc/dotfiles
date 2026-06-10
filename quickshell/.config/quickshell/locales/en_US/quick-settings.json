@@ -1,0 +1,30 @@
+{
+  "literals": {
+    " 个应用": " applications",
+    "Esc 关闭 | 滚轮调节音量": "Esc Close | Scroll to Adjust Volume",
+    "亮度": "Brightness",
+    "保存配置": "Save Configuration",
+    "关": "Off",
+    "分辨率:": "Resolution:",
+    "加载中...": "Loading...",
+    "应用": "Applications",
+    "应用程序音量": "Application Volume",
+    "开": "On",
+    "快捷设置": "Quick Settings",
+    "无输入设备": "No input device",
+    "无输出设备": "No output device",
+    "显示": "Displays",
+    "显示器": "Displays",
+    "未检测到显示器": "No displays detected",
+    "未检测到输入设备": "No input devices detected",
+    "未检测到输出设备": "No output devices detected",
+    "没有正在播放音频的应用": "No applications are playing audio",
+    "缩放: ": "Scale: ",
+    "设备": "Devices",
+    "输入": "Input",
+    "输入设备": "Input Devices",
+    "输出": "Output",
+    "输出设备": "Output Devices",
+    "音量": "Volume"
+  }
+}

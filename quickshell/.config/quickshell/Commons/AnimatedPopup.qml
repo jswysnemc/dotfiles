@@ -17,7 +17,7 @@ Item {
     // 玻璃容器选项
     property bool glass: false
     property real glassRadius: Theme.radiusXL
-    property color glassColor: Theme.alpha(Theme.background, 0.85)
+    property color glassColor: Theme.alpha(Theme.background, 0.42)
     property color glassBorderColor: Theme.glassBorder
     property color glassHighlightColor: Theme.glassHighlight
     property color glassShadowColor: Theme.shadowColor

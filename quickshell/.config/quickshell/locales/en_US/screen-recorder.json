@@ -1,0 +1,17 @@
+{
+  "literals": {
+    "停止录制": "Stop Recording",
+    "全屏": "Fullscreen",
+    "区域": "Region",
+    "屏幕录制": "Screen Recorder",
+    "帧率": "Frame Rate",
+    "强制停止": "Force Stop",
+    "录制中": "Recording",
+    "文件夹": "Folder",
+    "格式": "Format",
+    "编码器": "Encoder",
+    "设备": "Device",
+    "静音": "Muted",
+    "音频": "Audio"
+  }
+}
