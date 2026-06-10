@@ -9,28 +9,28 @@
     background-color: @base-bg;
     margin-top: 2px;
     margin-bottom: 2px;
-    border-top: 1px solid alpha(@text-main, 0.05);
-    border-bottom: 1px solid alpha(@text-main, 0.05);
+    border-top: 1px solid alpha(@text-main, 0.18);
+    border-bottom: 1px solid alpha(@text-main, 0.18);
 }
 
 #cpu {
     border-radius: 10px 0 0 10px;
-    border-left: 1px solid alpha(@text-main, 0.05);
+    border-left: 1px solid alpha(@text-main, 0.18);
     padding-left: 10px;
     padding-right: 4px;
 }
 
 #temperature {
     padding: 0 4px;
-    border-left: 1px solid alpha(@text-main, 0.08);
+    border-left: 1px solid alpha(@text-main, 0.12);
 }
 
 #memory {
     border-radius: 0 10px 10px 0;
-    border-right: 1px solid alpha(@text-main, 0.05);
+    border-right: 1px solid alpha(@text-main, 0.18);
     padding-right: 10px;
     padding-left: 4px;
-    border-left: 1px solid alpha(@text-main, 0.08);
+    border-left: 1px solid alpha(@text-main, 0.12);
 }
 
 #temperature {
@@ -80,9 +80,9 @@
     padding-right: 8px;
     margin-top: 2px;
     margin-bottom: 2px;
-    border-top: 1px solid alpha(@text-main, 0.05);
-    border-bottom: 1px solid alpha(@text-main, 0.05);
-    border-left: 1px solid alpha(@text-main, 0.05);
+    border-top: 1px solid alpha(@text-main, 0.18);
+    border-bottom: 1px solid alpha(@text-main, 0.18);
+    border-left: 1px solid alpha(@text-main, 0.18);
     color: @accent-orange;
 }
 
@@ -93,10 +93,10 @@
     padding-left: 8px;
     margin-top: 2px;
     margin-bottom: 2px;
-    border-top: 1px solid alpha(@text-main, 0.05);
-    border-bottom: 1px solid alpha(@text-main, 0.05);
-    border-right: 1px solid alpha(@text-main, 0.05);
-    border-left: 1px solid alpha(@text-main, 0.08);
+    border-top: 1px solid alpha(@text-main, 0.18);
+    border-bottom: 1px solid alpha(@text-main, 0.18);
+    border-right: 1px solid alpha(@text-main, 0.18);
+    border-left: 1px solid alpha(@text-main, 0.12);
 }
 
 /* 独立音量 slider 及 backlight slider */
@@ -144,29 +144,29 @@ scale slider {
     background-color: @base-bg;
     margin-top: 2px;
     margin-bottom: 2px;
-    border-top: 1px solid alpha(@text-main, 0.05);
-    border-bottom: 1px solid alpha(@text-main, 0.05);
+    border-top: 1px solid alpha(@text-main, 0.18);
+    border-bottom: 1px solid alpha(@text-main, 0.18);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 #custom-notification {
     border-radius: 10px 0 0 10px;
-    border-left: 1px solid alpha(@text-main, 0.05);
+    border-left: 1px solid alpha(@text-main, 0.18);
     padding-left: 10px;
     padding-right: 6px;
 }
 
 #custom-caffeine {
     padding: 0 6px;
-    border-left: 1px solid alpha(@text-main, 0.08);
+    border-left: 1px solid alpha(@text-main, 0.12);
 }
 
 #power-profiles-daemon {
     border-radius: 0 10px 10px 0;
-    border-right: 1px solid alpha(@text-main, 0.05);
+    border-right: 1px solid alpha(@text-main, 0.18);
     padding-right: 10px;
     padding-left: 6px;
-    border-left: 1px solid alpha(@text-main, 0.08);
+    border-left: 1px solid alpha(@text-main, 0.12);
 }
 
 /* 通知状态色 */
@@ -225,21 +225,18 @@ scale slider {
 /* 时钟 (Clock) */
 #clock,
 #custom-clock {
-    background: linear-gradient(135deg, @accent-purple 0%, alpha(@accent-purple, 0.8) 100%);
-    color: @text-on-primary;
-    padding-top: 1px;
-    border: none;
+    background-color: @base-bg;
+    color: @text-main;
+    border: 1px solid alpha(@text-main, 0.18);
     border-radius: 10px;
-    box-shadow: 0 0 6px alpha(@accent-purple, 0.3);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 #clock:hover,
 #custom-clock:hover {
-    background: @hover-bg;
+    background-color: @hover-bg;
     color: @text-main;
-    border: none;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid alpha(@text-main, 0.18);
 }
 
 /* 托盘 (Tray) */

@@ -1,4 +1,12 @@
 /* ==============================================================================
+ * 参考 d1rshan/dots 配色的磨砂玻璃风格变量重写
+ * ============================================================================== */
+@define-color base-bg rgba(255, 255, 255, 0.14);
+@define-color hover-bg rgba(255, 255, 255, 0.22);
+@define-color text-main #191c20;
+@define-color text-sub #43474e;
+
+/* ==============================================================================
  * 1. 全局与基础设置
  * ============================================================================== */
 * {
@@ -56,7 +64,7 @@ tooltip label {
     margin-left: 2px;
     margin-right: 2px;
     border-radius: 10px;
-    border: 1px solid alpha(@text-main, 0.05);
+    border: 1px solid alpha(@text-main, 0.18);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
