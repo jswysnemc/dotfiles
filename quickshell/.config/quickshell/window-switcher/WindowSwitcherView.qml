@@ -51,11 +51,11 @@ Item {
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: controller.blurActive ? mainContainer : null
+                item: controller.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
                 radius: Theme.radiusXL + 4
             }
             Connections {
-                target: root
+                target: controller
                 function onBlurActiveChanged() { blurRegion.changed() }
                 function onPanelScaleChanged() { blurRegion.changed() }
                 function onPanelYChanged() { blurRegion.changed() }
@@ -67,10 +67,8 @@ Item {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            implicitWidth: Math.min(controller.columns * (controller.cardWidth + Theme.spacingM) + Theme.spacingXL * 2, (modelData.width ? modelData.width : 1280) - 80)
+            implicitHeight: Math.min(contentCol.implicitHeight + Theme.spacingXL * 2, (modelData.height ? modelData.height : 720) - 80)
 
             // Keyboard shortcuts
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
@@ -100,9 +98,7 @@ Item {
             // Main container
             Rectangle {
                 id: mainContainer
-                anchors.centerIn: parent
-                width: Math.min(controller.columns * (controller.cardWidth + Theme.spacingM) + Theme.spacingXL * 2, parent.width - 80)
-                height: Math.min(contentCol.implicitHeight + Theme.spacingXL * 2, parent.height - 80)
+                anchors.fill: parent
                 color: Theme.alpha(Theme.background, 0.42)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder

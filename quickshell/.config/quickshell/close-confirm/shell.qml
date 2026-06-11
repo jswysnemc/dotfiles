@@ -144,13 +144,14 @@ ShellRoot {
             screen: modelData
 
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "qs-close-confirm"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: root.blurActive ? dialog : null
+                item: root.blurActive && dialog.width > 0 && dialog.height > 0 ? dialog : null
                 radius: Theme.radiusXL + 4
             }
             Connections {
@@ -166,10 +167,8 @@ ShellRoot {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            implicitWidth: 380
+            implicitHeight: dialog.implicitHeight
 
             Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
             Shortcut { sequence: "Return"; onActivated: root.confirmClose() }
@@ -183,9 +182,8 @@ ShellRoot {
 
             Rectangle {
                 id: dialog
-                anchors.centerIn: parent
-                width: 380
-                height: contentCol.implicitHeight + Theme.spacingXL * 2
+                anchors.fill: parent
+                implicitHeight: contentCol.implicitHeight + Theme.spacingXL * 2
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder

@@ -19,10 +19,7 @@ ShellRoot {
     readonly property var i18nContext: i18n
 
     // ============ Animation State ============
-    property bool animationReady: false
-    property real containerOpacity: 0
-    property real containerScale: 0.92
-    property real containerY: 20
+    property real containerOpacity: 1
     property bool blurActive: true
 
     // ============ Position from environment ============
@@ -43,7 +40,6 @@ ShellRoot {
     property var filteredApps: []
     property string searchText: ""
     property int selectedIndex: 0
-    property bool isFullscreen: false
     property string selectedCategory: "all"
     property int selectedCategoryIndex: 0
 
@@ -418,68 +414,20 @@ ShellRoot {
 
     Component.onCompleted: {
         loadCache.running = true
-        enterAnimation.start()
     }
 
-    // ============ 入场动画 ============
-    ParallelAnimation {
-        id: enterAnimation
-
-        NumberAnimation {
-            target: root
-            property: "containerOpacity"
-            from: 0; to: 1
-            duration: 20
-        }
-
-        NumberAnimation {
-            target: root
-            property: "containerScale"
-            from: 0.98; to: 1.0
-            duration: 20
-        }
-
-        NumberAnimation {
-            target: root
-            property: "containerY"
-            from: 4; to: 0
-            duration: 20
-        }
-
-        onFinished: root.animationReady = true
-    }
-
-    // ============ 退场动画 ============
-    ParallelAnimation {
-        id: exitAnimation
-
-        NumberAnimation {
-            target: root
-            property: "containerOpacity"
-            to: 0
-            duration: 20
-        }
-
-        NumberAnimation {
-            target: root
-            property: "containerScale"
-            to: 0.98
-            duration: 20
-        }
-
-        NumberAnimation {
-            target: root
-            property: "containerY"
-            to: -4
-            duration: 20
-        }
-
-        onFinished: Qt.quit()
-    }
-
+    /**
+     * 关闭启动器窗口。
+     *
+     * @param 无
+     * @returns 无
+     */
     function closeWithAnimation() {
+        // 1. 先关闭模糊区域，避免退出前全屏 layer 参与模糊
         root.blurActive = false
-        exitAnimation.start()
+        // 2. 隐藏卡片后立即退出，保持与剪贴板一致
+        root.containerOpacity = 0
+        Qt.quit()
     }
 
     // ============ UI ============

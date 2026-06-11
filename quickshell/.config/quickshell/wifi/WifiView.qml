@@ -47,6 +47,7 @@ Item {
             screen: modelData
 
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "quickshell-wifi"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: controller.showPasswordDialog ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
@@ -57,7 +58,7 @@ Item {
                 radius: Theme.radiusXL
             }
             Connections {
-                target: root
+                target: controller
                 function onBlurActiveChanged() { blurRegion.changed() }
                 function onPanelScaleChanged() { blurRegion.changed() }
                 function onPanelYChanged() { blurRegion.changed() }

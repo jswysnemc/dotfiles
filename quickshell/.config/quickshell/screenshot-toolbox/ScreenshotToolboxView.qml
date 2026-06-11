@@ -9,7 +9,40 @@ import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
 
 Item {
+    id: toolboxView
+
     required property var controller
+
+    readonly property color panelColor: Theme.alpha(Theme.background, 0.58)
+    readonly property color tileColor: Theme.alpha(Theme.surface, 0.88)
+    readonly property color tileHoverColor: Theme.alpha(Theme.primary, 0.14)
+    readonly property color subtleColor: Theme.alpha(Theme.surfaceVariant, 0.78)
+    readonly property color readableMutedColor: Theme.textSecondary
+
+    Variants {
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
+
+        PanelWindow {
+            id: clickCatcher
+            required property ShellScreen modelData
+            screen: modelData
+
+            color: "transparent"
+            WlrLayershell.namespace: "quickshell-screenshot-toolbox-bg"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.exclusionMode: ExclusionMode.Ignore
+
+            anchors.top: true
+            anchors.bottom: true
+            anchors.left: true
+            anchors.right: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: controller.closeWithAnimation()
+            }
+        }
+    }
 
     Variants {
         model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
@@ -19,17 +52,18 @@ Item {
             required property ShellScreen modelData
             screen: modelData
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "quickshell-screenshot-toolbox"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: controller.blurActive ? card : null
+                item: controller.blurActive && card.width > 0 && card.height > 0 ? card : null
                 radius: Theme.radiusXL + 4
             }
             Connections {
-                target: root
+                target: controller
                 function onBlurActiveChanged() { blurRegion.changed() }
                 function onPanelScaleChanged() { blurRegion.changed() }
                 function onPanelYChanged() { blurRegion.changed() }
@@ -41,10 +75,16 @@ Item {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            anchors.top: controller.anchorTop && !controller.anchorVCenter
+            anchors.bottom: controller.anchorBottom
+            anchors.left: controller.anchorLeft
+            anchors.right: controller.anchorRight
+            margins.top: controller.anchorTop ? controller.marginT : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB : 0
+            margins.left: controller.anchorLeft ? controller.marginL : 0
+            margins.right: controller.anchorRight ? controller.marginR : 0
+            implicitWidth: 420
+            implicitHeight: Math.min(720, card.implicitHeight)
 
             Shortcut { sequence: "Escape"; onActivated: controller.activePage !== "main" ? controller.activePage = "main" : controller.closeWithAnimation() }
 
@@ -55,20 +95,10 @@ Item {
 
             Rectangle {
                 id: card
-                anchors.top: controller.anchorTop ? parent.top : undefined
-                anchors.bottom: controller.anchorBottom ? parent.bottom : undefined
-                anchors.left: controller.anchorLeft ? parent.left : undefined
-                anchors.right: controller.anchorRight ? parent.right : undefined
-                anchors.horizontalCenter: controller.anchorHCenter ? parent.horizontalCenter : undefined
-                anchors.verticalCenter: controller.anchorVCenter ? parent.verticalCenter : undefined
-                anchors.topMargin: controller.anchorTop ? controller.marginT : 0
-                anchors.bottomMargin: controller.anchorBottom ? controller.marginB : 0
-                anchors.leftMargin: controller.anchorLeft ? controller.marginL : 0
-                anchors.rightMargin: controller.anchorRight ? controller.marginR : 0
-                width: 420
-                height: content.implicitHeight + Theme.spacingXL * 2
+                anchors.fill: parent
+                implicitHeight: Math.max(360, content.implicitHeight + Theme.spacingXL * 2)
                 radius: Theme.radiusXL + 4
-                color: Theme.alpha(Theme.background, 0.28)
+                color: toolboxView.panelColor
                 border.color: Theme.glassBorder
                 border.width: 1.5
                 // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
@@ -153,19 +183,25 @@ Item {
                         }
 
                         ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             spacing: 2
 
                             Text {
+                                Layout.fillWidth: true
                                 text: controller.activePage === "color" ? controller.i18nContext.trLiteral("颜色详情") : (controller.activePage === "screen-select" ? controller.i18nContext.trLiteral("选择截图屏幕") : controller.i18nContext.trLiteral("截图工具箱"))
                                 font.pixelSize: Theme.fontSizeXL
                                 font.weight: Font.Bold
                                 color: Theme.textPrimary
+                                elide: Text.ElideRight
                             }
 
                             Text {
+                                Layout.fillWidth: true
                                 text: controller.activePage === "color" ? controller.i18nContext.trLiteral("点击任意写法复制") : (controller.activePage === "screen-select" ? controller.i18nContext.trLiteral("单屏截图或多屏逻辑拼接") : controller.i18nContext.trLiteral("选框、窗口、长截图、贴图和编辑"))
                                 font.pixelSize: Theme.fontSizeS
-                                color: Theme.textMuted
+                                color: toolboxView.readableMutedColor
+                                elide: Text.ElideRight
                             }
                         }
 
@@ -176,11 +212,9 @@ Item {
                             height: 32
                             radius: Theme.radiusM
                             Layout.alignment: Qt.AlignVCenter
-                            color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
-                            scale: closeMa.containsMouse ? 1.1 : 1.0
+                            color: closeMa.containsMouse ? toolboxView.subtleColor : "transparent"
 
                             Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                            Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 
                             Text {
                                 anchors.centerIn: parent
@@ -200,7 +234,7 @@ Item {
                         }
                     }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.55 }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.glassBorder; opacity: 0.75 }
 
                     GridLayout {
                         visible: controller.activePage === "main"
@@ -220,7 +254,7 @@ Item {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 82
                                 radius: Theme.radiusL
-                                color: tileArea.containsMouse ? Theme.alpha(modelData.color, 0.14) : Theme.surface
+                                color: tileArea.containsMouse ? Theme.alpha(modelData.color, 0.16) : toolboxView.tileColor
                                 border.color: tileArea.containsMouse ? modelData.color : Theme.outline
                                 border.width: 1
                                 scale: tileArea.pressed ? 0.98 : 1.0
@@ -252,6 +286,7 @@ Item {
 
                                     ColumnLayout {
                                         Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
                                         spacing: 3
 
                                         Text {
@@ -267,7 +302,7 @@ Item {
                                             Layout.fillWidth: true
                                             text: actionTile.modelData.desc
                                             font.pixelSize: Theme.fontSizeXS
-                                            color: Theme.textMuted
+                                            color: toolboxView.readableMutedColor
                                             elide: Text.ElideRight
                                         }
                                     }
@@ -291,41 +326,59 @@ Item {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 36
+                            Layout.minimumWidth: 0
+                            Layout.preferredHeight: 36
                             radius: Theme.radiusM
-                            color: Theme.surfaceVariant
+                            color: toolboxView.subtleColor
+                            clip: true
 
                             Text {
-                                anchors.centerIn: parent
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.spacingM
+                                anchors.rightMargin: Theme.spacingM
                                 text: controller.i18nContext.trLiteral("后续功能可继续追加到 actions 和脚本 mode")
                                 font.pixelSize: Theme.fontSizeXS
-                                color: Theme.textMuted
+                                color: toolboxView.readableMutedColor
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
                             }
                         }
 
                         Rectangle {
-                            width: 104
-                            height: 36
+                            Layout.preferredWidth: 132
+                            Layout.minimumWidth: 118
+                            Layout.maximumWidth: 148
+                            Layout.preferredHeight: 36
                             radius: Theme.radiusM
-                            color: dirArea.containsMouse ? Theme.alpha(Theme.primary, 0.14) : Theme.surface
+                            color: dirArea.containsMouse ? toolboxView.tileHoverColor : toolboxView.tileColor
                             border.color: dirArea.containsMouse ? Theme.primary : Theme.outline
                             border.width: 1
+                            clip: true
 
                             RowLayout {
-                                anchors.centerIn: parent
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.spacingS
+                                anchors.rightMargin: Theme.spacingS
                                 spacing: Theme.spacingS
 
                                 Text {
+                                    Layout.preferredWidth: Theme.iconSizeS
+                                    Layout.alignment: Qt.AlignVCenter
                                     text: "\uf07b"
                                     font.family: "Symbols Nerd Font Mono"
                                     font.pixelSize: Theme.iconSizeS
                                     color: Theme.primary
+                                    horizontalAlignment: Text.AlignHCenter
                                 }
 
                                 Text {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignVCenter
                                     text: controller.i18nContext.trLiteral("截图目录")
                                     font.pixelSize: Theme.fontSizeS
                                     color: Theme.textSecondary
+                                    elide: Text.ElideRight
                                 }
                             }
 
@@ -349,13 +402,13 @@ Item {
                             Layout.fillWidth: true
                             height: 38
                             radius: Theme.radiusM
-                            color: Theme.surfaceVariant
+                            color: toolboxView.subtleColor
 
                             Text {
                                 anchors.centerIn: parent
                                 text: controller.i18nContext.trLiteral("正在生成屏幕预览...")
                                 font.pixelSize: Theme.fontSizeS
-                                color: Theme.textMuted
+                                color: toolboxView.readableMutedColor
                             }
                         }
 
@@ -370,7 +423,7 @@ Item {
                                 Layout.fillWidth: true
                                 height: 94
                                 radius: Theme.radiusL
-                                color: screenArea.containsMouse ? Theme.alpha(Theme.primary, 0.12) : Theme.surface
+                                color: screenArea.containsMouse ? toolboxView.tileHoverColor : toolboxView.tileColor
                                 border.color: screenArea.containsMouse ? Theme.primary : Theme.outline
                                 border.width: 1
                                 scale: screenArea.pressed ? 0.98 : 1.0
@@ -413,6 +466,7 @@ Item {
 
                                     ColumnLayout {
                                         Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
                                         spacing: 2
 
                                         Text {
@@ -428,7 +482,7 @@ Item {
                                             Layout.fillWidth: true
                                             text: screenRow.modelData.desc
                                             font.pixelSize: Theme.fontSizeXS
-                                            color: Theme.textMuted
+                                            color: toolboxView.readableMutedColor
                                             elide: Text.ElideRight
                                         }
                                     }
@@ -460,7 +514,7 @@ Item {
                             Layout.fillWidth: true
                             height: 96
                             radius: Theme.radiusL
-                            color: controller.pickedColor || Theme.surface
+                            color: controller.pickedColor || toolboxView.tileColor
                             border.color: Theme.outline
                             border.width: 1
 
@@ -487,7 +541,7 @@ Item {
                                 Layout.fillWidth: true
                                 height: 42
                                 radius: Theme.radiusM
-                                color: formatArea.containsMouse ? Theme.alpha(Theme.primary, 0.12) : Theme.surface
+                                color: formatArea.containsMouse ? toolboxView.tileHoverColor : toolboxView.tileColor
                                 border.color: formatArea.containsMouse ? Theme.primary : Theme.outline
                                 border.width: 1
 

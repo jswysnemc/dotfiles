@@ -107,13 +107,14 @@ ShellRoot {
             required property ShellScreen modelData
             screen: modelData
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "qs-qr-viewer"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: root.blurActive ? dialog : null
+                item: root.blurActive && dialog.width > 0 && dialog.height > 0 ? dialog : null
                 radius: Theme.radiusXL + 4
             }
             Connections {
@@ -129,10 +130,8 @@ ShellRoot {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            implicitWidth: 460
+            implicitHeight: dialog.implicitHeight
 
             Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
 
@@ -143,9 +142,8 @@ ShellRoot {
 
             Rectangle {
                 id: dialog
-                anchors.centerIn: parent
-                width: 460
-                height: content.implicitHeight + Theme.spacingXL * 2
+                anchors.fill: parent
+                implicitHeight: content.implicitHeight + Theme.spacingXL * 2
                 radius: Theme.radiusXL + 4
                 color: Theme.alpha(Theme.background, 0.28)
                 border.color: Theme.glassBorder

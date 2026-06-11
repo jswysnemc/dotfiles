@@ -15,6 +15,31 @@ Item {
         model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
+            id: clickCatcher
+            required property ShellScreen modelData
+            screen: modelData
+
+            color: "transparent"
+            WlrLayershell.namespace: "quickshell-launcher-bg"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.exclusionMode: ExclusionMode.Ignore
+
+            anchors.top: true
+            anchors.bottom: true
+            anchors.left: true
+            anchors.right: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: controller.closeWithAnimation()
+            }
+        }
+    }
+
+    Variants {
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
+
+        PanelWindow {
             id: panel
             required property ShellScreen modelData
             screen: modelData
@@ -26,14 +51,12 @@ Item {
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: controller.blurActive ? mainContainer : null
+                item: controller.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
                 radius: Theme.radiusXL + 4
             }
             Connections {
-                target: root
+                target: controller
                 function onBlurActiveChanged() { blurRegion.changed() }
-                function onContainerScaleChanged() { blurRegion.changed() }
-                function onContainerYChanged() { blurRegion.changed() }
             }
             Connections {
                 target: mainContainer
@@ -42,10 +65,16 @@ Item {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            anchors.top: controller.anchorTop && !controller.anchorVCenter
+            anchors.bottom: controller.anchorBottom
+            anchors.left: controller.anchorLeft
+            anchors.right: controller.anchorRight
+            margins.top: controller.anchorTop ? controller.marginT : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB : 0
+            margins.left: controller.anchorLeft ? controller.marginL : 0
+            margins.right: controller.anchorRight ? controller.marginR : 0
+            implicitWidth: 720
+            implicitHeight: 660
 
 
             // Keyboard
@@ -54,7 +83,6 @@ Item {
             Shortcut { sequence: "Enter"; onActivated: controller.launchSelected() }
             Shortcut { sequence: "Tab"; onActivated: controller.nextCategory() }
             Shortcut { sequence: "Shift+Tab"; onActivated: controller.prevCategory() }
-            Shortcut { sequence: "F11"; onActivated: controller.isFullscreen = !controller.isFullscreen }
 
             Shortcut { sequence: "Left"; onActivated: controller.moveLeft() }
             Shortcut { sequence: "Right"; onActivated: controller.moveRight() }
@@ -69,18 +97,7 @@ Item {
             // Main container
             Rectangle {
                 id: mainContainer
-                anchors.top: controller.isFullscreen ? undefined : (controller.anchorTop ? parent.top : undefined)
-                anchors.bottom: controller.isFullscreen ? undefined : (controller.anchorBottom ? parent.bottom : undefined)
-                anchors.left: controller.isFullscreen ? undefined : (controller.anchorLeft ? parent.left : undefined)
-                anchors.right: controller.isFullscreen ? undefined : (controller.anchorRight ? parent.right : undefined)
-                anchors.horizontalCenter: controller.isFullscreen ? parent.horizontalCenter : (controller.anchorHCenter ? parent.horizontalCenter : undefined)
-                anchors.verticalCenter: controller.isFullscreen ? parent.verticalCenter : (controller.anchorVCenter ? parent.verticalCenter : undefined)
-                anchors.topMargin: controller.isFullscreen ? 0 : (controller.anchorTop ? controller.marginT : 0)
-                anchors.bottomMargin: controller.isFullscreen ? 0 : (controller.anchorBottom ? controller.marginB : 0)
-                anchors.leftMargin: controller.isFullscreen ? 0 : (controller.anchorLeft ? controller.marginL : 0)
-                anchors.rightMargin: controller.isFullscreen ? 0 : (controller.anchorRight ? controller.marginR : 0)
-                width: controller.isFullscreen ? parent.width - 40 : 720
-                height: controller.isFullscreen ? parent.height - 40 : 660
+                anchors.fill: parent
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
@@ -116,9 +133,6 @@ Item {
                 // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: controller.containerOpacity
 
-                Behavior on width { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
-                Behavior on height { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
-
                 MouseArea {
                     anchors.fill: parent
                     onClicked: function(mouse) { mouse.accepted = true }
@@ -149,7 +163,7 @@ Item {
                             Behavior on border.width { NumberAnimation { duration: Theme.animFast } }
 
                             // 聚焦发光
-                            layer.enabled: searchInput.activeFocus
+                            layer.enabled: searchInput.activeFocus && controller.searchText !== ""
                             layer.effect: MultiEffect {
                                 shadowEnabled: true
                                 shadowColor: Theme.alpha(Theme.primary, 0.55)
@@ -253,37 +267,6 @@ Item {
                             }
                         }
 
-                        // Hero size toggle
-                        Rectangle {
-                            width: 60; height: 60
-                            radius: 30
-                            color: sizeHover.hovered ? Theme.alpha(Theme.primary, 0.18) : Theme.alpha(Theme.surface, 0.38)
-                            border.color: Theme.glassBorder
-                            border.width: 1
-                            scale: sizeHover.hovered ? 1.05 : 1.0
-
-                            Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                            Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: controller.isFullscreen ? "\uf066" : "\uf065"
-                                font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: 20
-                                color: sizeHover.hovered ? Theme.primary : Theme.textSecondary
-
-                                Behavior on text {
-                                    SequentialAnimation {
-                                        NumberAnimation { target: parent; property: "scale"; to: 0.8; duration: 80 }
-                                        PropertyAction { }
-                                        NumberAnimation { target: parent; property: "scale"; to: 1.0; duration: 120; easing.type: Easing.OutBack }
-                                    }
-                                }
-                            }
-
-                            HoverHandler { id: sizeHover }
-                            TapHandler { onTapped: controller.isFullscreen = !controller.isFullscreen }
-                        }
                     }
 
                     // Category bar
@@ -400,7 +383,7 @@ Item {
                         }
 
                         Connections {
-                            target: root
+                            target: controller
                             function onSelectedIndexChanged() {
                                 appFlickable.ensureVisible()
                             }
@@ -654,7 +637,7 @@ Item {
                     // Hints
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: controller.i18nContext.trLiteral("Enter 启动 | Tab 切换分类 | F11 全屏 | 方向键 导航 | Esc 关闭")
+                        text: controller.i18nContext.trLiteral("Enter 启动 | Tab 切换分类 | 方向键 导航 | Esc 关闭")
                         font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
                     }

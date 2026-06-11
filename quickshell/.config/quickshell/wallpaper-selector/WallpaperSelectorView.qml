@@ -15,22 +15,48 @@ Item {
         model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
+            id: clickCatcher
+            required property ShellScreen modelData
+            screen: modelData
+
+            color: "transparent"
+            WlrLayershell.namespace: "qs-wallpaper-selector-bg"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.exclusionMode: ExclusionMode.Ignore
+
+            anchors.top: true
+            anchors.bottom: true
+            anchors.left: true
+            anchors.right: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: controller.closeWithAnimation()
+            }
+        }
+    }
+
+    Variants {
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
+
+        PanelWindow {
             id: panel
             required property ShellScreen modelData
             screen: modelData
 
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "qs-wallpaper-selector"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: controller.blurActive ? mainContainer : null
+                item: controller.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
                 radius: Theme.radiusXL + 4
             }
             Connections {
-                target: root
+                target: controller
                 function onBlurActiveChanged() { blurRegion.changed() }
                 function onPanelScaleChanged() { blurRegion.changed() }
                 function onPanelYChanged() { blurRegion.changed() }
@@ -42,10 +68,8 @@ Item {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            implicitWidth: Math.min(modelData.width ? modelData.width * 0.8 : 900, 900)
+            implicitHeight: Math.min(modelData.height ? modelData.height * 0.9 : 730, 730)
 
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
             Shortcut { sequence: "Up"; onActivated: controller.moveUp() }
@@ -67,9 +91,7 @@ Item {
 
             Rectangle {
                 id: mainContainer
-                anchors.centerIn: parent
-                width: Math.min(parent.width * 0.8, 900)
-                height: Math.min(parent.height * 0.9, 730)
+                anchors.fill: parent
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder

@@ -57,7 +57,7 @@ Item {
                 radius: Theme.radiusXL
             }
             Connections {
-                target: root
+                target: controller
                 function onBlurActiveChanged() { blurRegion.changed() }
                 function onPanelScaleChanged() { blurRegion.changed() }
                 function onPanelYChanged() { blurRegion.changed() }

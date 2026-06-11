@@ -250,13 +250,14 @@ ShellRoot {
             screen: modelData
 
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "qs-power-menu"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: root.blurActive ? mainContainer : null
+                item: root.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
                 shape: RegionShape.Ellipse
             }
             Connections {
@@ -272,10 +273,8 @@ ShellRoot {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            implicitWidth: root.menuSize
+            implicitHeight: root.menuSize
 
             Shortcut { sequence: "Escape"; onActivated: root.confirmMode ? root.cancelConfirm() : root.closeWithAnimation() }
             Shortcut { sequence: "Left"; onActivated: root.moveLeft() }
@@ -299,9 +298,7 @@ ShellRoot {
 
              Rectangle {
                 id: mainContainer
-                anchors.centerIn: parent
-                width: root.menuSize
-                height: root.menuSize
+                anchors.fill: parent
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: width / 2
                 border.color: Theme.glassBorder

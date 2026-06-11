@@ -15,22 +15,48 @@ Item {
         model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
         PanelWindow {
+            id: clickCatcher
+            required property ShellScreen modelData
+            screen: modelData
+
+            color: "transparent"
+            WlrLayershell.namespace: "quickshell-weather-bg"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.exclusionMode: ExclusionMode.Ignore
+
+            anchors.top: true
+            anchors.bottom: true
+            anchors.left: true
+            anchors.right: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: controller.closeWithAnimation()
+            }
+        }
+    }
+
+    Variants {
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
+
+        PanelWindow {
             id: panel
             required property ShellScreen modelData
             screen: modelData
 
             color: "transparent"
+            surfaceFormat.opaque: false
             WlrLayershell.namespace: "quickshell-weather"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
             BackgroundEffect.blurRegion: Region {
                 id: blurRegion
-                item: controller.blurActive ? panelRect : null
+                item: controller.blurActive && panelRect.width > 0 && panelRect.height > 0 ? panelRect : null
                 radius: Theme.radiusXL + 4
             }
             Connections {
-                target: root
+                target: controller
                 function onBlurActiveChanged() { blurRegion.changed() }
                 function onPanelScaleChanged() { blurRegion.changed() }
                 function onPanelYChanged() { blurRegion.changed() }
@@ -42,10 +68,16 @@ Item {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            anchors.top: controller.anchorTop && !controller.anchorVCenter
+            anchors.bottom: controller.anchorBottom
+            anchors.left: controller.anchorLeft
+            anchors.right: controller.anchorRight
+            margins.top: controller.anchorTop ? controller.marginT : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB : 0
+            margins.left: controller.anchorLeft ? controller.marginL : 0
+            margins.right: controller.anchorRight ? controller.marginR : 0
+            implicitWidth: 420
+            implicitHeight: controller.showSettings ? 520 : panelRect.implicitHeight
 
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
 
@@ -56,18 +88,7 @@ Item {
 
             Rectangle {
                 id: panelRect
-                anchors.top: controller.anchorTop ? parent.top : undefined
-                anchors.bottom: controller.anchorBottom ? parent.bottom : undefined
-                anchors.left: controller.anchorLeft ? parent.left : undefined
-                anchors.right: controller.anchorRight ? parent.right : undefined
-                anchors.horizontalCenter: controller.anchorHCenter ? parent.horizontalCenter : undefined
-                anchors.verticalCenter: controller.anchorVCenter ? parent.verticalCenter : undefined
-                anchors.topMargin: controller.anchorTop ? controller.marginT : 0
-                anchors.bottomMargin: controller.anchorBottom ? controller.marginB : 0
-                anchors.leftMargin: controller.anchorLeft ? controller.marginL : 0
-                anchors.rightMargin: controller.anchorRight ? controller.marginR : 0
-                width: 420
-                height: controller.showSettings ? 520 : panelRect.implicitHeight
+                anchors.fill: parent
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder

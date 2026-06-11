@@ -110,6 +110,9 @@ ShellRoot {
     property string festival: ""
     property string wallpaperPath: ""
     property string screenshotPath: ""
+    property var screenshotPathsByOutput: ({})
+    property bool screenshotCaptureComplete: false
+    readonly property string graceScreenshotScriptPath: homeDir + "/.config/quickshell/lockscreen/scripts/capture-grace-screenshots.sh"
 
     // ==================== Weather Properties ====================
     property var weatherData: null
@@ -596,27 +599,86 @@ ShellRoot {
 
     Process {
         id: screenshotProcess
-        command: ["grim", "/tmp/lockscreen-screenshot.png"]
-        onRunningChanged: {
-            if (!running && screenshotPath === "") {
-                screenshotPath = "file:///tmp/lockscreen-screenshot.png?" + Date.now()
-            }
+        command: root.buildScreenshotCommand()
+        stdout: StdioCollector {
+            onStreamFinished: root.applyScreenshotCaptureOutput(text)
+        }
+        onExited: function(code) {
+            root.finishScreenshotCapture()
         }
     }
 
-    Image {
-        id: screenshotLoader
-        source: screenshotPath
-        asynchronous: false
-        visible: false
-        onStatusChanged: {
-            if (status === Image.Ready && !sessionLock.locked) {
-                sessionLock.locked = true
+    /**
+     * 【锁屏】【等待截图】生成等待阶段截图采集命令。
+     * @returns 包含脚本路径和所有输出名称的命令数组。
+     */
+    function buildScreenshotCommand() {
+        var args = [graceScreenshotScriptPath]
+        for (var i = 0; i < Quickshell.screens.length; i++) {
+            if (Quickshell.screens[i] && Quickshell.screens[i].name) {
+                args.push(Quickshell.screens[i].name)
             }
+        }
+        return args
+    }
+
+    /**
+     * 【锁屏】【等待截图】解析等待阶段截图脚本输出。
+     * @param output 脚本输出的制表符分隔文本。
+     * @returns 无返回值。
+     */
+    function applyScreenshotCaptureOutput(output) {
+        var byOutput = {}
+        var fallbackPath = ""
+        var lines = String(output || "").split("\n")
+
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (line.length === 0) continue
+
+            var parts = line.split("\t")
+            if (parts[0] === "output" && parts.length >= 3) {
+                var outputName = parts[1]
+                var outputPath = parts.slice(2).join("\t")
+                byOutput[outputName] = outputPath
+                if (fallbackPath.length === 0) {
+                    fallbackPath = outputPath
+                }
+                continue
+            }
+
+            if (parts[0] === "fallback" && parts.length >= 2) {
+                fallbackPath = parts.slice(1).join("\t")
+            }
+        }
+
+        screenshotPathsByOutput = byOutput
+        screenshotPath = fallbackPath
+    }
+
+    /**
+     * 【锁屏】【等待截图】结束等待阶段截图采集并进入锁屏表面。
+     * @returns 无返回值。
+     */
+    function finishScreenshotCapture() {
+        if (screenshotCaptureComplete) return
+        screenshotCaptureComplete = true
+        if (!sessionLock.locked) {
+            sessionLock.locked = true
         }
     }
 
-    property bool screenshotReady: screenshotLoader.status === Image.Ready
+    /**
+     * 【锁屏】【等待截图】根据锁屏表面所属输出返回等待阶段背景截图地址。
+     * @param screen 锁屏表面所属的输出信息。
+     * @returns 对应输出截图地址；没有命中时返回兜底截图地址。
+     */
+    function screenshotSourceForScreen(screen) {
+        if (screen && screen.name && screenshotPathsByOutput && screenshotPathsByOutput[screen.name]) {
+            return screenshotPathsByOutput[screen.name]
+        }
+        return screenshotPath
+    }
 
     FileView {
         id: faceTriggerFile
@@ -637,7 +699,9 @@ ShellRoot {
             lunarProcess.running = true
         }
         wallpaperProcess.running = true
-        screenshotProcess.running = true
+        if (phase === "grace") {
+            screenshotProcess.running = true
+        }
         weatherCacheLoader.running = true
         refreshPlayersList()
         if (phase === "locked") {
@@ -869,10 +933,20 @@ ShellRoot {
                 id: lockSurface
                 color: "#000000"
 
-                // Blurred screenshot for grace phase
+                Image {
+                    id: graceScreenshotSource
+                    anchors.fill: parent
+                    source: root.screenshotSourceForScreen(lockSurface.screen)
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: false
+                    cache: false
+                    visible: false
+                }
+
+                // 【锁屏】【等待截图】使用当前输出截图生成等待阶段模糊背景
                 MultiEffect {
                     anchors.fill: parent
-                    source: screenshotLoader
+                    source: graceScreenshotSource
                     autoPaddingEnabled: false
                     blurEnabled: true
                     blur: 0.6

@@ -83,6 +83,8 @@ qs-lock --face
 lockscreen/
 ├── shell.qml          # 主组件
 ├── lunar_info.py      # 农历信息脚本
+├── scripts/
+│   └── capture-grace-screenshots.sh  # 等待阶段按输出截图
 └── README.md          # 本文件
 ```
 

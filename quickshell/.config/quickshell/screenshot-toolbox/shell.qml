@@ -278,11 +278,20 @@ ShellRoot {
         copyProc.running = true
     }
 
+    /**
+     * 关闭截图工具弹窗窗口。
+     *
+     * @param 无
+     * @returns 无
+     */
     function closeWithAnimation() {
         if (root.isClosing) return
         root.isClosing = true
+        // 1. 先关闭模糊区域，避免退出前全屏 layer 参与模糊
         root.blurActive = false
-        exitAnimation.start()
+        // 2. 立即隐藏卡片并退出，保持与剪贴板一致
+        root.panelOpacity = 0
+        Qt.quit()
     }
 
     Process {
