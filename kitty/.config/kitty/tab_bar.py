@@ -1,4 +1,4 @@
-import datetime
+import psutil
 from kitty.fast_data_types import Screen, get_options
 from kitty.tab_bar import (
     DrawData,
@@ -121,10 +121,10 @@ def draw_tab(
     draw_title(draw_data, screen, tab, index, adjusted_max_len)
     screen.draw(" ")
     
-    # 10. 绘制标签之间的轻量级斜杠分隔符
+    # 10. 绘制标签之间的轻量级竖点线分隔符
     screen.cursor.bold = False
     screen.cursor.fg = inactive_fg
-    screen.draw("╱")
+    screen.draw("┊")
     
     # 11. 若是最后一个真实标签则绘制最右侧系统状态
     if is_last:
@@ -139,7 +139,7 @@ def draw_right_status(
     active_bg: int,
     inactive_fg: int
 ) -> None:
-    """在屏幕最右侧绘制融合整体设计风格 of 轻量斜杠切分系统状态栏
+    """在屏幕最右侧绘制系统资源状态栏，包括 CPU 与内存使用率
 
     参数:
         screen (Screen): Kitty 的绘图屏幕对象
@@ -148,35 +148,38 @@ def draw_right_status(
         active_bg (int): 激活状态背景色
         inactive_fg (int): 未激活状态前景色
     """
-    # 1. 获取当前日期与时间并添加 Nerd Font 图标
-    now = datetime.datetime.now()
-    date_str = now.strftime(" 󰃭 %Y-%m-%d ")
-    time_str = now.strftime(" 󰅐 %H:%M ")
+    # 1. 获取系统 CPU 和内存使用百分比
+    cpu_val = psutil.cpu_percent(interval=None)
+    mem_val = psutil.virtual_memory().percent
     
-    # 2. 计算包括斜杠分隔符在内的文本总宽度
+    # 2. 格式化 CPU 与内存状态文本，使用 Nerd Font 图标与点状分隔符
+    cpu_str = f" 󰻠 {cpu_val:.0f}% "
+    mem_str = f" 󰍛 {mem_val:.0f}% "
+    
+    # 3. 计算右侧状态栏的总显示宽度
     cols = screen.columns
-    text_width = len(date_str) + len(time_str) + 1
+    text_width = len(cpu_str) + len(mem_str) + 1
     
-    # 3. 进行边缘防重叠检测，若空间不足则不绘制
+    # 4. 进行边缘防重叠检测，若屏幕空间不足则直接返回
     if screen.cursor.x >= cols - text_width:
         return
         
-    # 4. 强制将光标移动 to 右侧起点
+    # 5. 调整光标位置至右侧起点
     screen.cursor.x = cols - text_width
     
-    # 5. 绘制日期信息，使用低调 of 暗色前景色
+    # 6. 绘制 CPU 使用率，采用暗色前景色
     screen.cursor.bold = False
     screen.cursor.fg = inactive_fg
     screen.cursor.bg = default_bg
-    screen.draw(date_str)
+    screen.draw(cpu_str)
     
-    # 6. 绘制轻量斜线分隔符
-    screen.draw("╱")
+    # 7. 绘制极简点状分隔符
+    screen.draw("┊")
     
-    # 7. 绘制时间信息，使用激活主题色加粗高亮
+    # 8. 绘制内存使用率，使用激活主题色加粗高亮
     screen.cursor.bold = True
     screen.cursor.fg = active_bg
-    screen.draw(time_str)
+    screen.draw(mem_str)
 
 from kitty.tabs import TabManager
 from kitty.fast_data_types import GLFW_RELEASE, get_boss
