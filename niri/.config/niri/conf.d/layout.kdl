@@ -45,8 +45,8 @@ layout {
 }
 
 blur {
-    passes 2 // number of times to apply the blur effect
-    offset 3.0 // sample distance per pass
-    noise 0.02 // add grain to the blur
+    passes 3
+    offset 7.0
+    noise 0.01
 }
 

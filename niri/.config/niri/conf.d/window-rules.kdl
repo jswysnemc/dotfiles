@@ -107,7 +107,6 @@ layer-rule {
 layer-rule {
     // 只匹配真实弹窗，避免 *-bg 全屏点击捕获层模糊整屏
     match namespace="^(quickshell-(bt|volume|recorder|media|screenshot-toolbox|clipboard|launcher|wifi|calendar|weather|welcome)|qs-(window-switcher|close-confirm|qr-viewer|wallpaper-selector|power-menu|color-viewer|todo|notifications|notification-popup)|idle-warning)$"
-    match namespace="^idle-warning$"
 
     opacity 0.98
     geometry-corner-radius 24
@@ -118,6 +117,14 @@ layer-rule {
         noise 0.03
         saturation 1.4
     }
+}
+
+// 【桌面/启动器】【修饰边角】
+// 1. 匹配 rofi 启动器的 layer shell 命名空间
+// 2. 将几何裁剪圆角半径设为 15 像素以匹配 rofi 自身的圆角
+layer-rule {
+    match namespace="^rofi$"
+    geometry-corner-radius 15
 }
 
 window-rule {
@@ -267,4 +274,12 @@ window-rule {
     shadow {
         off
     }
+}
+
+// 【桌面/启动器】【圆角裁剪】
+// 1. 匹配 quickshell 启动器窗口的 layer shell 命名空间
+// 2. 强行应用 24 像素的几何裁剪圆角，以消除右下角的模糊和阴影毛边
+layer-rule {
+    match namespace="^quickshell-launcher$"
+    geometry-corner-radius 24
 }
