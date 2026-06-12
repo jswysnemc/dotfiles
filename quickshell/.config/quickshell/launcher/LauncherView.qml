@@ -65,16 +65,10 @@ Item {
                 function onWidthChanged() { blurRegion.changed() }
                 function onHeightChanged() { blurRegion.changed() }
             }
-            anchors.top: controller.anchorTop && !controller.anchorVCenter
-            anchors.bottom: controller.anchorBottom
-            anchors.left: controller.anchorLeft
-            anchors.right: controller.anchorRight
-            margins.top: controller.anchorTop ? controller.marginT : 0
-            margins.bottom: controller.anchorBottom ? controller.marginB : 0
-            margins.left: controller.anchorLeft ? controller.marginL : 0
-            margins.right: controller.anchorRight ? controller.marginR : 0
-            implicitWidth: 720
-            implicitHeight: 660
+            anchors.top: true
+            anchors.bottom: true
+            anchors.left: true
+            anchors.right: true
 
 
             // Keyboard
@@ -97,7 +91,18 @@ Item {
             // Main container
             Rectangle {
                 id: mainContainer
-                anchors.fill: parent
+                anchors.top: controller.anchorTop ? parent.top : undefined
+                anchors.bottom: controller.anchorBottom ? parent.bottom : undefined
+                anchors.left: controller.anchorLeft ? parent.left : undefined
+                anchors.right: controller.anchorRight ? parent.right : undefined
+                anchors.horizontalCenter: controller.anchorHCenter ? parent.horizontalCenter : undefined
+                anchors.verticalCenter: controller.anchorVCenter ? parent.verticalCenter : undefined
+                anchors.topMargin: controller.anchorTop ? controller.marginT : 0
+                anchors.bottomMargin: controller.anchorBottom ? controller.marginB : 0
+                anchors.leftMargin: controller.anchorLeft ? controller.marginL : 0
+                anchors.rightMargin: controller.anchorRight ? controller.marginR : 0
+                width: 720
+                height: 660
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
