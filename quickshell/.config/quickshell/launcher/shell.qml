@@ -20,7 +20,7 @@ ShellRoot {
 
     // ============ Animation State ============
     property real containerOpacity: 1
-    property bool blurActive: true
+    property bool blurActive: false
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "center"

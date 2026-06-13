@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -19,7 +18,8 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
-    property bool blurActive: true
+    property bool blurActive: false
+    readonly property int shadowPadding: 0
 
     property string storeScript: Qt.resolvedUrl("todo_store.py").toString().replace("file://", "")
     property var todos: []
@@ -48,7 +48,8 @@ ShellRoot {
 
     function closeWithAnimation() {
         root.blurActive = false
-        exitAnimation.start()
+        root.panelOpacity = 0
+        Qt.quit()
     }
 
     function normalizeTodo(todo) {
@@ -193,7 +194,7 @@ ShellRoot {
             required property ShellScreen modelData
             screen: modelData
 
-            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.3)
+            color: "transparent"
             WlrLayershell.namespace: "qs-todo-bg"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -225,26 +226,8 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive && dialog.width > 0 && dialog.height > 0 ? dialog : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: dialog
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-            implicitWidth: 430
-            implicitHeight: 480
+            implicitWidth: 430 + root.shadowPadding * 2
+            implicitHeight: 480 + root.shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
 
@@ -256,22 +239,13 @@ ShellRoot {
             Rectangle {
                 id: dialog
                 anchors.fill: parent
+                anchors.margins: root.shadowPadding
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 16
-                }
 
                 // 玻璃内描边
                 Rectangle {

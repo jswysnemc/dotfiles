@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -20,7 +19,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
-    property bool blurActive: true
+    property bool blurActive: false
     property var targetWindow: null
     property bool hasTargetWindow: targetWindow !== null && targetWindow !== undefined
     readonly property string targetTitle: hasTargetWindow && targetWindow.title ? targetWindow.title : i18n.tr("unknownTitle")
@@ -106,7 +105,8 @@ ShellRoot {
 
     function closeWithAnimation() {
         root.blurActive = false
-        exitAnimation.start()
+        root.panelOpacity = 0
+        Qt.quit()
     }
 
     // Background overlay
@@ -117,7 +117,7 @@ ShellRoot {
             required property ShellScreen modelData
             screen: modelData
 
-            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.3)
+            color: "transparent"
             WlrLayershell.namespace: "qs-close-confirm-bg"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -149,24 +149,6 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive && dialog.width > 0 && dialog.height > 0 ? dialog : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: dialog
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
             implicitWidth: 380
             implicitHeight: dialog.implicitHeight
 
@@ -189,7 +171,6 @@ ShellRoot {
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
 
                 // 玻璃内描边

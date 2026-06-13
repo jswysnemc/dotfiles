@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -23,6 +22,7 @@ Item {
             WlrLayershell.namespace: "quickshell-weather-bg"
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            visible: !controller.closing
 
             anchors.top: true
             anchors.bottom: true
@@ -42,6 +42,8 @@ Item {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int shadowPadding: 0
+            readonly property int contentWidth: 420
             screen: modelData
 
             color: "transparent"
@@ -50,34 +52,17 @@ Item {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: controller.blurActive && panelRect.width > 0 && panelRect.height > 0 ? panelRect : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: controller
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: panelRect
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
+            visible: !controller.closing
             anchors.top: controller.anchorTop && !controller.anchorVCenter
             anchors.bottom: controller.anchorBottom
             anchors.left: controller.anchorLeft
             anchors.right: controller.anchorRight
-            margins.top: controller.anchorTop ? controller.marginT : 0
-            margins.bottom: controller.anchorBottom ? controller.marginB : 0
-            margins.left: controller.anchorLeft ? controller.marginL : 0
-            margins.right: controller.anchorRight ? controller.marginR : 0
-            implicitWidth: 420
-            implicitHeight: controller.showSettings ? 520 : panelRect.implicitHeight
+            margins.top: controller.anchorTop ? controller.marginT - shadowPadding : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB - shadowPadding : 0
+            margins.left: controller.anchorLeft ? controller.marginL - shadowPadding : 0
+            margins.right: controller.anchorRight ? controller.marginR - shadowPadding : 0
+            implicitWidth: contentWidth + shadowPadding * 2
+            implicitHeight: (controller.showSettings ? 520 : panelRect.implicitHeight) + shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
 
@@ -89,23 +74,14 @@ Item {
             Rectangle {
                 id: panelRect
                 anchors.fill: parent
+                anchors.margins: panel.shadowPadding
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
                 implicitHeight: mainCol.implicitHeight + Theme.spacingXL * 2
-                clip: true
 
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: controller.panelOpacity
-
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 16
-                }
 
                 // 玻璃内描边
                 Rectangle {
@@ -115,14 +91,6 @@ Item {
                     border.width: 1
                     border.color: Theme.glassHighlight
                     z: 30
-                }
-
-                // Aurora 背景
-                AuroraBackground {
-                    anchors.fill: parent
-                    intensity: 0.32
-                    orbScale: 1.4
-                    z: 0
                 }
 
                 MouseArea {

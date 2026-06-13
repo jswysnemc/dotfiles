@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -50,6 +49,8 @@ Item {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int shadowPadding: 0
+            readonly property int contentWidth: 420
             screen: modelData
             color: "transparent"
             surfaceFormat.opaque: false
@@ -57,34 +58,16 @@ Item {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: controller.blurActive && card.width > 0 && card.height > 0 ? card : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: controller
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: card
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
             anchors.top: controller.anchorTop && !controller.anchorVCenter
             anchors.bottom: controller.anchorBottom
             anchors.left: controller.anchorLeft
             anchors.right: controller.anchorRight
-            margins.top: controller.anchorTop ? controller.marginT : 0
-            margins.bottom: controller.anchorBottom ? controller.marginB : 0
-            margins.left: controller.anchorLeft ? controller.marginL : 0
-            margins.right: controller.anchorRight ? controller.marginR : 0
-            implicitWidth: 420
-            implicitHeight: Math.min(720, card.implicitHeight)
+            margins.top: controller.anchorTop ? controller.marginT - shadowPadding : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB - shadowPadding : 0
+            margins.left: controller.anchorLeft ? controller.marginL - shadowPadding : 0
+            margins.right: controller.anchorRight ? controller.marginR - shadowPadding : 0
+            implicitWidth: contentWidth + shadowPadding * 2
+            implicitHeight: Math.min(720, card.implicitHeight) + shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: controller.activePage !== "main" ? controller.activePage = "main" : controller.closeWithAnimation() }
 
@@ -96,22 +79,13 @@ Item {
             Rectangle {
                 id: card
                 anchors.fill: parent
+                anchors.margins: panel.shadowPadding
                 implicitHeight: Math.max(360, content.implicitHeight + Theme.spacingXL * 2)
                 radius: Theme.radiusXL + 4
                 color: toolboxView.panelColor
                 border.color: Theme.glassBorder
                 border.width: 1.5
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: controller.panelOpacity
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 16
-                }
 
                 // 玻璃内描边
                 Rectangle {

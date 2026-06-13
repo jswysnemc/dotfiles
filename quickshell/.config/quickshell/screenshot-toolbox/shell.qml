@@ -21,7 +21,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
-    property bool blurActive: true
+    property bool blurActive: false
     readonly property string initialPickedColor: Quickshell.env("QS_PICKED_COLOR") || ""
     property string activePage: initialPickedColor ? "color" : "main"
     property string pickedColor: ""

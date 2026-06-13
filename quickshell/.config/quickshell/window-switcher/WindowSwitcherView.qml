@@ -18,7 +18,7 @@ Item {
             required property ShellScreen modelData
             screen: modelData
 
-            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.5)
+            color: "transparent"
             WlrLayershell.namespace: "qs-window-switcher-bg"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -41,6 +41,7 @@ Item {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int shadowPadding: 0
             screen: modelData
 
             color: "transparent"
@@ -49,26 +50,8 @@ Item {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: controller.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: controller
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: mainContainer
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-            implicitWidth: Math.min(controller.columns * (controller.cardWidth + Theme.spacingM) + Theme.spacingXL * 2, (modelData.width ? modelData.width : 1280) - 80)
-            implicitHeight: Math.min(contentCol.implicitHeight + Theme.spacingXL * 2, (modelData.height ? modelData.height : 720) - 80)
+            implicitWidth: Math.min(controller.columns * (controller.cardWidth + Theme.spacingM) + Theme.spacingXL * 2, (modelData.width ? modelData.width : 1280) - 80) + shadowPadding * 2
+            implicitHeight: Math.min(contentCol.implicitHeight + Theme.spacingXL * 2, (modelData.height ? modelData.height : 720) - 80) + shadowPadding * 2
 
             // Keyboard shortcuts
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
@@ -99,22 +82,13 @@ Item {
             Rectangle {
                 id: mainContainer
                 anchors.fill: parent
+                anchors.margins: panel.shadowPadding
                 color: Theme.alpha(Theme.background, 0.42)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: controller.panelOpacity
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 20
-                }
 
                 // 玻璃内描边
                 Rectangle {

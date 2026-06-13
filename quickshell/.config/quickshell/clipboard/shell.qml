@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -20,7 +19,8 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
-    property bool blurActive: true
+    property bool blurActive: false
+    readonly property int shadowPadding: 0
     readonly property color clipboardPanelColor: Theme.alpha(Theme.background, 0.68)
     readonly property color clipboardControlColor: Theme.alpha(Theme.surface, 0.54)
     readonly property color clipboardControlHoverColor: Theme.alpha(Theme.surfaceVariant, 0.62)
@@ -2051,12 +2051,39 @@ ShellRoot {
         if (root.closing) return
         root.closing = true
         root.blurActive = false
+        root.hidePreview()
         root.stopBackgroundWork()
         root.panelOpacity = 0
         Qt.quit()
     }
 
     // ============ UI ============
+    Variants {
+        model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
+
+        PanelWindow {
+            id: clickCatcher
+            required property ShellScreen modelData
+            screen: modelData
+
+            color: "transparent"
+            WlrLayershell.namespace: "quickshell-clipboard-bg"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            visible: !root.closing
+
+            anchors.top: true
+            anchors.bottom: true
+            anchors.left: true
+            anchors.right: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.closeWithAnimation()
+            }
+        }
+    }
+
     Variants {
         model: ScreenModel.targetScreens(Quickshell.screens, Quickshell.env("QS_TARGET_OUTPUT"))
 
@@ -2070,28 +2097,18 @@ ShellRoot {
             WlrLayershell.namespace: "quickshell-clipboard"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive ? mainContainer : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: mainContainer
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            visible: !root.closing
+            anchors.top: root.anchorTop && !root.anchorVCenter
+            anchors.bottom: root.anchorBottom
+            anchors.left: root.anchorLeft
+            anchors.right: root.anchorRight
+            margins.top: root.anchorTop ? root.marginT - root.shadowPadding : 0
+            margins.bottom: root.anchorBottom ? root.marginB - root.shadowPadding : 0
+            margins.left: root.anchorLeft ? root.marginL - root.shadowPadding : 0
+            margins.right: root.anchorRight ? root.marginR - root.shadowPadding : 0
+            implicitWidth: 650 + root.shadowPadding * 2
+            implicitHeight: 550 + root.shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: root.previewVisible ? root.hidePreview() : root.closeWithAnimation() }
             Shortcut { sequence: "Return"; onActivated: root.selectCurrent() }
@@ -2112,64 +2129,40 @@ ShellRoot {
                 onClicked: root.closeWithAnimation()
             }
 
-            Rectangle {
-                id: mainContainer
-                anchors.top: root.anchorTop ? parent.top : undefined
-                anchors.bottom: root.anchorBottom ? parent.bottom : undefined
-                anchors.left: root.anchorLeft ? parent.left : undefined
-                anchors.right: root.anchorRight ? parent.right : undefined
-                anchors.horizontalCenter: root.anchorHCenter ? parent.horizontalCenter : undefined
-                anchors.verticalCenter: root.anchorVCenter ? parent.verticalCenter : undefined
-                anchors.topMargin: root.anchorTop ? root.marginT : 0
-                anchors.bottomMargin: root.anchorBottom ? root.marginB : 0
-                anchors.leftMargin: root.anchorLeft ? root.marginL : 0
-                anchors.rightMargin: root.anchorRight ? root.marginR : 0
-                width: 650
-                height: 550
-                color: root.clipboardPanelColor
-                radius: Theme.radiusXL + 4
-                border.color: Theme.glassBorder
-                border.width: 1.5
-
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
+            Item {
+                id: shadowContainer
+                anchors.fill: parent
                 opacity: root.panelOpacity
 
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 18
-                }
-
-                // 玻璃内描边
                 Rectangle {
-                    anchors.fill: parent
-                    radius: parent.radius
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Theme.glassHighlight
-                    z: 10
-                }
+                    id: mainContainer
+                    anchors.centerIn: parent
+                    width: 650
+                    height: 550
+                    color: root.clipboardPanelColor
+                    radius: Theme.radiusXL + 4
+                    border.color: Theme.glassBorder
+                    border.width: 1.5
 
-                // Aurora 背景
-                AuroraBackground {
-                    anchors.fill: parent
-                    intensity: 0.08
-                    orbScale: 1.35
-                    z: 0
-                }
+                    // 玻璃内描边
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Theme.glassHighlight
+                        z: 10
+                    }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: function(mouse) { mouse.accepted = true }
-                }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: function(mouse) { mouse.accepted = true }
+                    }
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: Theme.spacingXL
-                    spacing: Theme.spacingL
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingXL
+                        spacing: Theme.spacingL
 
                     // Header
                     RowLayout {
@@ -2757,15 +2750,17 @@ ShellRoot {
                         text: i18n.trLiteral("Enter 粘贴 | 右键 预览 | 方向键 导航 | #tag 过滤 | Esc 关闭")
                         font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
-                    }
-                }
+	                    }
+	                }
+	            }
             }
 
             // ============ Preview Overlay ============
             Rectangle {
-                visible: root.previewVisible
+                visible: root.previewVisible && !root.closing
                 anchors.fill: parent
-                color: Theme.alpha(Qt.black, 0.5)
+                color: "transparent"
+                z: 100
 
                 MouseArea {
                     anchors.fill: parent
@@ -2777,21 +2772,15 @@ ShellRoot {
                     || (root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0))
 
                 Rectangle {
+                    id: previewDialog
                     anchors.centerIn: parent
                     width: parent.isVisualPreview ? Math.min(parent.width - 60, 800) : Math.min(parent.width - 60, 700)
                     height: parent.isVisualPreview ? Math.min(parent.height - 60, 650) : Math.min(parent.height - 60, 550)
-                    color: Theme.alpha(Theme.background, 0.34)
+                    color: Theme.alpha(Theme.background, 0.82)
                     radius: Theme.radiusXL + 2
                     border.color: Theme.glassBorder
                     border.width: 1.5
-
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: Theme.shadowColor
-                        shadowBlur: 1.0
-                        shadowVerticalOffset: 18
-                    }
+                    clip: true
 
                     Rectangle {
                         anchors.fill: parent
@@ -2968,6 +2957,7 @@ ShellRoot {
                                     id: previewImage
                                     visible: root.previewItem && root.previewItem.isImage
                                     width: parent.width
+                                    height: previewFlickable.height
                                     source: root.previewItem && root.previewItem.isImage && root.imagePaths[root.previewItem.id]
                                         ? "file://" + root.imagePaths[root.previewItem.id] : ""
                                     fillMode: Image.PreserveAspectFit
@@ -2980,6 +2970,7 @@ ShellRoot {
                                     id: previewFileImage
                                     visible: root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "image"
                                     width: parent.width
+                                    height: previewFlickable.height
                                     source: (root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "image" && root.previewItem.filePaths.length > 0)
                                         ? "file://" + root.previewItem.filePaths[0] : ""
                                     fillMode: Image.PreserveAspectFit
@@ -2991,6 +2982,7 @@ ShellRoot {
                                     id: previewGif
                                     visible: root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "gif"
                                     width: parent.width
+                                    height: previewFlickable.height
                                     source: (root.previewItem && root.previewItem.isFile && root.previewItem.filePaths.length <= 1 && root.previewItem.fileType === "gif" && root.previewItem.filePaths.length > 0)
                                         ? "file://" + root.previewItem.filePaths[0] : ""
                                     fillMode: Image.PreserveAspectFit
@@ -3123,6 +3115,7 @@ ShellRoot {
                                     id: previewHtmlImage
                                     visible: root.previewItem && root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0 && root.isLocalImagePath(root.previewItem.htmlImageSrcs[0])
                                     width: parent.width
+                                    height: previewFlickable.height
                                     source: (root.previewItem && root.previewItem.textType === "html" && root.previewItem.htmlImageSrcs && root.previewItem.htmlImageSrcs.length > 0 && root.isLocalImagePath(root.previewItem.htmlImageSrcs[0]))
                                         ? root.localFileUrl(root.previewItem.htmlImageSrcs[0]) : ""
                                     fillMode: Image.PreserveAspectFit

@@ -49,26 +49,17 @@ Item {
             WlrLayershell.namespace: "quickshell-launcher"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: controller.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: controller
-                function onBlurActiveChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: mainContainer
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
+            WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            anchors.top: controller.anchorTop && !controller.anchorVCenter
+            anchors.bottom: controller.anchorBottom
+            anchors.left: controller.anchorLeft
+            anchors.right: controller.anchorRight
+            margins.top: controller.anchorTop ? controller.marginT : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB : 0
+            margins.left: controller.anchorLeft ? controller.marginL : 0
+            margins.right: controller.anchorRight ? controller.marginR : 0
+            implicitWidth: 720
+            implicitHeight: 660
 
 
             // Keyboard
@@ -88,38 +79,15 @@ Item {
                 onClicked: controller.closeWithAnimation()
             }
 
-            // Shadow container to provide margins for shadow rendering and prevent clipping artifacts
             Item {
                 id: shadowContainer
-                anchors.top: controller.anchorTop ? parent.top : undefined
-                anchors.bottom: controller.anchorBottom ? parent.bottom : undefined
-                anchors.left: controller.anchorLeft ? parent.left : undefined
-                anchors.right: controller.anchorRight ? parent.right : undefined
-                anchors.horizontalCenter: controller.anchorHCenter ? parent.horizontalCenter : undefined
-                anchors.verticalCenter: controller.anchorVCenter ? parent.verticalCenter : undefined
-                anchors.topMargin: controller.anchorTop ? controller.marginT - 40 : 0
-                anchors.bottomMargin: controller.anchorBottom ? controller.marginB - 40 : 0
-                anchors.leftMargin: controller.anchorLeft ? controller.marginL - 40 : 0
-                anchors.rightMargin: controller.anchorRight ? controller.marginR - 40 : 0
-                width: 720 + 80
-                height: 660 + 80
+                anchors.fill: parent
                 opacity: controller.containerOpacity
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 18
-                }
 
                 // Main container
                 Rectangle {
                     id: mainContainer
-                    anchors.centerIn: parent
-                    width: 720
-                    height: 660
+                    anchors.fill: parent
                     color: Theme.alpha(Theme.background, 0.28)
                     radius: Theme.radiusXL + 4
                     border.color: Theme.glassBorder
@@ -133,14 +101,6 @@ Item {
                         border.width: 1
                         border.color: Theme.glassHighlight
                         z: 10
-                    }
-
-                    // Aurora 装饰球
-                    AuroraBackground {
-                        anchors.fill: parent
-                        intensity: 0.28
-                        orbScale: 1.6
-                        z: 0
                     }
 
                     MouseArea {
@@ -662,5 +622,3 @@ Item {
     }
 }
 }
-
-

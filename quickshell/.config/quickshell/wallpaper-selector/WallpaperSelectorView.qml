@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -42,6 +41,7 @@ Item {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int shadowPadding: 0
             screen: modelData
 
             color: "transparent"
@@ -50,26 +50,8 @@ Item {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: controller.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: controller
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: mainContainer
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-            implicitWidth: Math.min(modelData.width ? modelData.width * 0.8 : 900, 900)
-            implicitHeight: Math.min(modelData.height ? modelData.height * 0.9 : 730, 730)
+            implicitWidth: Math.min(modelData.width ? modelData.width * 0.8 : 900, 900) + shadowPadding * 2
+            implicitHeight: Math.min(modelData.height ? modelData.height * 0.9 : 730, 730) + shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
             Shortcut { sequence: "Up"; onActivated: controller.moveUp() }
@@ -92,22 +74,13 @@ Item {
             Rectangle {
                 id: mainContainer
                 anchors.fill: parent
+                anchors.margins: panel.shadowPadding
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: controller.panelOpacity
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 20
-                }
 
                 // 玻璃内描边
                 Rectangle {

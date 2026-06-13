@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -35,7 +34,8 @@ ShellRoot {
     // ============ State ============
     property bool isRecording: false
     property string duration: "00:00"
-    property bool blurActive: true
+    property bool blurActive: false
+    readonly property int shadowPadding: 0
 
     // Settings
     property string codec: "libx264"
@@ -196,52 +196,28 @@ ShellRoot {
             WlrLayershell.namespace: "quickshell-recorder"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive ? panelContent : null
-                radius: Theme.radiusXL
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: panelContent
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
             anchors.top: root.anchorTop && !root.anchorVCenter
             anchors.bottom: root.anchorBottom
             anchors.left: root.anchorLeft
             anchors.right: root.anchorRight
-            margins.top: root.anchorTop ? root.marginT : 0
-            margins.bottom: root.anchorBottom ? root.marginB : 0
-            margins.left: root.anchorLeft ? root.marginL : 0
-            margins.right: root.anchorRight ? root.marginR : 0
-            implicitWidth: 360
-            implicitHeight: panelContent.implicitHeight + Theme.spacingL * 2
+            margins.top: root.anchorTop ? root.marginT - root.shadowPadding : 0
+            margins.bottom: root.anchorBottom ? root.marginB - root.shadowPadding : 0
+            margins.left: root.anchorLeft ? root.marginL - root.shadowPadding : 0
+            margins.right: root.anchorRight ? root.marginR - root.shadowPadding : 0
+            implicitWidth: 360 + root.shadowPadding * 2
+            implicitHeight: panelContent.implicitHeight + Theme.spacingL * 2 + root.shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: root.quitWithBlurDisabled() }
 
             Rectangle {
                 id: panelContent
                 anchors.fill: parent
+                anchors.margins: root.shadowPadding
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL
                 border.color: Theme.glassBorder
                 border.width: 1.5
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
-
-                // 高级光影
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 0.9
-                    shadowVerticalOffset: 14
-                }
 
                 // 玻璃内描边
                 Rectangle {

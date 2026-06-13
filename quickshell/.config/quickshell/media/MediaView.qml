@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -26,6 +25,7 @@ Item {
             WlrLayershell.namespace: "quickshell-media-bg"
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            visible: !controller.closing
 
             anchors.top: true
             anchors.bottom: true
@@ -45,6 +45,8 @@ Item {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int shadowPadding: 0
+            readonly property int contentWidth: 400
             screen: modelData
 
             color: "transparent"
@@ -52,35 +54,17 @@ Item {
             WlrLayershell.namespace: "quickshell-media"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: controller.blurActive && controller.initialized && panelRect.width > 0 && panelRect.height > 0 ? panelRect : null
-                radius: Theme.radiusXL
-            }
-            Connections {
-                target: controller
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: panelRect
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
+            visible: !controller.closing
             anchors.top: controller.anchorTop && !controller.anchorVCenter
             anchors.bottom: controller.anchorBottom
             anchors.left: controller.anchorLeft
             anchors.right: controller.anchorRight
-            margins.top: controller.anchorTop ? controller.marginT : 0
-            margins.bottom: controller.anchorBottom ? controller.marginB : 0
-            margins.left: controller.anchorLeft ? controller.marginL : 0
-            margins.right: controller.anchorRight ? controller.marginR : 0
-            implicitWidth: 400
-            implicitHeight: Math.min(720, panelRect.implicitHeight)
-
+            margins.top: controller.anchorTop ? controller.marginT - shadowPadding : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB - shadowPadding : 0
+            margins.left: controller.anchorLeft ? controller.marginL - shadowPadding : 0
+            margins.right: controller.anchorRight ? controller.marginR - shadowPadding : 0
+            implicitWidth: contentWidth + shadowPadding * 2
+            implicitHeight: Math.min(720, panelRect.implicitHeight) + shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
             Shortcut { sequence: "Space"; onActivated: controller.playPause() }
@@ -95,25 +79,15 @@ Item {
             Rectangle {
                 id: panelRect
                 anchors.fill: parent
+                anchors.margins: panel.shadowPadding
                 implicitHeight: Math.max(controller.hasPlayer ? 520 : 250, mainCol.implicitHeight + Theme.spacingL * 2)
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
-                // 多层发光阴影 (Premium Shadow)
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 0.8
-                    shadowVerticalOffset: 12
-                    shadowHorizontalOffset: 0
-                }
-
-                // Wait for initialization before showing
+                // 1. 初始化完成后再显示面板，避免媒体数据未就绪时闪烁
                 opacity: controller.initialized ? controller.panelOpacity : 0
-                Behavior on opacity { NumberAnimation { duration: 150 } }
 
                 MouseArea {
                     anchors.fill: parent
@@ -129,38 +103,13 @@ Item {
                     z: 10
                 }
 
-                // Background art blur effect
-                Item {
-                    anchors.fill: parent
-                    clip: true
-                    visible: controller.artUrl !== ""
-                    opacity: 0.25
-
-                    Behavior on opacity { NumberAnimation { duration: Theme.animSlow } }
-
-                    Image {
-                        anchors.fill: parent
-                        anchors.margins: -60
-                        source: controller.artUrl
-                        fillMode: Image.PreserveAspectCrop
-                        layer.enabled: true
-                        layer.effect: MultiEffect {
-                            blurEnabled: true
-                            blurMax: 64
-                            blur: 1.0
-                            contrast: 0.1
-                            saturation: 0.2
-                        }
-                    }
-                }
-
                 ColumnLayout {
                     id: mainCol
                     anchors.fill: parent
                     anchors.margins: Theme.spacingL
                     spacing: Theme.spacingL
 
-                    // Header with player selector
+                    // 顶部标题和播放器切换
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingM
@@ -181,7 +130,7 @@ Item {
 
                         Item { Layout.fillWidth: true }
 
-                        // Player switcher (if multiple players)
+                        // 多播放器切换
                         Rectangle {
                             visible: controller.playersList.length > 1
                             width: playerSwitchRow.implicitWidth + Theme.spacingM * 2
@@ -254,7 +203,7 @@ Item {
                             }
                         }
 
-                        // Close button
+                        // 关闭按钮
                         Rectangle {
                             width: 32; height: 32; radius: Theme.radiusM
                             color: closeMa.containsMouse ? Theme.surfaceVariant : "transparent"
@@ -283,7 +232,7 @@ Item {
 
                     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline; opacity: 0.6 }
 
-                    // No player state
+                    // 无播放器状态
                     Rectangle {
                         visible: !controller.hasPlayer
                         Layout.fillWidth: true
@@ -327,7 +276,7 @@ Item {
                         controller: mediaView.controller
                     }
 
-                    // Keyboard hints
+                    // 键盘提示
                     Text {
                         Layout.fillWidth: true
                         text: controller.i18nContext.trLiteral("Space 播放/暂停 | Left/Right 上/下一曲")
@@ -339,4 +288,5 @@ Item {
                 }
             }
         }
-    }}
+    }
+}

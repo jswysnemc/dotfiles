@@ -37,7 +37,12 @@ Item {
         anchors.fill: parent
     }
 
-    // 计算初始偏移
+    /**
+     * 计算通知入场时的位移。
+     *
+     * @param 无
+     * @returns 包含 x 与 y 的位移对象
+     */
     function getEnterOffset() {
         switch (direction) {
             case "left": return { x: -slideDistance, y: 0 }
@@ -48,6 +53,12 @@ Item {
         }
     }
 
+    /**
+     * 计算通知退场时的位移。
+     *
+     * @param 无
+     * @returns 包含 x 与 y 的位移对象
+     */
     function getExitOffset() {
         switch (direction) {
             case "left": return { x: -slideDistance * 0.5, y: 0 }
@@ -127,18 +138,48 @@ Item {
             exitAnimation.stop()
             enterAnimation.start()
         } else {
-            enterAnimation.stop()
-            exitAnimation.start()
+            hideImmediate()
         }
     }
 
-    // 立即关闭并触发回调
-    function dismiss(callback) {
+    /**
+     * 立即显示通知。
+     *
+     * @param 无
+     * @returns 无
+     */
+    function showImmediate() {
+        enterAnimation.stop()
         exitAnimation.stop()
-        var conn = exitAnimation.finished.connect(function() {
-            exitAnimation.finished.disconnect(conn)
-            if (callback) callback()
-        })
-        exitAnimation.start()
+        _visible = true
+        opacity = 1
+        _offsetX = 0
+        _offsetY = 0
+    }
+
+    /**
+     * 立即隐藏通知。
+     *
+     * @param 无
+     * @returns 无
+     */
+    function hideImmediate() {
+        enterAnimation.stop()
+        exitAnimation.stop()
+        _visible = false
+        opacity = 0
+        _offsetX = 0
+        _offsetY = 0
+    }
+
+    /**
+     * 立即关闭通知并触发回调。
+     *
+     * @param callback 关闭后执行的回调函数
+     * @returns 无
+     */
+    function dismiss(callback) {
+        hideImmediate()
+        if (callback) callback()
     }
 }

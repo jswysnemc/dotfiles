@@ -21,8 +21,9 @@ ShellRoot {
     property real containerOpacity: 0
     property real containerScale: 0.85
     property real containerY: 25
-    property bool blurActive: true
+    property bool blurActive: false
     readonly property int menuSize: 520
+    readonly property int shadowPadding: 0
 
     // Position from environment
     property string posEnv: Quickshell.env("QS_POS") || "center"
@@ -150,7 +151,9 @@ ShellRoot {
 
     function closeWithAnimation() {
         root.blurActive = false
-        exitAnimation.start()
+        root.bgOpacity = 0
+        root.containerOpacity = 0
+        Qt.quit()
     }
 
     Process {
@@ -218,7 +221,7 @@ ShellRoot {
             required property ShellScreen modelData
             screen: modelData
 
-            color: Theme.alpha(Qt.rgba(0, 0, 0, 1), 0.45 * root.bgOpacity)
+            color: "transparent"
             WlrLayershell.namespace: "qs-power-menu-bg"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -255,26 +258,8 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive && mainContainer.width > 0 && mainContainer.height > 0 ? mainContainer : null
-                shape: RegionShape.Ellipse
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onContainerScaleChanged() { blurRegion.changed() }
-                function onContainerYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: mainContainer
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-            implicitWidth: root.menuSize
-            implicitHeight: root.menuSize
+            implicitWidth: root.menuSize + root.shadowPadding * 2
+            implicitHeight: root.menuSize + root.shadowPadding * 2
 
             Shortcut { sequence: "Escape"; onActivated: root.confirmMode ? root.cancelConfirm() : root.closeWithAnimation() }
             Shortcut { sequence: "Left"; onActivated: root.moveLeft() }
@@ -299,19 +284,11 @@ ShellRoot {
              Rectangle {
                 id: mainContainer
                 anchors.fill: parent
+                anchors.margins: root.shadowPadding
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: width / 2
                 border.color: Theme.glassBorder
                 border.width: 1.5
-
-                // 高级光影效果 (Power Menu Special Shadow)
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.alpha("#000000", 0.28)
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 18
-                }
 
                 // 玻璃高光
                 Rectangle {
@@ -323,32 +300,6 @@ ShellRoot {
                     z: 10
                 }
 
-                // Aurora 装饰球需要单独圆形遮罩，否则会在圆外露出外接矩形。
-                Item {
-                    anchors.fill: parent
-                    z: 0
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        maskEnabled: true
-                        maskThresholdMin: 0.5
-                        maskSpreadAtMin: 1.0
-                        maskSource: ShaderEffectSource {
-                            sourceItem: Rectangle {
-                                width: mainContainer.width
-                                height: mainContainer.height
-                                radius: width / 2
-                            }
-                        }
-                    }
-
-                    AuroraBackground {
-                        anchors.fill: parent
-                        intensity: 0.35
-                        orbScale: 1.0
-                    }
-                }
-
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.containerOpacity
 
                 MouseArea {
@@ -495,7 +446,7 @@ ShellRoot {
 
                     readonly property real centerX: width / 2
                     readonly property real centerY: height / 2
-                    readonly property real orbitRadius: 180
+                    readonly property real orbitRadius: 172
                     readonly property int btnCount: root.actions.length
 
                     // 中央 Hub
@@ -589,8 +540,8 @@ ShellRoot {
                             readonly property real angle: -Math.PI / 2 + index * (2 * Math.PI / orbital.btnCount)
                             readonly property bool isSelected: root.selectedIndex === index
 
-                            width: 68; height: 68
-                            radius: 34
+                            width: 64; height: 64
+                            radius: 32
                             x: orbital.centerX + Math.cos(angle) * orbital.orbitRadius - width / 2
                             y: orbital.centerY + Math.sin(angle) * orbital.orbitRadius - height / 2
 
@@ -621,8 +572,8 @@ ShellRoot {
                             // 选中时的光圈
                             Rectangle {
                                 anchors.centerIn: parent
-                                width: parent.width + 16
-                                height: parent.height + 16
+                                width: parent.width + 14
+                                height: parent.height + 14
                                 radius: width / 2
                                 color: "transparent"
                                 border.width: 2
@@ -639,7 +590,7 @@ ShellRoot {
                                 anchors.centerIn: parent
                                 text: actionBtn.modelData.icon
                                 font.family: "Symbols Nerd Font Mono"
-                                font.pixelSize: 26
+                                font.pixelSize: 24
                                 color: actionBtn.modelData.color
                             }
 
@@ -660,11 +611,11 @@ ShellRoot {
                     Text {
                         anchors.bottom: parent.bottom
                         anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottomMargin: Theme.spacingL
+                        anchors.bottomMargin: Theme.spacingXL
                         text: i18n.trLiteral("← →  选择  ·  Enter 确认  ·  Esc 取消")
                         font.pixelSize: Theme.fontSizeXS
                         color: Theme.textMuted
-                        opacity: 0.7
+                        opacity: 0.62
                     }
                 }
             }

@@ -1,5 +1,5 @@
 // AnimatedPopup.qml - 带动画的弹窗容器组件
-// 提供统一的入场/退场动画效果
+// 提供统一的入场动画和无残影关闭行为
 
 import QtQuick
 import QtQuick.Layouts
@@ -107,7 +107,7 @@ Item {
         onFinished: root._animating = false
     }
 
-    // 退场动画
+    // 退场动画保留给显式需求，默认关闭不再调用
     ParallelAnimation {
         id: exitAnimation
 
@@ -136,139 +136,62 @@ Item {
         }
 
         onStarted: root._animating = true
-        onFinished: {
-            root._animating = false
-            root._visible = false
-        }
+        onFinished: root.hideImmediate()
     }
 
     onShowChanged: {
         if (show) {
-            exitAnimation.stop()
-            _visible = true
-            enterAnimation.start()
+            showAnimated()
         } else {
-            enterAnimation.stop()
-            exitAnimation.start()
+            hideImmediate()
         }
     }
 
-    // 立即显示（无动画）
+    /**
+     * 播放弹窗入场动画。
+     *
+     * @param 无
+     * @returns 无
+     */
+    function showAnimated() {
+        exitAnimation.stop()
+        enterAnimation.stop()
+        _visible = true
+        opacity = 0
+        scale = enterScale
+        y = enterY
+        enterAnimation.start()
+    }
+
+    /**
+     * 立即显示弹窗。
+     *
+     * @param 无
+     * @returns 无
+     */
     function showImmediate() {
         enterAnimation.stop()
         exitAnimation.stop()
+        _animating = false
         _visible = true
         opacity = 1
         scale = 1.0
         y = 0
     }
 
-    // 立即隐藏（无动画）
+    /**
+     * 立即隐藏弹窗。
+     *
+     * @param 无
+     * @returns 无
+     */
     function hideImmediate() {
         enterAnimation.stop()
         exitAnimation.stop()
+        _animating = false
         _visible = false
         opacity = 0
         scale = enterScale
-    }
-}
-
-
-    // 入场动画
-    ParallelAnimation {
-        id: enterAnimation
-
-        NumberAnimation {
-            target: root
-            property: "opacity"
-            from: 0; to: 1
-            duration: root.enterDuration
-            easing.type: Easing.OutCubic
-        }
-
-        NumberAnimation {
-            target: root
-            property: "scale"
-            from: root.enterScale; to: 1.0
-            duration: root.enterDuration
-            easing.type: Easing.OutBack
-            easing.overshoot: 1.2
-        }
-
-        NumberAnimation {
-            target: root
-            property: "y"
-            from: root.enterY; to: 0
-            duration: root.enterDuration
-            easing.type: Easing.OutCubic
-        }
-
-        onStarted: root._animating = true
-        onFinished: root._animating = false
-    }
-
-    // 退场动画
-    ParallelAnimation {
-        id: exitAnimation
-
-        NumberAnimation {
-            target: root
-            property: "opacity"
-            from: 1; to: 0
-            duration: root.exitDuration
-            easing.type: Easing.InCubic
-        }
-
-        NumberAnimation {
-            target: root
-            property: "scale"
-            from: 1.0; to: root.exitScale
-            duration: root.exitDuration
-            easing.type: Easing.InCubic
-        }
-
-        NumberAnimation {
-            target: root
-            property: "y"
-            from: 0; to: root.exitY
-            duration: root.exitDuration
-            easing.type: Easing.InCubic
-        }
-
-        onStarted: root._animating = true
-        onFinished: {
-            root._animating = false
-            root._visible = false
-        }
-    }
-
-    onShowChanged: {
-        if (show) {
-            exitAnimation.stop()
-            _visible = true
-            enterAnimation.start()
-        } else {
-            enterAnimation.stop()
-            exitAnimation.start()
-        }
-    }
-
-    // 立即显示（无动画）
-    function showImmediate() {
-        enterAnimation.stop()
-        exitAnimation.stop()
-        _visible = true
-        opacity = 1
-        scale = 1.0
         y = 0
-    }
-
-    // 立即隐藏（无动画）
-    function hideImmediate() {
-        enterAnimation.stop()
-        exitAnimation.stop()
-        _visible = false
-        opacity = 0
-        scale = enterScale
     }
 }

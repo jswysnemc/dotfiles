@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -45,6 +44,8 @@ Item {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int shadowPadding: 0
+            readonly property int contentWidth: 380
             screen: modelData
 
             color: "transparent"
@@ -52,34 +53,16 @@ Item {
             WlrLayershell.namespace: "quickshell-volume"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: controller.blurActive ? panelRect : null
-                radius: Theme.radiusXL
-            }
-            Connections {
-                target: controller
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: panelRect
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
             anchors.top: controller.anchorTop && !controller.anchorVCenter
             anchors.bottom: controller.anchorBottom
             anchors.left: controller.anchorLeft
             anchors.right: controller.anchorRight
-            margins.top: controller.anchorTop ? controller.marginT : 0
-            margins.bottom: controller.anchorBottom ? controller.marginB : 0
-            margins.left: controller.anchorLeft ? controller.marginL : 0
-            margins.right: controller.anchorRight ? controller.marginR : 0
-            implicitWidth: 380
-            implicitHeight: panelRect.implicitHeight
+            margins.top: controller.anchorTop ? controller.marginT - shadowPadding : 0
+            margins.bottom: controller.anchorBottom ? controller.marginB - shadowPadding : 0
+            margins.left: controller.anchorLeft ? controller.marginL - shadowPadding : 0
+            margins.right: controller.anchorRight ? controller.marginR - shadowPadding : 0
+            implicitWidth: contentWidth + shadowPadding * 2
+            implicitHeight: panelRect.implicitHeight + shadowPadding * 2
 
 
             Shortcut { sequence: "Escape"; onActivated: controller.closeWithAnimation() }
@@ -92,20 +75,12 @@ Item {
              Rectangle {
                 id: panelRect
                 anchors.fill: parent
+                anchors.margins: panel.shadowPadding
                 color: Theme.alpha(Theme.background, 0.42)
                 radius: Theme.radiusXL
                 border.color: Theme.glassBorder
                 border.width: 1.5
                 implicitHeight: mainCol.implicitHeight + Theme.spacingL * 2
-
-                // 高级光影效果 (Quick Settings Premium Shadow)
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 0.8
-                    shadowVerticalOffset: 12
-                }
 
                 // 玻璃高光
                 Rectangle {
@@ -117,15 +92,6 @@ Item {
                     z: 10
                 }
 
-                // Aurora 装饰
-                AuroraBackground {
-                    anchors.fill: parent
-                    intensity: 0.25
-                    orbScale: 1.4
-                    z: 0
-                }
-
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: controller.panelOpacity
 
                 MouseArea {

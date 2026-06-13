@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -14,7 +13,7 @@ ShellRoot {
     property real notifOpacity: 0
     property real notifX: 30
     property real notifScale: 0.98
-    property bool blurActive: true
+    property bool blurActive: false
 
     function getAppIcon(appName) {
         if (!appName) return "\uf0f3"
@@ -128,7 +127,8 @@ ShellRoot {
     function dismissWithAnimation() {
         hideTimer.stop()
         root.blurActive = false
-        exitAnimation.start()
+        root.notifOpacity = 0
+        Qt.quit()
     }
 
     Timer {
@@ -158,58 +158,32 @@ ShellRoot {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int shadowPadding: 0
+            readonly property int contentWidth: 360
             screen: modelData
             visible: root.visible && root.currentNotif
 
             color: "transparent"
             WlrLayershell.namespace: "qs-notification-popup"
             WlrLayershell.layer: WlrLayer.Overlay
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive ? contentContainer : null
-                radius: Theme.radiusL
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onNotifScaleChanged() { blurRegion.changed() }
-                function onNotifXChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: contentContainer
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
-
             anchors.top: true
             anchors.right: true
-            margins.top: 8
-            margins.right: 8
+            margins.top: 8 - shadowPadding
+            margins.right: 8 - shadowPadding
 
-            implicitWidth: 360
-            implicitHeight: contentCol.implicitHeight + Theme.spacingL * 2
+            implicitWidth: contentWidth + shadowPadding * 2
+            implicitHeight: contentCol.implicitHeight + Theme.spacingL * 2 + shadowPadding * 2
 
             Rectangle {
                 id: contentContainer
                 anchors.fill: parent
+                anchors.margins: panel.shadowPadding
                 color: Theme.alpha(Theme.surface, 0.42)
                 radius: Theme.radiusL
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
                 antialiasing: true
-
-                // 高级光影
-                layer.enabled: true
-                layer.samples: 8
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 0.9
-                    shadowVerticalOffset: 12
-                }
 
                 // 玻璃内描边
                 Rectangle {
@@ -221,8 +195,6 @@ ShellRoot {
                     z: 10
                 }
 
-
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.notifOpacity
 
                 MouseArea {

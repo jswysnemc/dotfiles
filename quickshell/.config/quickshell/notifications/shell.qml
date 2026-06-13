@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -20,7 +19,8 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.98
     property real panelY: 8
-    property bool blurActive: true
+    property bool blurActive: false
+    readonly property int shadowPadding: 0
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
@@ -66,7 +66,8 @@ ShellRoot {
 
     function closeWithAnimation() {
         root.blurActive = false
-        exitAnimation.start()
+        root.panelOpacity = 0
+        Qt.quit()
     }
 
     Process {
@@ -182,34 +183,16 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
-            BackgroundEffect.blurRegion: Region {
-                id: blurRegion
-                item: root.blurActive ? mainContainer : null
-                radius: Theme.radiusXL + 4
-            }
-            Connections {
-                target: root
-                function onBlurActiveChanged() { blurRegion.changed() }
-                function onPanelScaleChanged() { blurRegion.changed() }
-                function onPanelYChanged() { blurRegion.changed() }
-            }
-            Connections {
-                target: mainContainer
-                function onXChanged() { blurRegion.changed() }
-                function onYChanged() { blurRegion.changed() }
-                function onWidthChanged() { blurRegion.changed() }
-                function onHeightChanged() { blurRegion.changed() }
-            }
             anchors.top: root.anchorTop && !root.anchorVCenter
             anchors.bottom: root.anchorBottom
             anchors.left: root.anchorLeft
             anchors.right: root.anchorRight
-            margins.top: root.anchorTop ? root.marginT : 0
-            margins.bottom: root.anchorBottom ? root.marginB : 0
-            margins.left: root.anchorLeft ? root.marginL : 0
-            margins.right: root.anchorRight ? root.marginR : 0
-            implicitWidth: 420
-            implicitHeight: 550
+            margins.top: root.anchorTop ? root.marginT - root.shadowPadding : 0
+            margins.bottom: root.anchorBottom ? root.marginB - root.shadowPadding : 0
+            margins.left: root.anchorLeft ? root.marginL - root.shadowPadding : 0
+            margins.right: root.anchorRight ? root.marginR - root.shadowPadding : 0
+            implicitWidth: 420 + root.shadowPadding * 2
+            implicitHeight: 550 + root.shadowPadding * 2
 
 
             Shortcut { sequence: "Escape"; onActivated: root.closeWithAnimation() }
@@ -217,22 +200,13 @@ ShellRoot {
             Rectangle {
                 id: mainContainer
                 anchors.fill: parent
+                anchors.margins: root.shadowPadding
                 color: Theme.alpha(Theme.background, 0.28)
                 radius: Theme.radiusXL + 4
                 border.color: Theme.glassBorder
                 border.width: 1.5
 
                 antialiasing: true
-
-                // 高级光影
-                layer.enabled: true
-                layer.samples: 8
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Theme.shadowColor
-                    shadowBlur: 1.0
-                    shadowVerticalOffset: 16
-                }
 
                 // 玻璃内描边
                 Rectangle {
@@ -244,7 +218,6 @@ ShellRoot {
                     z: 10
                 }
 
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
                 opacity: root.panelOpacity
 
                 MouseArea {
@@ -344,15 +317,35 @@ ShellRoot {
 
                     // Notification list
                     Flickable {
+                        id: notifFlickable
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         contentHeight: notifCol.implicitHeight
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar {
+                            id: notifScrollBar
+                            policy: ScrollBar.AsNeeded
+                            interactive: true
+                            width: 6
+
+                            contentItem: Rectangle {
+                                implicitWidth: 6
+                                implicitHeight: 32
+                                radius: 3
+                                color: notifScrollBar.pressed || notifScrollBar.hovered ? Theme.textMuted : Theme.alpha(Theme.textMuted, 0.42)
+
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            }
+
+                            background: Rectangle {
+                                color: "transparent"
+                            }
+                        }
 
                         ColumnLayout {
                             id: notifCol
-                            width: parent.width
+                            width: parent.width - Theme.spacingM
                             spacing: Theme.spacingS
 
                             // Empty state

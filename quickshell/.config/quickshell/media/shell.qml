@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -23,7 +22,8 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
-    property bool blurActive: true
+    property bool blurActive: false
+    property bool closing: false
 
     // ============ Position from environment ============
     property string posEnv: Quickshell.env("QS_POS") || "top-right"
@@ -106,10 +106,17 @@ ShellRoot {
      * @returns 无
      */
     function closeWithAnimation() {
+        if (root.closing) return
+        root.closing = true
         // 1. 先关闭模糊区域，避免退出前全屏 layer 参与模糊
         root.blurActive = false
-        // 2. 立即隐藏卡片并退出，保持与剪贴板一致
+        // 2. 停止入场动画，避免退出前继续补帧
+        enterAnimation.stop()
+        exitAnimation.stop()
+        // 3. 立即隐藏卡片并退出，保持与剪贴板一致
         root.panelOpacity = 0
+        root.panelScale = 1.0
+        root.panelY = 0
         Qt.quit()
     }
 

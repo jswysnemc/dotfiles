@@ -22,7 +22,7 @@ ShellRoot {
     property real panelOpacity: 0
     property real panelScale: 0.95
     property real panelY: 15
-    property bool blurActive: true
+    property bool blurActive: false
 
     // State
     property string currentWallpaper: ""

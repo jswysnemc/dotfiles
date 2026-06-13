@@ -89,6 +89,9 @@ pick_geometry() {
         exit 130
     fi
 
+    # 1. 等待选区叠层退出当前帧，避免把 slurp 边框截进图片
+    sleep 0.08
+
     printf '%s\n' "$geometry"
 }
 
