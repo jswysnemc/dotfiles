@@ -22,7 +22,9 @@ binds {
     Mod+Shift+B hotkey-overlay-title="重启waybar" { spawn-sh "killall waybar ; waybar"; }
     Mod+Z hotkey-overlay-title="任务管理器" { spawn-sh "missioncenter"; }
     Mod+Shift+W hotkey-overlay-title="切换壁纸" { spawn-sh "qs-popup wallpaper"; }
-    Mod+Ctrl+S hotkey-overlay-title="刷新率配置" { spawn-sh "~/.config/niri/scripts/niri-monitor-switch.sh"; }
+    // Mod+Ctrl+S hotkey-overlay-title="刷新率配置" { spawn-sh "~/.config/niri/scripts/niri-monitor-switch.sh"; }
+
+    Mod+S { spawn "niri-sidebar" "toggle-window"; }
 
     // === 屏幕阅读器 ===
     Super+Alt+S allow-when-locked=true hotkey-overlay-title="屏幕阅读器" { spawn-sh "pkill orca || exec orca"; }

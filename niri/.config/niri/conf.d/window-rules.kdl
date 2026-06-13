@@ -34,6 +34,16 @@ window-rule {
     }
 }
 
+workspace "stash" { }
+
+// window-rule {
+//     match is-floating=true
+//     center true
+//     min-width 900
+//     min-height 600
+//     default-float true
+// }
+
 window-rule {
     geometry-corner-radius 2
     clip-to-geometry false
@@ -185,6 +195,8 @@ window-rule {
     match app-id="mark-shot"
     match app-id="Antigravity_tools"
     match title="图片查看器"
+    match app-id="qt-app-launcher"
+    match app-id="qt-app-launcher-qml"
     match title="群聊的聊天记录"
     match title="视觉模型处理"
     match title="画中画"

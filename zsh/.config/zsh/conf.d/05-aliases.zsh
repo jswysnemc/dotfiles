@@ -27,6 +27,7 @@ alias cgt="chat ask --stream --new-session --temp --model $GROK_SEARCH_MODEL --p
 alias cga="chat ask --stream --model $GROK_SEARCH_MODEL --provider grok2api"
 alias cgn="chat ask --stream --new-session --model $GROK_SEARCH_MODEL --provider grok2api"
 alias ccm="chat config model use \`chat config model list| fzf\`"
+alias tuiw=" setsid kitty --single-instance --instance-group=widgets -o tab_bar_style=hidden -e"
 
 css() {
     chat session switch "$(chat --no-color session list | fzf | awk '{print ($1=="*" ? $2 : $1)}')"
