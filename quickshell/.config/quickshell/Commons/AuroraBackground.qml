@@ -4,10 +4,12 @@
 import QtQuick
 import "./Theme.js" as Theme
 
-Item {
+Rectangle {
     id: root
 
+    color: "transparent"
     clip: true
+    radius: Theme.radiusXL + 4
 
     property color colorA: Theme.primary
     property color colorB: Theme.secondary
