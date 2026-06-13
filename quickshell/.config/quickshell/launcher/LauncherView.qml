@@ -396,11 +396,14 @@ Item {
 
                         Flow {
                             id: appFlow
-                            width: parent.width
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: controller.columnsPerRow * controller.itemSize + (controller.columnsPerRow - 1) * spacing
                             spacing: Theme.spacingS
 
-                            onWidthChanged: {
-                                controller.columnsPerRow = Math.max(1, Math.floor((width + Theme.spacingS) / (controller.itemSize + Theme.spacingS)))
+                            Binding {
+                                target: controller
+                                property: "columnsPerRow"
+                                value: Math.max(1, Math.floor((appFlickable.width + appFlow.spacing) / (controller.itemSize + appFlow.spacing)))
                             }
 
                             Repeater {
@@ -524,10 +527,12 @@ Item {
 
                                         Text {
                                             Layout.fillWidth: true
+                                            Layout.fillHeight: true
                                             text: appItem.modelData.name
                                             font.pixelSize: Theme.fontSizeS
                                             color: Theme.textPrimary
                                             horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignTop
                                             elide: Text.ElideRight
                                             maximumLineCount: 2
                                             wrapMode: Text.WrapAtWordBoundaryOrAnywhere
