@@ -88,25 +88,22 @@ Item {
                 onClicked: controller.closeWithAnimation()
             }
 
-            // Main container
-            Rectangle {
-                id: mainContainer
+            // Shadow container to provide margins for shadow rendering and prevent clipping artifacts
+            Item {
+                id: shadowContainer
                 anchors.top: controller.anchorTop ? parent.top : undefined
                 anchors.bottom: controller.anchorBottom ? parent.bottom : undefined
                 anchors.left: controller.anchorLeft ? parent.left : undefined
                 anchors.right: controller.anchorRight ? parent.right : undefined
                 anchors.horizontalCenter: controller.anchorHCenter ? parent.horizontalCenter : undefined
                 anchors.verticalCenter: controller.anchorVCenter ? parent.verticalCenter : undefined
-                anchors.topMargin: controller.anchorTop ? controller.marginT : 0
-                anchors.bottomMargin: controller.anchorBottom ? controller.marginB : 0
-                anchors.leftMargin: controller.anchorLeft ? controller.marginL : 0
-                anchors.rightMargin: controller.anchorRight ? controller.marginR : 0
-                width: 720
-                height: 660
-                color: Theme.alpha(Theme.background, 0.28)
-                radius: Theme.radiusXL + 4
-                border.color: Theme.glassBorder
-                border.width: 1.5
+                anchors.topMargin: controller.anchorTop ? controller.marginT - 40 : 0
+                anchors.bottomMargin: controller.anchorBottom ? controller.marginB - 40 : 0
+                anchors.leftMargin: controller.anchorLeft ? controller.marginL - 40 : 0
+                anchors.rightMargin: controller.anchorRight ? controller.marginR - 40 : 0
+                width: 720 + 80
+                height: 660 + 80
+                opacity: controller.containerOpacity
 
                 // 高级光影
                 layer.enabled: true
@@ -117,31 +114,39 @@ Item {
                     shadowVerticalOffset: 18
                 }
 
-                // 玻璃内描边
+                // Main container
                 Rectangle {
-                    anchors.fill: parent
-                    radius: parent.radius
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Theme.glassHighlight
-                    z: 10
-                }
+                    id: mainContainer
+                    anchors.centerIn: parent
+                    width: 720
+                    height: 660
+                    color: Theme.alpha(Theme.background, 0.28)
+                    radius: Theme.radiusXL + 4
+                    border.color: Theme.glassBorder
+                    border.width: 1.5
 
-                // Aurora 装饰球
-                AuroraBackground {
-                    anchors.fill: parent
-                    intensity: 0.28
-                    orbScale: 1.6
-                    z: 0
-                }
+                    // 玻璃内描边
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Theme.glassHighlight
+                        z: 10
+                    }
 
-                // BackgroundEffect uses item geometry, so avoid transforms on the blur-bound item.
-                opacity: controller.containerOpacity
+                    // Aurora 装饰球
+                    AuroraBackground {
+                        anchors.fill: parent
+                        intensity: 0.28
+                        orbScale: 1.6
+                        z: 0
+                    }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: function(mouse) { mouse.accepted = true }
-                }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: function(mouse) { mouse.accepted = true }
+                    }
 
                 ColumnLayout {
                     id: contentCol
@@ -654,4 +659,8 @@ Item {
                 }
             }
         }
-    }}
+    }
+}
+}
+
+
