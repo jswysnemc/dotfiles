@@ -25,6 +25,7 @@ binds {
     // Mod+Ctrl+S hotkey-overlay-title="刷新率配置" { spawn-sh "~/.config/niri/scripts/niri-monitor-switch.sh"; }
 
     Mod+S { spawn "niri-sidebar" "toggle-window"; }
+    Mod+G repeat=false { toggle-grid-overview; }
 
     // === 屏幕阅读器 ===
     Super+Alt+S allow-when-locked=true hotkey-overlay-title="屏幕阅读器" { spawn-sh "pkill orca || exec orca"; }
