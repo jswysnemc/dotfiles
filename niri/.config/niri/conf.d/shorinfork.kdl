@@ -20,12 +20,15 @@ grid-overview {
   gap 16
   padding 100
   focused-column-scale 1.08
+  grid-all-monitors true
 }
 
 binds {
-  Mod+G { toggle-grid-overview; }
+  // Mod+G { toggle-grid-overview; }
+  Mod+G repeat=false { toggle-grid-overview; }
 
-  Mod+Shift+Z { toggle-magnifier; }
-  Mod+WheelScrollUp   { adjust-magnifier-zoom 0.1; }
-  Mod+WheelScrollDown { adjust-magnifier-zoom -0.1; }
+
+  // Mod+Shift+Z { toggle-magnifier; }
+  // Mod+WheelScrollUp   { adjust-magnifier-zoom 0.1; }
+  // Mod+WheelScrollDown { adjust-magnifier-zoom -0.1; }
 }
