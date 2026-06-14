@@ -188,12 +188,12 @@ from kitty.fast_data_types import GLFW_RELEASE, get_boss
 original_handle_tab_bar_mouse = TabManager.handle_tab_bar_mouse
 
 def patched_handle_tab_bar_mouse(self, x: float, y: float, button: int, modifiers: int, action: int) -> None:
-    """对 Kitty 的标签栏鼠标事件进行代理拦截，额外支持鼠标右键点击关闭标签页
+    """对 Kitty 的标签栏鼠标事件进行代理拦截，将右键修改为在活动标签页工作路径下打开新标签页
 
     参数:
         self (TabManager): Kitty 的 Tab 管理器实例
         x (float): 鼠标点击的 x 坐标
-        y (float): 鼠标点击 of y 坐标
+        y (float): 鼠标点击的 y 坐标
         button (int): 点击的鼠标按键编号
         modifiers (int): 键盘修饰键状态
         action (int): 鼠标动作类型（按下或释放）
@@ -206,17 +206,12 @@ def patched_handle_tab_bar_mouse(self, x: float, y: float, button: int, modifier
 
     # 2. 如果点击的按键为右键
     if button == GLFW_MOUSE_BUTTON_RIGHT:
-        # 3. 仅在鼠标右键释放时执行关闭逻辑
+        # 3. 仅在鼠标右键释放时执行打开新标签页逻辑
         if action == GLFW_RELEASE:
-            tab_id_at_x = self.tab_bar.tab_id_at(int(x))
-            # 4. 仅当点击在有效的真实标签页上时触发关闭动作
-            if tab_id_at_x > 0:
-                tab = self.tab_for_id(tab_id_at_x)
-                if tab is not None:
-                    get_boss().close_tab(tab)
+            get_boss().new_tab_with_cwd()
         return
 
-    # 5. 对于非右键事件，执行 Kitty 原生的鼠标事件处理逻辑
+    # 4. 对于非右键事件，执行 Kitty 原生的鼠标事件处理逻辑
     original_handle_tab_bar_mouse(self, x, y, button, modifiers, action)
 
 # 6. 将新的代理函数动态注入到 TabManager 类中以使补丁生效
