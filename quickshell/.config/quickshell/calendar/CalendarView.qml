@@ -446,6 +446,10 @@ Item {
                     CalendarWorldClockPage {
                         controller: calendarView.controller
                     }
+
+                    CalendarTimerPage {
+                        controller: calendarView.controller
+                    }
                 }
 
                 CalendarLoadingOverlay {

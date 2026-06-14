@@ -239,6 +239,34 @@ scale slider {
     border: 1px solid alpha(@text-main, 0.18);
 }
 
+/* 计时器状态 */
+#custom-timer {
+    background-color: alpha(@highlight, 0.14);
+    color: @highlight;
+    border: 1px solid alpha(@highlight, 0.32);
+    border-radius: 10px;
+    padding: 0 9px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 0;
+    margin-right: 2px;
+}
+
+#custom-timer.paused {
+    background-color: alpha(@accent-orange, 0.14);
+    color: @accent-orange;
+    border-color: alpha(@accent-orange, 0.34);
+}
+
+#custom-timer.inactive {
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background-color: transparent;
+    box-shadow: none;
+}
+
 /* 托盘 (Tray) */
 #tray>.passive {
     -gtk-icon-effect: dim;

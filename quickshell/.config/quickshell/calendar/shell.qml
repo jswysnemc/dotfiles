@@ -69,10 +69,11 @@ ShellRoot {
     property string todayWeekday: ""
 
     property string requestedRoute: Quickshell.env("QS_CALENDAR_ROUTE") || "calendar"
-    property string activeRoute: requestedRoute === "world-clock" || requestedRoute === "clock" ? "world-clock" : "calendar"
+    property string activeRoute: requestedRoute === "world-clock" || requestedRoute === "clock" ? "world-clock" : (requestedRoute === "timer" ? "timer" : "calendar")
     readonly property var routeItems: [
         { key: "calendar", label: i18n.trLiteral("日历"), icon: "\uf073" },
-        { key: "world-clock", label: i18n.trLiteral("世界时钟"), icon: "\uf0ac" }
+        { key: "world-clock", label: i18n.trLiteral("世界时钟"), icon: "\uf0ac" },
+        { key: "timer", label: i18n.trLiteral("计时"), icon: "\uf017" }
     ]
 
     property bool yearSelectMode: false
@@ -299,8 +300,13 @@ ShellRoot {
         todayProcess.running = true
     }
 
+    /**
+     * 切换日历弹窗的功能路由。
+     * @param {string} route - 目标路由标识。
+     * @returns 无返回值。
+     */
     function selectRoute(route) {
-        if (route !== "calendar" && route !== "world-clock") {
+        if (route !== "calendar" && route !== "world-clock" && route !== "timer") {
             route = "calendar"
         }
         activeRoute = route

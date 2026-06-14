@@ -16,7 +16,7 @@ Rectangle {
     
     // 动作数据源：横向平铺各卡片
     readonly property var actions: [
-        { id: "lock", name: i18n.trLiteral("锁屏"), icon: "\uf023", color: Theme.primary, cmd: "loginctl lock-session" },
+        { id: "lock", name: i18n.trLiteral("锁屏"), icon: "\uf023", color: Theme.primary, cmd: "LOCK_GRACE_TIMEOUT=3 qs-lock" },
         { id: "logout", name: i18n.trLiteral("注销"), icon: "\uf2f5", color: Theme.secondary, cmd: "niri msg action quit" },
         { id: "suspend", name: i18n.trLiteral("睡眠"), icon: "\uf186", color: Theme.warning, cmd: "systemctl suspend" },
         { id: "reboot", name: i18n.trLiteral("重启"), icon: "\uf021", color: Theme.warning, cmd: "systemctl reboot" },

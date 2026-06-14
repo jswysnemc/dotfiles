@@ -43,6 +43,7 @@
         "group/tools", // 新增：咖啡 + 性能 (合并药丸)
         "battery", // 电池
         "custom/clock", // 时钟(带农历)
+        "custom/timer", // 计时器状态
         "group/proxies", // 代理控制组
         "custom/clipboard", // 剪贴板
         // "custom/todo", // 待办
@@ -468,6 +469,14 @@
         "on-click": "~/.config/quickshell/scripts/clock_toggle.sh",
         "on-click-right": "qs-popup calendar"
     },
+    "custom/timer": {
+        "exec": "~/.config/quickshell/scripts/timer_status.sh",
+        "return-type": "json",
+        "interval": 1,
+        "tooltip": true,
+        "on-click": "qs-popup timer",
+        "on-click-right": "python3 ~/.config/quickshell/calendar/timer_state.py stop"
+    },
     // ==================== 代理控制组 (Proxies) ====================
     "group/proxies": {
         "orientation": "horizontal",
@@ -602,7 +611,7 @@
     },
     "custom/lock": {
         "format": "",
-        "on-click": "loginctl lock-session",
+        "on-click": "LOCK_GRACE_TIMEOUT=3 qs-lock",
         "tooltip-format": "锁定屏幕 (Lock)",
         "on-click-right": "~/.local/bin/qs-popup power"
     },

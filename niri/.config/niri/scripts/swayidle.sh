@@ -27,7 +27,9 @@ SUSPEND_TIMEOUT=300   # 多久后休眠 (10分钟)
 
 # 锁屏命令 - 使用环境变量传递 grace period 时长
 LOCK_CMD="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=${GRACE_DURATION} qs-lock"
-# 立即锁屏命令 - 无 grace period（用于 loginctl lock-session）
+# UI 锁屏命令 - 用于 loginctl lock-session 触发的手动锁屏
+LOCK_CMD_UI="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=3 qs-lock"
+# 立即锁屏命令 - 无 grace period（用于睡眠前锁屏）
 LOCK_CMD_IMMEDIATE="pgrep -x quickshell -a | grep -q 'lockscreen' || LOCK_GRACE_TIMEOUT=0 qs-lock"
 # 恢复后触发人脸识别
 WAKE_FACE_CMD="niri msg action power-on-monitors; qs-lock --face"
@@ -39,4 +41,4 @@ exec swayidle \
     timeout $SUSPEND_TIMEOUT 'systemctl suspend' \
     before-sleep             "$LOCK_CMD_IMMEDIATE" \
     after-resume             "$WAKE_FACE_CMD" \
-    lock                     "$LOCK_CMD_IMMEDIATE"
+    lock                     "$LOCK_CMD_UI"

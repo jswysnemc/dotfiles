@@ -19,6 +19,7 @@ show_help() {
     echo "  weather        - Weather widget"
     echo "  calendar       - Calendar widget"
     echo "  world-clock    - World clock route in calendar widget"
+    echo "  timer          - Timer route in calendar widget"
     echo "  media          - Media player controls"
     echo "  quick-settings - Volume, brightness, display settings"
     echo "  screen-recorder - Screen recording control panel"
@@ -226,6 +227,9 @@ case "$COMPONENT" in
         ;;
     world-clock|worldclock|clock)
         toggle_popup "calendar" "world-clock"
+        ;;
+    timer|stopwatch|countdown|pomodoro)
+        toggle_popup "calendar" "timer"
         ;;
     media|player)
         toggle_popup "media"
