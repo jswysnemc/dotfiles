@@ -1,6 +1,6 @@
 #!/bin/bash
 # QuickShell popup launcher for Waybar integration
-
+# LANG=en
 QS_CONFIG_DIR="$HOME/.config/quickshell"
 QS_POS_CONF="$QS_CONFIG_DIR/position.conf"
 
@@ -29,6 +29,7 @@ show_help() {
     echo "  wallpaper      - Wallpaper selector"
     echo "  close-confirm  - Close window confirmation"
     echo "  window-switcher - Window switcher with fzf-style filter"
+    echo "  task-manager   - Process monitor and task manager"
     echo "  todo           - Todo list"
     echo "  control-center - Unified control center"
     echo ""
@@ -263,6 +264,9 @@ case "$COMPONENT" in
         ;;
     window-switcher|windows|ws|switcher)
         toggle_popup "window-switcher"
+        ;;
+    task-manager|tasks|taskmgr|tm)
+        toggle_popup "task-manager"
         ;;
     todo|todos)
         toggle_popup "todo"
