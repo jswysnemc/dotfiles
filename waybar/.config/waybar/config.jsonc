@@ -474,7 +474,7 @@
         "return-type": "json",
         "interval": 1,
         "tooltip": true,
-        "on-click": "qs-popup timer",
+        "on-click": "~/.local/bin/qs-popup timer",
         "on-click-right": "python3 ~/.config/quickshell/calendar/timer_state.py stop"
     },
     // ==================== 代理控制组 (Proxies) ====================
