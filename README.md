@@ -11,7 +11,8 @@
 
 ## 预览
 
-![quick-preview](.assets/quick-preview.gif)
+<video src="https://github.com/user-attachments/assets/f7ee7ea1-db24-4e2f-b1a6-584643848688" autoplay loop muted playsinline width="100%"></video>
+
 
 <details>
 <summary>桌面与状态栏</summary>
