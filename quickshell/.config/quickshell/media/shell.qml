@@ -60,6 +60,8 @@ ShellRoot {
     }
 
     Component.onCompleted: {
+        root.mediaStateLoadPending = true
+        ensureMediaStateDaemon()
         refreshPlayersList()
         // Delay to ensure all data is ready before showing UI
         initTimer.start()
@@ -77,7 +79,7 @@ ShellRoot {
                 root.lastDetectedTitle = root.activePlayer.trackTitle || ""
                 root.lastDetectedArtist = root.activePlayer.trackArtist || ""
             }
-            root.onTrackChanged()
+            root.requestMediaStateSnapshot(true)
             root.initialized = true
             enterAnimation.start()
         }
@@ -186,11 +188,18 @@ ShellRoot {
     property int currentLyricIndex: -1
     property bool showLyrics: true
     property string lastFetchedTrackKey: ""
+    property bool mediaStateLoadPending: false
 
     // Dragging state for progress bar
     property bool isDragging: false
     property real dragPosition: 0
 
+    /**
+     * 重置歌词展示状态。
+     *
+     * @param 无
+     * @returns 无
+     */
     function resetLyricsState() {
         lyricsLoaded = false
         lyricsLines = []
@@ -200,10 +209,22 @@ ShellRoot {
         lyricsError = ""
     }
 
+    /**
+     * 判断当前曲目是否需要由组件发起歌词请求。
+     *
+     * @param 无
+     * @returns {bool} 需要请求时返回 true。
+     */
     function shouldFetchLyrics() {
-        return trackTitle && trackKey !== lastFetchedTrackKey
+        return !mediaStateLoadPending && !lyricsLoading && trackTitle && trackKey !== lastFetchedTrackKey
     }
 
+    /**
+     * 延迟调度歌词请求。
+     *
+     * @param 无
+     * @returns 无
+     */
     function scheduleLyricsFetch() {
         if (!shouldFetchLyrics()) return
         resetLyricsState()
@@ -271,9 +292,51 @@ ShellRoot {
         onTriggered: updateCurrentLyric()
     }
 
+    // 【媒体组件】【后台状态】后台脚本请求歌词时，组件只轮询快照，不重复请求接口
+    Timer {
+        interval: 1000
+        running: root.hasPlayer && root.lyricsLoading && !root.mediaStateLoadPending
+        repeat: true
+        onTriggered: root.requestMediaStateSnapshot(false)
+    }
+
     property string scriptPath: Qt.resolvedUrl("lyrics_fetcher.py").toString().replace("file://", "")
+    property string mediaStateScriptPath: Qt.resolvedUrl("media_state.py").toString().replace("file://", "")
     property string uvPath: "/usr/bin/uv"
     property string rootDir: Quickshell.env("HOME") + "/.config/quickshell"
+
+    Process {
+        id: mediaStateDaemon
+        command: ["echo"]
+        stdout: StdioCollector {}
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text && text.trim()) {
+                    console.log("【媒体组件】【状态脚本】后台脚本启动失败:", text)
+                }
+            }
+        }
+    }
+
+    Process {
+        id: mediaStateSnapshot
+        command: ["echo"]
+        stdout: StdioCollector {
+            onStreamFinished: root.applyMediaStateSnapshot(text)
+        }
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text && text.trim()) {
+                    console.log("【媒体组件】【状态脚本】读取状态失败:", text)
+                }
+            }
+        }
+        onExited: (code, status) => {
+            if (root.mediaStateLoadPending) {
+                root.finishMediaStateSnapshotLoad(false)
+            }
+        }
+    }
 
     Process {
         id: lyricsFetcher
@@ -324,6 +387,139 @@ ShellRoot {
         }
     }
 
+    /**
+     * 启动媒体后台状态脚本。
+     *
+     * @param 无
+     * @returns 无
+     */
+    function ensureMediaStateDaemon() {
+        // 【媒体组件】【后台状态】1. 后台脚本自行检查 PID，避免重复启动
+        mediaStateDaemon.command = [uvPath, "run", "--directory", rootDir, mediaStateScriptPath, "ensure-daemon"]
+        mediaStateDaemon.running = true
+    }
+
+    /**
+     * 请求媒体状态快照。
+     *
+     * @param {bool} blockFetch - 是否在快照返回前阻止组件自身歌词请求。
+     * @returns 无
+     */
+    function requestMediaStateSnapshot(blockFetch) {
+        if (mediaStateSnapshot.running) return
+        if (blockFetch) {
+            mediaStateLoadPending = true
+        }
+
+        // 【媒体组件】【后台状态】1. 优先读取后台快照，减少组件重新请求歌词
+        mediaStateSnapshot.command = [uvPath, "run", "--directory", rootDir, mediaStateScriptPath, "snapshot"]
+        mediaStateSnapshot.running = true
+    }
+
+    /**
+     * 完成媒体状态快照读取。
+     *
+     * @param {bool} applied - 是否已成功应用当前曲目的快照。
+     * @returns 无
+     */
+    function finishMediaStateSnapshotLoad(applied) {
+        mediaStateLoadPending = false
+        if (!applied) {
+            scheduleLyricsFetch()
+        } else if (lyricsLoaded) {
+            updateCurrentLyric()
+        }
+    }
+
+    /**
+     * 应用后台状态中的歌词数据。
+     *
+     * @param {var} lyrics - 后台状态脚本输出的歌词对象。
+     * @returns {bool} 成功应用时返回 true。
+     */
+    function applyLyricsFromMediaState(lyrics) {
+        if (!lyrics) return false
+
+        lastFetchedTrackKey = trackKey
+        lyricsLoading = lyrics.loading || false
+        lyricsError = lyrics.error || ""
+
+        if (lyrics.loaded && lyrics.synced && lyrics.lines) {
+            lyricsLines = lyrics.lines
+            lyricsLoaded = true
+            currentLyricIndex = lyrics.current_index !== undefined ? lyrics.current_index : -1
+            currentLyric = lyrics.current_text || ""
+            nextLyric = lyrics.next_text || ""
+            if (!currentLyric && lyricsLines.length > 0) {
+                updateCurrentLyric()
+            }
+            return true
+        }
+
+        if (lyrics.loaded) {
+            lyricsLines = []
+            lyricsLoaded = true
+            currentLyricIndex = -1
+            currentLyric = lyrics.current_text || i18n.trLiteral("无同步歌词")
+            nextLyric = ""
+            return true
+        }
+
+        if (lyrics.loading) {
+            lyricsLoaded = false
+            lyricsLines = []
+            currentLyric = ""
+            nextLyric = ""
+            currentLyricIndex = -1
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * 应用媒体后台状态快照。
+     *
+     * @param {string} text - 后台状态脚本输出的 JSON 文本。
+     * @returns 无
+     */
+    function applyMediaStateSnapshot(text) {
+        let applied = false
+        try {
+            let data = JSON.parse(text || "{}")
+            let track = data.track || {}
+            let playback = data.playback || {}
+            let snapshotTrackKey = track.key || ""
+            let updatedAt = data.updated_at || 0
+            let stale = updatedAt > 0 && (Date.now() / 1000 - updatedAt > 20)
+
+            if (data.success && data.active && snapshotTrackKey === trackKey && !stale) {
+                if (playback.position !== undefined) {
+                    position = playback.position
+                }
+                applied = applyLyricsFromMediaState(data.lyrics || {})
+            }
+
+            if (!applied && !mediaStateLoadPending && stale && snapshotTrackKey === trackKey && lyricsLoading) {
+                lyricsLoading = false
+                lastFetchedTrackKey = ""
+                scheduleLyricsFetch()
+            }
+        } catch (e) {
+            console.log("【媒体组件】【状态脚本】解析状态失败:", e)
+        }
+
+        if (mediaStateLoadPending) {
+            finishMediaStateSnapshotLoad(applied)
+        }
+    }
+
+    /**
+     * 请求当前曲目的歌词。
+     *
+     * @param 无
+     * @returns 无
+     */
     function fetchLyrics() {
         if (!trackTitle) return
 
@@ -345,6 +541,12 @@ ShellRoot {
         lyricsFetcher.running = true
     }
 
+    /**
+     * 根据当前播放进度更新歌词行。
+     *
+     * @param 无
+     * @returns 无
+     */
     function updateCurrentLyric() {
         if (!lyricsLoaded || lyricsLines.length === 0) return
 

@@ -10,9 +10,125 @@ import sys
 import json
 import re
 import subprocess
+import hashlib
+import os
+import time
+from pathlib import Path
+
 import httpx
 
 LRCLIB_API = "https://lrclib.net/api"
+LYRICS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30
+
+
+def lyrics_cache_dir() -> Path:
+    """获取歌词缓存目录。
+
+    Args:
+        无。
+    Returns:
+        Path: 歌词缓存目录。
+    """
+    base_dir = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    cache_dir = base_dir / "quickshell" / "media-lyrics"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+
+def lyrics_cache_key(title: str, artist: str = "", album: str = "", duration: float = 0, player: str = "") -> str:
+    """生成歌词缓存键。
+
+    Args:
+        title: 曲目标题。
+        artist: 艺术家名称。
+        album: 专辑名称。
+        duration: 曲目时长，单位为秒；该参数保留用于兼容调用方。
+        player: playerctl 播放器名称；该参数保留用于兼容调用方。
+    Returns:
+        str: 缓存键。
+    """
+    raw_key = "||".join([title.strip(), artist.strip(), album.strip()])
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
+
+def lyrics_cache_path(title: str, artist: str = "", album: str = "", duration: float = 0, player: str = "") -> Path:
+    """获取歌词缓存文件路径。
+
+    Args:
+        title: 曲目标题。
+        artist: 艺术家名称。
+        album: 专辑名称。
+        duration: 曲目时长，单位为秒。
+        player: playerctl 播放器名称。
+    Returns:
+        Path: 缓存文件路径。
+    """
+    return lyrics_cache_dir() / f"{lyrics_cache_key(title, artist, album, duration, player)}.json"
+
+
+def load_cached_lyrics(title: str, artist: str = "", album: str = "", duration: float = 0, player: str = "") -> dict | None:
+    """读取歌词缓存。
+
+    Args:
+        title: 曲目标题。
+        artist: 艺术家名称。
+        album: 专辑名称。
+        duration: 曲目时长，单位为秒。
+        player: playerctl 播放器名称。
+    Returns:
+        dict | None: 缓存命中时返回歌词结果，否则返回 None。
+    """
+    path = lyrics_cache_path(title, artist, album, duration, player)
+    if not path.exists():
+        return None
+
+    try:
+        with path.open("r", encoding="utf-8") as cache_file:
+            payload = json.load(cache_file)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    cached_at = float(payload.get("cached_at", 0) or 0)
+    if time.time() - cached_at > LYRICS_CACHE_TTL_SECONDS:
+        return None
+
+    result = payload.get("result")
+    if not isinstance(result, dict) or not result.get("success"):
+        return None
+
+    result = dict(result)
+    result["cached"] = True
+    return result
+
+
+def save_cached_lyrics(title: str, artist: str, album: str, duration: float, player: str, result: dict) -> None:
+    """保存歌词缓存。
+
+    Args:
+        title: 曲目标题。
+        artist: 艺术家名称。
+        album: 专辑名称。
+        duration: 曲目时长，单位为秒。
+        player: playerctl 播放器名称。
+        result: 歌词请求结果。
+    Returns:
+        None: 无返回值。
+    """
+    if not result.get("success"):
+        return
+
+    path = lyrics_cache_path(title, artist, album, duration, player)
+    temp_path = path.with_suffix(".tmp")
+    payload = {
+        "cached_at": time.time(),
+        "result": result,
+    }
+    with temp_path.open("w", encoding="utf-8") as cache_file:
+        json.dump(payload, cache_file, ensure_ascii=False)
+    temp_path.replace(path)
 
 
 def parse_lrc(lrc_content: str) -> list[dict]:
@@ -79,13 +195,28 @@ def fetch_mpris_lyrics(player: str = "") -> dict | None:
 
 
 def fetch_lyrics(title: str, artist: str = "", album: str = "", duration: float = 0, player: str = "") -> dict:
-    """Fetch lyrics. Priority: MPRIS local -> lrclib.net API."""
-    # 1. Try MPRIS local lyrics first (musicfox, etc.)
+    """获取歌词，优先使用缓存和本地 MPRIS，再回退到 lrclib.net。
+
+    Args:
+        title: 曲目标题。
+        artist: 艺术家名称。
+        album: 专辑名称。
+        duration: 曲目时长，单位为秒。
+        player: playerctl 播放器名称。
+    Returns:
+        dict: 歌词请求结果。
+    """
+    cached_result = load_cached_lyrics(title, artist, album, duration, player)
+    if cached_result:
+        return cached_result
+
+    # 1. 优先读取 MPRIS 本地歌词，适配 musicfox 等播放器
     mpris_result = fetch_mpris_lyrics(player)
     if mpris_result:
+        save_cached_lyrics(title, artist, album, duration, player, mpris_result)
         return mpris_result
 
-    # 2. Fallback to lrclib.net API
+    # 2. 本地歌词不可用时再请求 lrclib.net
     try:
         params = {
             "track_name": title,
@@ -110,19 +241,23 @@ def fetch_lyrics(title: str, artist: str = "", album: str = "", duration: float 
                         plain = best.get("plainLyrics", "")
 
                         if synced:
-                            return {
+                            result = {
                                 "success": True,
                                 "synced": True,
                                 "lines": parse_lrc(synced),
                                 "source": "lrclib.net"
                             }
+                            save_cached_lyrics(title, artist, album, duration, player, result)
+                            return result
                         elif plain:
-                            return {
+                            result = {
                                 "success": True,
                                 "synced": False,
                                 "text": plain,
                                 "source": "lrclib.net"
                             }
+                            save_cached_lyrics(title, artist, album, duration, player, result)
+                            return result
 
                 return {"success": False, "error": "Lyrics not found"}
 
@@ -134,19 +269,23 @@ def fetch_lyrics(title: str, artist: str = "", album: str = "", duration: float 
             plain = data.get("plainLyrics", "")
 
             if synced:
-                return {
+                result = {
                     "success": True,
                     "synced": True,
                     "lines": parse_lrc(synced),
                     "source": "lrclib.net"
                 }
+                save_cached_lyrics(title, artist, album, duration, player, result)
+                return result
             elif plain:
-                return {
+                result = {
                     "success": True,
                     "synced": False,
                     "text": plain,
                     "source": "lrclib.net"
                 }
+                save_cached_lyrics(title, artist, album, duration, player, result)
+                return result
             else:
                 return {"success": False, "error": "No lyrics in response"}
 

@@ -14,6 +14,21 @@ layer-rule {
     place-within-backdrop true
 }
 
+layer-rule {
+    // 匹配 CustomBar 顶栏窗口及相关的设置面板和托盘菜单
+    match namespace="quickshell:custombar"
+    match namespace="quickshell:custombar-traymenu"
+    match namespace="quickshell:custombar-settings"
+
+    // 开启背景模糊效果
+    background-effect {
+        blur true
+    }
+
+    // 设置圆角（可选）
+    // geometry-corner-radius 10
+}
+
 layout {
     // 格式是 RRGGBBAA，最后的 00 代表完全透明
     // 只有这样，才能透视看到底层的壁纸
