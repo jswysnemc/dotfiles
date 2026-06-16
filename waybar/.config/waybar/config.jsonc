@@ -546,7 +546,8 @@
     // --- 系统托盘 (Tray) ---
     "tray": {
         "icon-size": 13,
-        "spacing": 8
+        "spacing": 5,
+        "show-passive-items": true
     },
     // --- 剪贴板 (Clipboard) ---
     "custom/clipboard": {

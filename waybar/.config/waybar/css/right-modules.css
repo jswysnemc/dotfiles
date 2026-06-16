@@ -270,16 +270,6 @@ scale slider {
     box-shadow: none;
 }
 
-/* 托盘 (Tray) */
-#tray>.passive {
-    -gtk-icon-effect: dim;
-}
-
-#tray>.needs-attention {
-    -gtk-icon-effect: highlight;
-    background-color: @accent-red;
-}
-
 /* 剪贴板与待办 */
 #custom-clipboard,
 #custom-todo {

@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Io
 import "./Theme.js" as Theme
 import "./ScreenModel.js" as ScreenModel
+import "./WindowGeometry.js" as WindowGeometry
 
 ShellRoot {
     id: root
@@ -22,6 +23,7 @@ ShellRoot {
     property bool blurActive: false
     property var targetWindow: null
     property bool hasTargetWindow: targetWindow !== null && targetWindow !== undefined
+    property var windowList: []
     readonly property string targetTitle: hasTargetWindow && targetWindow.title ? targetWindow.title : i18n.tr("unknownTitle")
     readonly property string targetAppId: hasTargetWindow && targetWindow.app_id ? targetWindow.app_id : "unknown"
     readonly property string targetWorkspace: hasTargetWindow && targetWindow.workspace_id !== undefined ? String(targetWindow.workspace_id) : "-"
@@ -48,6 +50,15 @@ ShellRoot {
         }
     }
 
+    /**
+     * 保存 niri 窗口列表，供平铺窗口位置推导使用。
+     * @param windows niri windows 返回的窗口数组
+     * @returns {void} 无返回值
+     */
+    function setWindowList(windows) {
+        windowList = windows && windows.length !== undefined ? windows : []
+    }
+
     function loadTargetWindowFromEnv() {
         var data = Quickshell.env("QS_TARGET_WINDOW_JSON")
         if (!data) return false
@@ -59,6 +70,21 @@ ShellRoot {
         } catch (e) {
             console.log("Failed to parse target window:", e)
             return false
+        }
+    }
+
+    Process {
+        id: loadWindows
+        command: ["niri", "msg", "--json", "windows"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: data => {
+                try {
+                    root.setWindowList(JSON.parse(data))
+                } catch (e) {
+                    console.log("Failed to load windows:", e)
+                }
+            }
         }
     }
 
@@ -83,7 +109,9 @@ ShellRoot {
         if (!loadTargetWindowFromEnv()) {
             loadFocusedWindow.running = true
         }
-        // 2. 执行淡入淡出动画
+        // 2. 加载窗口列表，用于平铺窗口位置推导
+        loadWindows.running = true
+        // 3. 执行淡入淡出动画
         enterAnimation.start()
     }
 
@@ -141,6 +169,10 @@ ShellRoot {
         PanelWindow {
             id: panel
             required property ShellScreen modelData
+            readonly property int screenWidth: modelData.width ? modelData.width : 1280
+            readonly property int screenHeight: modelData.height ? modelData.height : 720
+            readonly property int targetLeftMargin: WindowGeometry.panelLeftMargin(root.targetWindow, root.windowList, screenWidth, panel.implicitWidth)
+            readonly property int targetTopMargin: WindowGeometry.panelTopMargin(root.targetWindow, root.windowList, screenHeight, panel.implicitHeight)
             screen: modelData
 
             color: "transparent"
@@ -149,6 +181,10 @@ ShellRoot {
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
+            anchors.top: true
+            anchors.left: true
+            margins.left: panel.targetLeftMargin
+            margins.top: panel.targetTopMargin
             implicitWidth: 380
             implicitHeight: dialog.implicitHeight
 

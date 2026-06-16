@@ -1,0 +1,72 @@
+/* ==============================================================================
+ * 系统托盘
+ * ============================================================================== */
+
+#tray {
+    background-color: alpha(#f4fafa, 0.78);
+    border: 1px solid alpha(@highlight, 0.22);
+    border-radius: 999px;
+    padding: 0 8px;
+    margin: 2px 3px;
+    box-shadow:
+        0 3px 10px alpha(#000000, 0.08),
+        inset 0 1px 0 alpha(#ffffff, 0.42);
+}
+
+#tray:hover {
+    background-color: alpha(#f4fafa, 0.9);
+    border-color: alpha(@highlight, 0.34);
+    box-shadow:
+        0 5px 14px alpha(#000000, 0.12),
+        inset 0 1px 0 alpha(#ffffff, 0.5);
+}
+
+#tray>widget {
+    padding: 0 2px;
+}
+
+#tray>.passive {
+    -gtk-icon-effect: dim;
+    opacity: 0.62;
+}
+
+#tray>.needs-attention {
+    -gtk-icon-effect: highlight;
+    background-color: alpha(@accent-red, 0.18);
+    border-radius: 999px;
+}
+
+#tray menu {
+    background-color: alpha(#f4fafa, 0.82);
+    color: @text-main;
+    border: 1px solid alpha(@highlight, 0.2);
+    border-radius: 10px;
+    padding: 4px;
+    box-shadow: 0 10px 24px alpha(#000000, 0.16);
+}
+
+#tray menuitem {
+    border-radius: 6px;
+    color: @text-main;
+    min-height: 20px;
+    padding: 4px 10px;
+}
+
+#tray menuitem:hover {
+    background-color: alpha(@highlight, 0.14);
+    color: @text-main;
+}
+
+#tray menuitem:disabled {
+    color: alpha(@text-main, 0.45);
+}
+
+#tray menuitem label {
+    color: inherit;
+}
+
+#tray separator {
+    background-color: alpha(@text-main, 0.14);
+    min-height: 1px;
+    margin: 4px 6px;
+}

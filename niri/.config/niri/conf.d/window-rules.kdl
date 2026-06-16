@@ -25,8 +25,22 @@ layer-rule {
         blur true
     }
 
-    // 设置圆角（可选）
-    // geometry-corner-radius 10
+    // 顶栏弹出菜单（Wi-Fi、蓝牙、托盘右键菜单）的背景模糊与圆角
+    popups {
+        geometry-corner-radius 12
+
+        background-effect {
+            blur true
+        }
+    }
+}
+
+// 【顶栏/设置面板】【圆角裁剪】
+// 1. 匹配设置面板卡片层的 layer shell 命名空间
+// 2. 应用 14 像素几何裁剪圆角，使模糊区域与卡片圆角保持一致
+layer-rule {
+    match namespace="quickshell:custombar-settings"
+    geometry-corner-radius 14
 }
 
 layout {

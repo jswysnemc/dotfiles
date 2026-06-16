@@ -20,7 +20,7 @@ grid-overview {
   gap 16
   padding 100
   focused-column-scale 1.08
-  grid-all-monitors true
+  grid-all-monitors false
 }
 
 binds {
