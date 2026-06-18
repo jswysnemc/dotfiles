@@ -20,7 +20,7 @@ output "eDP-1" {
 // 外接显示器
 output "HDMI-A-1" {
     mode "1920x1080@60"
-    scale 1.0
+    scale 1.25
     transform "normal"
-    position x=2048 y=0
+    position x=2560 y=0
 }

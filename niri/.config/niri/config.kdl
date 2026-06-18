@@ -24,5 +24,6 @@ include "conf.d/environment.kdl"
 include "conf.d/autostart.kdl"
 include "conf.d/window-rules.kdl"
 include "conf.d/binds.kdl"
+// 使用了frok版本niri,如果使用官方版本请注释掉下面这一行
 include "conf.d/shorinfork.kdl"
 
