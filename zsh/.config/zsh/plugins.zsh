@@ -39,17 +39,39 @@ zi ice wait"0b" lucid \
 zi light atuinsh/atuin
 
 
-# 自动建议
+# 自动建议 (zsh-sage: 多信号智能建议，替代 zsh-autosuggestions)
+# 注意: zsh-vi-mode 把右箭头绑到 vi-forward-char，而 sage 包装的是 forward-char，
+# 需要在 viins keymap 中显式把右箭头和 ^[; 绑到 forward-char（sage 已包装），
+# 否则按右箭头不经过 sage 的 accept 逻辑。
 zi ice wait"0c" lucid \
     atload'
-        _zsh_autosuggest_start
-        bindkey "^[;" autosuggest-accept
+        # main keymap（emacs 模式或非 vi 环境）
+        bindkey "^[;" forward-char
+        bindkey "^[[C" forward-char
+        # vi-mode insert keymap 兼容
+        bindkey -M viins "^[;" forward-char
+        bindkey -M viins "^[[C" forward-char
+        # Ctrl+Right 逐词接受（sage 包装了 forward-word）
+        bindkey -M viins "^[[1;5C" forward-word
+
+        # Ctrl+L: 有建议则接受，无建议则清屏
+        # Ctrl+Alt+L: 清屏（原 Ctrl+L 行为）
+        _sage_accept_or_clear() {
+            emulate -L zsh
+            if [[ -n "$_SAGE_CURRENT_SUGGESTION" ]]; then
+                # forward-char 已被 sage 包装为接受建议的 widget
+                zle forward-char
+            else
+                zle clear-screen
+            fi
+        }
+        zle -N _sage_accept_or_clear
+        bindkey "^L" _sage_accept_or_clear
+        bindkey "^[^L" clear-screen
+        bindkey -M viins "^L" _sage_accept_or_clear
+        bindkey -M viins "^[^L" clear-screen
     '
-    # atload'
-    #     _zsh_autosuggest_start
-    #     bindkey "\`" autosuggest-accept
-    # '
-zi light zsh-users/zsh-autosuggestions
+zi light UtsavMandal2022/zsh-sage
 
 # 高亮
 #zi light z-shell/F-Sy-H
