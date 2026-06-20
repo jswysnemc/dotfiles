@@ -44,5 +44,11 @@ zinit ice compinit-opts'-d "${zsh_cache_dir}/zcompdump"'
 export EDITOR=nvim
 # Ctrl+V 的自定义编辑器 widget 放到 conf.d/02-optins.zsh，
 # 在 zsh-vi-mode 加载后统一设置
+#
+#
+export HI_SHELL_HOME="$HOME/.local/hi-shell"
 
 source $HOME/.config/zsh/plugins.zsh
+
+
+

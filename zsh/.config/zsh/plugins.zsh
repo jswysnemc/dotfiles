@@ -78,8 +78,19 @@ zi light UtsavMandal2022/zsh-sage
 
 
 # 语法高亮
-zi ice wait"0e" lucid atinit"zpcompinit;zpcdreplay"
-zi light zdharma-continuum/fast-syntax-highlighting
+# zi ice wait"0e" lucid atinit"zpcompinit;zpcdreplay"
+# zi light zdharma-continuum/fast-syntax-highlighting
+
+# zsh-patina 必须在 zsh-vi-mode 初始化完成后再加载
+# 原因: patina 与 zvm 都会包装 ZLE widget，若 patina 先加载，zvm 后加载时会
+# 递归包装导致 "zvm_widget_wrapper: maximum nested function level reached"
+# 通过 zvm_after_init 钩子确保 patina 在 zvm 之后激活
+zvm_after_init() {
+    eval "$(zsh-patina activate)"
+}
+
+
+
 
 # 加载 zoxide插件
 export _ZO_DATA_DIR=$HOME/.local/share/zoxide
