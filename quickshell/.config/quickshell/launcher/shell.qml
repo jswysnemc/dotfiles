@@ -40,6 +40,7 @@ ShellRoot {
     property var filteredApps: []
     property string searchText: ""
     property int selectedIndex: 0
+    property int detailIndex: -1
     property string selectedCategory: "all"
     property int selectedCategoryIndex: 0
 
@@ -48,20 +49,28 @@ ShellRoot {
     property int columnsPerRow: 7  // Will be updated based on container width
 
     function moveLeft() {
-        if (selectedIndex > 0) selectedIndex--
+        if (selectedIndex > 0) {
+            detailIndex = -1
+            selectedIndex--
+        }
     }
 
     function moveRight() {
-        if (selectedIndex < filteredApps.length - 1) selectedIndex++
+        if (selectedIndex < filteredApps.length - 1) {
+            detailIndex = -1
+            selectedIndex++
+        }
     }
 
     function moveUp() {
         if (selectedIndex >= columnsPerRow) {
+            detailIndex = -1
             selectedIndex -= columnsPerRow
         }
     }
 
     function moveDown() {
+        detailIndex = -1
         if (selectedIndex + columnsPerRow < filteredApps.length) {
             selectedIndex += columnsPerRow
         } else if (selectedIndex < filteredApps.length - 1) {
@@ -70,11 +79,13 @@ ShellRoot {
     }
 
     function nextCategory() {
+        detailIndex = -1
         selectedCategoryIndex = (selectedCategoryIndex + 1) % categories.length
         selectedCategory = categories[selectedCategoryIndex].id
     }
 
     function prevCategory() {
+        detailIndex = -1
         selectedCategoryIndex = (selectedCategoryIndex - 1 + categories.length) % categories.length
         selectedCategory = categories[selectedCategoryIndex].id
     }
@@ -97,6 +108,7 @@ ShellRoot {
             var app = apps[i]
             var name = app.name || ""
             var generic = app.genericName || ""
+            var comment = app.comment || ""
             var exec = app.exec || ""
             var icon = app.icon || ""
             var desktop = app.desktopFile || ""
@@ -104,13 +116,14 @@ ShellRoot {
 
             app._nameLower = name.toLowerCase()
             app._genericLower = generic.toLowerCase()
+            app._commentLower = comment.toLowerCase()
             app._execLower = exec.toLowerCase()
             app._iconLower = icon.toLowerCase()
             app._desktopLower = desktop.toLowerCase()
             app._isWine = app.isWine === true || app.isWine === "true" || looksLikeWineApp(app)
             app._keywordsLower = (keywords + (app._isWine ? " wine windows" : "")).toLowerCase()
 
-            var categoryName = app._nameLower + " " + app._genericLower + " " + app._keywordsLower + " " + app._desktopLower
+            var categoryName = app._nameLower + " " + app._genericLower + " " + app._commentLower + " " + app._keywordsLower + " " + app._desktopLower
             app._category = getCategoryForAppLower(categoryName, app._execLower)
 
             if (app.icon) {
@@ -189,7 +202,8 @@ ShellRoot {
         if (!app) return ""
 
         var lines = []
-        if (app.genericName) lines.push(i18n.trLiteral("描述: ") + compactDetailValue(app.genericName, 80))
+        if (app.genericName) lines.push(i18n.trLiteral("类型: ") + compactDetailValue(app.genericName, 80))
+        if (app.comment && app.comment !== app.genericName) lines.push(i18n.trLiteral("描述: ") + compactDetailValue(app.comment, 120))
         lines.push(i18n.trLiteral("分类: ") + categoryNameForId(app._category || getCategoryForApp(app)))
         if (app._isWine) lines.push(i18n.trLiteral("来源: Wine / Windows 应用"))
         if (app.terminal) lines.push(i18n.trLiteral("终端: 是"))
@@ -239,6 +253,7 @@ ShellRoot {
                 var app = apps[i]
                 var nameLower = app._nameLower || (app.name || "").toLowerCase()
                 var genericLower = app._genericLower || (app.genericName || "").toLowerCase()
+                var commentLower = app._commentLower || (app.comment || "").toLowerCase()
                 var execLower = app._execLower || (app.exec || "").toLowerCase()
                 var keywordsLower = app._keywordsLower || (app.keywords || []).join(" ").toLowerCase()
 
@@ -246,10 +261,12 @@ ShellRoot {
                 var m2 = fuzzyMatchLower(searchLower, genericLower)
                 var m3 = fuzzyMatchLower(searchLower, execLower)
                 var m4 = fuzzyMatchLower(searchLower, keywordsLower)
+                var m5 = fuzzyMatchLower(searchLower, commentLower)
                 var best = m1
                 if (m2.score > best.score) best = m2
                 if (m3.score > best.score) best = m3
                 if (m4.score > best.score) best = m4
+                if (m5.score > best.score) best = m5
                 if (best.match) results.push({ app: app, score: best.score })
             }
             results.sort((a, b) => b.score - a.score)
@@ -258,6 +275,20 @@ ShellRoot {
 
         filteredApps = apps
         selectedIndex = 0
+        detailIndex = -1
+    }
+
+    /**
+     * 显示指定应用的详情窗口。
+     *
+     * @param index 应用在当前筛选结果中的索引
+     * @returns 无
+     */
+    function showAppDetails(index) {
+        // 1. 选中当前应用，保持键盘状态与右键目标一致
+        selectedIndex = index
+        // 2. 记录详情窗口索引，复用 hover 详情窗口显示内容
+        detailIndex = index
     }
 
     Timer {
@@ -327,6 +358,7 @@ ShellRoot {
                 hidden=$(grep -m1 '^Hidden=' "$f" 2>/dev/null | cut -d= -f2-)
                 [ "$nodisplay" = "true" ] || [ "$hidden" = "true" ] && continue
                 generic=$(desktop_value "GenericName" "$f")
+                comment=$(desktop_value "Comment" "$f")
                 icon=$(grep -m1 '^Icon=' "$f" 2>/dev/null | cut -d= -f2-)
                 # Resolve icon path if not absolute
                 if [ -n "$icon" ] && ! echo "$icon" | grep -q '^/'; then
@@ -351,7 +383,7 @@ ShellRoot {
                     is_wine=false
                 fi
 
-                apps=$(echo "$apps" | jq --arg n "$name" --arg g "$generic" --arg i "$icon" --arg e "$exec" --arg k "$keywords" --arg d "$f" --argjson t "$term" --argjson w "$is_wine" '. + [{"name":$n,"genericName":$g,"icon":$i,"exec":$e,"keywords":($k|split(";")|map(select(.!=""))),"terminal":$t,"desktopFile":$d,"isWine":$w}]')
+                apps=$(echo "$apps" | jq --arg n "$name" --arg g "$generic" --arg c "$comment" --arg i "$icon" --arg e "$exec" --arg k "$keywords" --arg d "$f" --argjson t "$term" --argjson w "$is_wine" '. + [{"name":$n,"genericName":$g,"comment":$c,"icon":$i,"exec":$e,"keywords":($k|split(";")|map(select(.!=""))),"terminal":$t,"desktopFile":$d,"isWine":$w}]')
             done < <(
                 xdg_data_home="$XDG_DATA_HOME"
                 [ -z "$xdg_data_home" ] && xdg_data_home="$HOME/.local/share"

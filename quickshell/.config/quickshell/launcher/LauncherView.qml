@@ -396,12 +396,25 @@ Item {
                                     property real hoverScale: appHover.hovered && index !== controller.selectedIndex ? 1.05 : 1.0
                                     Behavior on hoverScale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 
-                                    HoverHandler { id: appHover }
+                                    HoverHandler {
+                                        id: appHover
+                                        onHoveredChanged: {
+                                            if (hovered) controller.detailIndex = -1
+                                        }
+                                    }
                                     TapHandler {
+                                        acceptedButtons: Qt.LeftButton
                                         onTapped: {
                                             // 点击弹跳动画
                                             clickBounce.start()
                                             controller.launchApp(appItem.modelData)
+                                        }
+                                    }
+                                    TapHandler {
+                                        acceptedButtons: Qt.RightButton
+                                        onTapped: {
+                                            // 1. 右键复用悬停详情窗口，不启动应用
+                                            controller.showAppDetails(appItem.index)
                                         }
                                     }
 
@@ -525,8 +538,8 @@ Item {
 
                                     ToolTip {
                                         id: appDetailsToolTip
-                                        visible: appHover.hovered
-                                        delay: 1000
+                                        visible: appHover.hovered || (controller.detailIndex === appItem.index && controller.selectedIndex === appItem.index)
+                                        delay: controller.detailIndex === appItem.index ? 0 : 1000
                                         timeout: -1
                                         padding: Theme.spacingM
 
